@@ -1,90 +1,91 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-
-<meta charset="UTF-8">
-
-<title>IWP</title>
-
-<link rel="stylesheet" href="css/style.css">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWP · 请输入文本</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .home-container {
+            display: flex;
+            height: calc(100vh - 40px);
+        }
+        .home-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        .home-left h1 {
+            font-size: 2.8rem;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+            color: #222;
+        }
+        .home-left p {
+            font-size: 1.4rem;
+            color: #555;
+            margin-bottom: 2rem;
+        }
+        .home-right {
+            flex: 1;
+            background: #f0f0f0 url('images/000/cover.jpg') center/cover no-repeat;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            padding: 0.8rem 2.5rem;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #333;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #111;
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+        .footer-bar {
+            height: 40px;
+            background: #1a1a1a;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
-
-
-<body class="home">
-
-
-<div class="home-main">
-
-
-<section class="intro">
-
-
-<h1>
-IWP
-</h1>
-
-
-<h2>
-Input wenben please
-</h2>
-
-
-<p>
-请输入文本
-</p>
-
-
-<button onclick="
-location.href='reader.html'
-">
-
-开始
-
-</button>
-
-
-</section>
-
-
-
-<section class="cover">
-
-
-<img 
-src="images/000/cover.png"
-onerror="
-this.style.display='none'
-">
-
-</section>
-
-
-
-</div>
-
-
-
-<footer>
-
-
-WEB INFORMATION
-
-<br>
-
-REPOSITORY : /input/
-
-<br>
-
-VERSION : 0.2
-
-
-</footer>
-
-
-
+<body>
+    <div class="home-container">
+        <div class="home-left">
+            <h1>IWP</h1>
+            <p>Input wenben please · 请输入文本</p>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="location.href='reader.html'">开始阅读</button>
+                <a href="converter.html" class="btn btn-secondary">转换器</a>
+            </div>
+        </div>
+        <div class="home-right"></div>
+    </div>
+    <div class="footer-bar">
+        WEB INFORMATION REPOSITORY : /input/  VERSION 1.1.0
+    </div>
 </body>
-
-
 </html>
