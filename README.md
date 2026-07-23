@@ -4,7 +4,7 @@
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 静态个人知识库系统。 Markdown 是唯一内容源，网页是它的阅读器。  
-深色 Windows 风格，适合长期积累技术笔记。
+深色华纷驰风格，适合长期积累技术笔记。
 
 ---
 
