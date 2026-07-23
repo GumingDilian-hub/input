@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IWP · 请输入文本</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
             background: #1e1e1e;
@@ -14,36 +19,40 @@
             display: flex;
             flex-direction: column;
         }
+
         .home-container {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 2rem;
         }
-        .card {
-            background: #2d2d2d;
-            border: 1px solid #444;
-            padding: 3rem 4rem;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+        .home-left {
+            flex: 1;
+            padding-right: 3rem;
+            text-align: left;
         }
-        .card h1 {
+
+        .home-left h1 {
             font-size: 3.2rem;
             font-weight: 300;
             margin-bottom: 0.5rem;
             letter-spacing: 2px;
+            line-height: 1.2;
         }
-        .card p {
-            font-size: 1.2rem;
+
+        .home-left p {
+            font-size: 1.4rem;
             color: #aaa;
             margin-bottom: 2.5rem;
         }
+
         .btn-group {
             display: flex;
             gap: 1.2rem;
-            justify-content: center;
         }
+
         .btn {
             padding: 0.8rem 2.2rem;
             font-size: 1.1rem;
@@ -52,24 +61,48 @@
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
         }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
         .btn-primary {
             background: #fff;
             color: #1e1e1e;
             font-weight: 600;
         }
+
         .btn-primary:hover {
             background: #ccc;
         }
+
         .btn-secondary {
             background: #3a3a3a;
             color: #fff;
             border: 1px solid #555;
         }
+
         .btn-secondary:hover {
             background: #4a4a4a;
         }
+
+        .home-right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-right img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        }
+
         .footer-bar {
             height: 36px;
             background: #111;
@@ -83,13 +116,17 @@
 </head>
 <body>
     <div class="home-container">
-        <div class="card">
+        <div class="home-left">
             <h1>IWP</h1>
             <p>Input wenben please · 请输入文本</p>
             <div class="btn-group">
                 <a href="reader.html" class="btn btn-primary">开始阅读</a>
                 <a href="converter.html" class="btn btn-secondary">转换器</a>
             </div>
+        </div>
+        <div class="home-right">
+            <!-- ⚠️ 请确认你的图片扩展名，并修改 src 路径，例如 images/000/000.jpg 或 .png -->
+            <img src="images/000/000.png" alt="Cover Image">
         </div>
     </div>
     <div class="footer-bar">
