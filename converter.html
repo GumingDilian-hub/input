@@ -4,31 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IWP 转换器</title>
-    <link rel="stylesheet" href="css/style.css">
     <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
     <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden;
-            background: #f3f3f3;
+            background: #1e1e1e;
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            color: #222;
+            color: #ccc;
         }
         .header {
-            background: #333;
-            color: white;
+            background: #2d2d2d;
+            color: #fff;
             padding: 0.5rem 1rem;
             display: flex;
             align-items: center;
             gap: 1rem;
             font-size: 1rem;
+            border-bottom: 1px solid #444;
         }
-        .header a { color: white; margin-left: auto; font-size: 0.85rem; text-decoration: none; }
+        .header a { color: #aaa; margin-left: auto; font-size: 0.85rem; text-decoration: none; }
         .toolbar {
-            background: #fafafa;
-            border-bottom: 1px solid #ccc;
+            background: #252525;
+            border-bottom: 1px solid #444;
             padding: 0.4rem 0.8rem;
             display: flex;
             flex-wrap: wrap;
@@ -38,41 +38,44 @@
         .toolbar button, .toolbar select {
             padding: 0.25rem 0.6rem;
             font-size: 0.85rem;
-            border: 1px solid #ccc;
+            border: 1px solid #555;
             border-radius: 3px;
-            background: white;
+            background: #333;
+            color: #ddd;
             cursor: pointer;
         }
-        .toolbar button:hover { background: #ddd; border-color: #333; }
+        .toolbar button:hover { background: #444; border-color: #888; }
         .split-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .editor-wrapper { flex: 1; border-bottom: 2px solid #333; overflow-y: auto; }
+        .editor-wrapper { flex: 1; border-bottom: 2px solid #444; overflow-y: auto; }
         #editor {
             min-height: 100%;
             padding: 1rem;
-            background: white;
+            background: #fff;
             outline: none;
             font-size: 1rem;
             line-height: 1.7;
+            color: #111;
         }
-        .output-wrapper { flex: 1; display: flex; flex-direction: column; background: #1e1e1e; color: #d4d4d4; }
+        .output-wrapper { flex: 1; display: flex; flex-direction: column; background: #111; }
         .output-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0.3rem 0.8rem;
-            background: #2d2d2d;
+            background: #1a1a1a;
             font-size: 0.85rem;
+            color: #aaa;
         }
         .mode-btns button {
             padding: 0.15rem 0.6rem;
             font-size: 0.8rem;
-            background: #444;
+            background: #333;
             border: 1px solid #555;
             color: #ccc;
             cursor: pointer;
             border-radius: 3px;
         }
-        .mode-btns button.active-mode { background: #333; border-color: #333; color: white; }
+        .mode-btns button.active-mode { background: #555; border-color: #888; color: #fff; }
         #output {
             flex: 1;
             padding: 0.8rem;
@@ -80,96 +83,28 @@
             font-size: 0.9rem;
             white-space: pre-wrap;
             overflow-y: auto;
-            background: #1e1e1e;
+            background: #111;
+            color: #d4d4d4;
             border: none;
             outline: none;
         }
-        .copy-btn {
-            background: #555;
-            border: none;
-            padding: 0.2rem 0.8rem;
-            color: white;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.4);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-        .modal-box {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 6px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-            width: 520px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal-box h3 { margin-bottom: 1rem; font-size: 1.2rem; color: #333; }
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .image-grid img {
-            width: 100%;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 4px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: border-color 0.15s;
-        }
-        .image-grid img:hover, .image-grid img.selected {
-            border-color: #333;
-        }
-        .image-grid .path-hint {
-            font-size: 0.7rem;
-            word-break: break-all;
-            text-align: center;
-            color: #666;
-        }
-        .form-row {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 0.8rem;
-        }
-        .form-row label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
-        .form-row input, .form-row select {
-            padding: 0.4rem;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            width: 100%;
-        }
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-        .modal-buttons button {
-            padding: 0.4rem 1.2rem;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .btn-insert { background: #333; color: white; }
-        .btn-insert:hover { background: #111; }
-        .btn-cancel { background: #ddd; }
-        .btn-cancel:hover { background: #bbb; }
-        #img-manual-toggle {
-            margin-top: 0.5rem;
-            font-size: 0.85rem;
-            color: #0078d4;
-            cursor: pointer;
-            text-decoration: underline;
-        }
+        .copy-btn { background: #444; border: none; padding: 0.2rem 0.8rem; color: white; border-radius: 3px; cursor: pointer; }
+        .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index:100; }
+        .modal-box { background: #2d2d2d; padding: 1.5rem; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); width: 520px; max-height: 80vh; overflow-y: auto; color: #ddd; }
+        .modal-box h3 { margin-bottom: 1rem; color: #fff; }
+        .image-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+        .image-grid img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; cursor: pointer; }
+        .image-grid img:hover, .image-grid img.selected { border-color: #fff; }
+        .path-hint { font-size: 0.7rem; word-break: break-all; text-align: center; color: #999; }
+        .form-row { display: flex; gap: 1rem; margin-bottom: 0.8rem; }
+        .form-row label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; color: #bbb; }
+        .form-row input, .form-row select { padding: 0.4rem; border: 1px solid #555; border-radius: 3px; width: 100%; background: #1e1e1e; color: #ddd; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+        .modal-buttons button { padding: 0.4rem 1.2rem; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-insert { background: #fff; color: #111; }
+        .btn-insert:hover { background: #ccc; }
+        .btn-cancel { background: #3a3a3a; color: #ddd; }
+        #img-manual-toggle { margin-top: 0.5rem; font-size: 0.85rem; color: #569cd6; cursor: pointer; text-decoration: underline; }
         #manual-input-area { display: none; }
     </style>
 </head>
@@ -196,12 +131,13 @@
         <button id="btn-clear">✕ 清除格式</button>
     </div>
 
+    <!-- 图片弹窗（不变） -->
     <div class="modal-overlay" id="image-modal">
         <div class="modal-box">
             <h3>插入图片</h3>
             <div id="gallery-section">
                 <div class="image-grid" id="image-grid"></div>
-                <div id="gallery-empty" style="color:#999;font-size:0.9rem;display:none;">⚠️ 未找到图片列表，请检查 data/images-list.json 是否存在并包含图片路径。</div>
+                <div id="gallery-empty" style="color:#999;font-size:0.9rem;display:none;">⚠️ 未找到图片列表，请检查 data/images-list.json</div>
                 <span id="img-manual-toggle" onclick="toggleManualInput()">或手动输入图片URL</span>
             </div>
             <div id="manual-input-area">
@@ -262,32 +198,23 @@
         const editor = document.getElementById('editor');
         const outputDiv = document.getElementById('output');
         const turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-
-        let currentMode = 'markdown';
-        let selectedImagePath = '';
+        let currentMode = 'markdown', selectedImagePath = '';
 
         function updateOutput() {
             const html = editor.innerHTML;
             outputDiv.textContent = currentMode === 'html' ? html : turndownService.turndown(html);
         }
-
-        const observer = new MutationObserver(updateOutput);
-        observer.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
+        new MutationObserver(updateOutput).observe(editor, { childList: true, subtree: true, characterData: true, attributes: true });
         editor.addEventListener('input', updateOutput);
         editor.addEventListener('paste', () => setTimeout(updateOutput, 10));
 
         document.querySelectorAll('[data-cmd]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.execCommand(btn.dataset.cmd);
-                editor.focus();
-                updateOutput();
-            });
+            btn.addEventListener('click', () => { document.execCommand(btn.dataset.cmd); editor.focus(); updateOutput(); });
         });
         document.getElementById('heading-select').addEventListener('change', function() {
             const v = this.value;
             if (v) { document.execCommand('formatBlock', false, v); this.selectedIndex = 0; editor.focus(); updateOutput(); }
         });
-
         document.getElementById('btn-table').addEventListener('click', () => {
             const rows = prompt('行数:', 3), cols = prompt('列数:', 3);
             if (rows && cols) {
@@ -298,48 +225,34 @@
                 editor.focus(); updateOutput();
             }
         });
-
         document.getElementById('color-picker').addEventListener('input', function() {
             document.execCommand('foreColor', false, this.value);
             editor.focus(); updateOutput();
         });
-        document.getElementById('btn-clear').addEventListener('click', () => {
-            document.execCommand('removeFormat');
-            editor.focus(); updateOutput();
-        });
+        document.getElementById('btn-clear').addEventListener('click', () => { document.execCommand('removeFormat'); editor.focus(); updateOutput(); });
 
-        const imgModal = document.getElementById('image-modal');
-        const imgGrid = document.getElementById('image-grid');
-        const galleryEmpty = document.getElementById('gallery-empty');
-        const manualToggle = document.getElementById('img-manual-toggle');
-        const manualArea = document.getElementById('manual-input-area');
-        const imgUrlInput = document.getElementById('img-url');
-        const imgPos = document.getElementById('img-pos');
-        const imgWidth = document.getElementById('img-width');
-        const imgCaption = document.getElementById('img-caption');
+        const imgModal = document.getElementById('image-modal'), imgGrid = document.getElementById('image-grid');
+        const galleryEmpty = document.getElementById('gallery-empty'), manualToggle = document.getElementById('img-manual-toggle');
+        const manualArea = document.getElementById('manual-input-area'), imgUrlInput = document.getElementById('img-url');
+        const imgPos = document.getElementById('img-pos'), imgWidth = document.getElementById('img-width'), imgCaption = document.getElementById('img-caption');
 
         async function loadImageList() {
             try {
                 const resp = await fetch('data/images-list.json');
                 if (!resp.ok) throw new Error('Not found');
-                const list = await resp.json();
-                renderImageGrid(list);
-            } catch (e) {
+                renderImageGrid(await resp.json());
+            } catch {
                 galleryEmpty.style.display = 'block';
                 imgGrid.innerHTML = '';
                 toggleManualInput(true);
             }
         }
-
         function renderImageGrid(paths) {
             imgGrid.innerHTML = '';
             galleryEmpty.style.display = 'none';
             paths.forEach(path => {
                 const wrapper = document.createElement('div');
-                const img = document.createElement('img');
-                img.src = path;
-                img.alt = path;
-                img.title = path;
+                const img = document.createElement('img'); img.src = path; img.alt = path; img.title = path;
                 img.addEventListener('click', () => {
                     document.querySelectorAll('.image-grid img.selected').forEach(i => i.classList.remove('selected'));
                     img.classList.add('selected');
@@ -347,48 +260,23 @@
                     imgUrlInput.value = '';
                 });
                 wrapper.appendChild(img);
-                const hint = document.createElement('div');
-                hint.className = 'path-hint';
-                hint.textContent = path.split('/').slice(-1)[0];
-                wrapper.appendChild(hint);
+                const hint = document.createElement('div'); hint.className = 'path-hint'; hint.textContent = path.split('/').slice(-1)[0]; wrapper.appendChild(hint);
                 imgGrid.appendChild(wrapper);
             });
         }
-
         function toggleManualInput(forceShow = false) {
-            const isManual = manualArea.style.display === 'block';
-            if (forceShow || !isManual) {
-                manualArea.style.display = 'block';
-                manualToggle.textContent = '返回图片浏览';
-                selectedImagePath = '';
-            } else {
-                manualArea.style.display = 'none';
-                manualToggle.textContent = '或手动输入图片URL';
-                if (imgGrid.children.length === 0) loadImageList();
-            }
+            if (forceShow || manualArea.style.display === 'none') { manualArea.style.display = 'block'; manualToggle.textContent = '返回图片浏览'; selectedImagePath = ''; }
+            else { manualArea.style.display = 'none'; manualToggle.textContent = '或手动输入图片URL'; if (imgGrid.children.length === 0) loadImageList(); }
         }
-
         window.toggleManualInput = toggleManualInput;
-
         function openImageModal() {
-            selectedImagePath = '';
-            imgUrlInput.value = '';
-            imgPos.value = 'center';
-            imgWidth.value = '';
-            imgCaption.value = '';
-            manualArea.style.display = 'none';
-            manualToggle.textContent = '或手动输入图片URL';
+            selectedImagePath = ''; imgUrlInput.value = ''; imgPos.value = 'center'; imgWidth.value = ''; imgCaption.value = '';
+            manualArea.style.display = 'none'; manualToggle.textContent = '或手动输入图片URL';
             document.querySelectorAll('.image-grid img.selected').forEach(i => i.classList.remove('selected'));
             imgModal.style.display = 'flex';
-            if (imgGrid.children.length === 0 && galleryEmpty.style.display === 'none') {
-                loadImageList();
-            }
+            if (imgGrid.children.length === 0 && galleryEmpty.style.display === 'none') loadImageList();
         }
-
-        function closeImageModal() {
-            imgModal.style.display = 'none';
-        }
-
+        function closeImageModal() { imgModal.style.display = 'none'; }
         document.getElementById('btn-image').addEventListener('click', openImageModal);
         document.querySelector('.btn-cancel').addEventListener('click', closeImageModal);
         imgModal.addEventListener('click', (e) => { if (e.target === imgModal) closeImageModal(); });
@@ -396,76 +284,35 @@
         document.getElementById('img-insert-btn').addEventListener('click', () => {
             const manualUrl = imgUrlInput.value.trim();
             let finalPath = selectedImagePath || manualUrl;
-            if (!finalPath) {
-                alert('请选择一张图片或输入图片地址');
-                return;
-            }
-
-            const pos = imgPos.value;
-            const width = imgWidth.value.trim();
-            const caption = imgCaption.value.trim();
-
+            if (!finalPath) { alert('请选择图片'); return; }
+            const pos = imgPos.value, width = imgWidth.value.trim(), caption = imgCaption.value.trim();
             let markdown = '';
-            if (caption) {
-                markdown = `:::image ${pos} ${finalPath} ${caption} :::`;
-            } else {
+            if (caption) markdown = `:::image ${pos} ${finalPath} ${caption} :::`;
+            else {
                 let alt = pos === 'center' ? '' : `{${pos}}`;
                 if (width) alt += ` width=${width}`;
                 markdown = `![${alt}](${finalPath})`;
             }
-
             if (caption) {
                 const textNode = document.createTextNode(markdown);
                 const selection = window.getSelection();
-                if (selection.rangeCount) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(textNode);
-                    range.collapse(false);
-                } else {
-                    editor.appendChild(textNode);
-                }
-                editor.focus();
-                updateOutput();
-                closeImageModal();
-                return;
+                if (selection.rangeCount) { const range = selection.getRangeAt(0); range.deleteContents(); range.insertNode(textNode); range.collapse(false); }
+                else editor.appendChild(textNode);
+            } else {
+                let style = width ? `width:${width}px;` : '';
+                let altAttr = pos === 'center' ? '' : `{${pos}}${width ? ` width=${width}` : ''}`;
+                const imgHtml = `<img src="${finalPath}" alt="${altAttr}" style="${style}">`;
+                document.execCommand('insertHTML', false, imgHtml);
             }
-
-            let style = width ? `width:${width}px;` : '';
-            let altAttr = alt;
-            const imgHtml = `<img src="${finalPath}" alt="${altAttr}" style="${style}">`;
-            document.execCommand('insertHTML', false, imgHtml);
-            editor.focus();
-            updateOutput();
-            closeImageModal();
+            editor.focus(); updateOutput(); closeImageModal();
         });
 
-        editor.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey && e.key === 'I') {
-                e.preventDefault();
-                openImageModal();
-            }
-        });
-
-        document.getElementById('btn-md').addEventListener('click', () => {
-            currentMode = 'markdown';
-            document.getElementById('btn-md').classList.add('active-mode');
-            document.getElementById('btn-html').classList.remove('active-mode');
-            updateOutput();
-        });
-        document.getElementById('btn-html').addEventListener('click', () => {
-            currentMode = 'html';
-            document.getElementById('btn-html').classList.add('active-mode');
-            document.getElementById('btn-md').classList.remove('active-mode');
-            updateOutput();
-        });
+        editor.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && e.key === 'I') { e.preventDefault(); openImageModal(); } });
+        document.getElementById('btn-md').addEventListener('click', () => { currentMode = 'markdown'; document.getElementById('btn-md').classList.add('active-mode'); document.getElementById('btn-html').classList.remove('active-mode'); updateOutput(); });
+        document.getElementById('btn-html').addEventListener('click', () => { currentMode = 'html'; document.getElementById('btn-html').classList.add('active-mode'); document.getElementById('btn-md').classList.remove('active-mode'); updateOutput(); });
         document.getElementById('btn-copy').addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(outputDiv.textContent);
-                alert('已复制到剪贴板');
-            } catch { alert('复制失败，请手动选择'); }
+            try { await navigator.clipboard.writeText(outputDiv.textContent); alert('已复制'); } catch { alert('复制失败'); }
         });
-
         updateOutput();
     </script>
 </body>
