@@ -1,90 +1,75 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN">
-
-
 <head>
-
-
-<meta charset="UTF-8">
-
-
-<title>
-IWP Reader
-</title>
-
-
-<link rel="stylesheet"
-href="css/style.css">
-
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWP Reader</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Marked -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 </head>
-
-
 <body>
-
-
-<div class="reader">
-
-
-<aside id="sidebar">
-
-
-<div class="sidebar-title">
-
-目录
-
-</div>
-
-
-<div id="toc">
-
-加载中...
-
-</div>
-
-
-</aside>
-
-
-
-
-
-<main id="article">
-
-
-正在加载书籍...
-
-
-</main>
-
-
-
-
-
-<button class="author">
-
-作者
-
-</button>
-
-
-
-</div>
-
-
-
-<script src="js/markdown.js"></script>
-
-<script src="js/image.js"></script>
-
-<script src="js/toc.js"></script>
-
-<script src="js/reader.js"></script>
-
-
-
+    <div id="app">
+        <!-- 工具栏 -->
+        <div id="toolbar">
+            <button id="btn-toc" class="toolbar-btn">目录</button>
+            <button id="btn-search" class="toolbar-btn">搜索</button>
+            <button id="btn-author" class="toolbar-btn">作者</button>
+            <button id="btn-new-note" class="toolbar-btn" onclick="location.href='writer.html'">新建笔记</button>
+        </div>
+        
+        <!-- 搜索面板 -->
+        <div id="search-panel" class="panel-hidden">
+            <div class="panel-content">
+                <button id="close-search" class="close-btn">×</button>
+                <input type="text" id="search-input" placeholder="输入关键词搜索...">
+                <div id="search-results"></div>
+            </div>
+        </div>
+        
+        <!-- 作者面板 -->
+        <div id="author-panel" class="panel-hidden">
+            <div class="panel-content">
+                <button id="close-author" class="close-btn">×</button>
+                <div id="author-info">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- 左侧目录 -->
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <span>导航</span>
+                <div>
+                    <button id="expand-all" title="全部展开">＋</button>
+                    <button id="collapse-all" title="全部折叠">－</button>
+                </div>
+            </div>
+            <!-- 快速章节跳转 -->
+            <div style="padding: 0.5rem 1rem; background: #fafafa; border-bottom: 1px solid #d1d1d1;">
+                <select id="chapter-select" style="width: 100%; padding: 0.4rem; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="">— 快速跳转章节 —</option>
+                </select>
+            </div>
+            <nav id="toc-tree"></nav>
+        </div>
+        
+        <!-- 分隔条 -->
+        <div id="resizer"></div>
+        
+        <!-- 正文 -->
+        <main id="content">
+            <div id="version-info"></div>
+            <div id="article-body"></div>
+        </main>
+    </div>
+    
+    <script src="js/reader.js"></script>
 </body>
-
-
 </html>
