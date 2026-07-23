@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWP Writer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        #editor-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
+        #title-input {
+            width: 100%;
+            padding: 0.5rem;
+            font-size: 1.8rem;
+            border: none;
+            border-bottom: 2px solid #333;
+            outline: none;
+            margin-bottom: 1rem;
+        }
+        #md-editor {
+            width: 100%;
+            height: 60vh;
+            padding: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 1rem;
+            resize: vertical;
+        }
+        .btn-group {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.8rem;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn-primary { background: #333; color: white; }
+        .btn-primary:hover { background: #111; }
+        .btn-secondary { background: #e0e0e0; }
+        .btn-secondary:hover { background: #ccc; }
+    </style>
+</head>
+<body>
+    <div id="editor-container">
+        <input type="text" id="title-input" placeholder="笔记标题">
+        <textarea id="md-editor" placeholder="在此编写 Markdown..."></textarea>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="downloadMarkdown()">下载 Markdown 文件</button>
+            <button class="btn btn-secondary" onclick="clearEditor()">清空</button>
+        </div>
+        <p style="margin-top:1rem;color:#666;font-size:0.9rem;">
+            提示：下载后请将 .md 文件上传到 GitHub 仓库的 notes/ 对应目录。
+        </p>
+    </div>
+    <script src="js/writer.js"></script>
+</body>
+</html>
