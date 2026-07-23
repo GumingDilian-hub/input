@@ -1,0 +1,122 @@
+{
+    "book": {
+
+        "title": "IWP",
+
+        "subtitle": "Input wenben please",
+
+        "author": "cz",
+
+        "version": "0.2",
+
+        "description":
+        "个人生物学知识库"
+
+
+    },
+
+
+    "chapters":[
+
+
+        {
+
+            "id":"000",
+
+            "title":"电子化再序",
+
+            "nickname":"序章",
+
+            "file":"notes/000/index.md"
+
+        },
+
+
+
+        {
+
+            "id":"001",
+
+            "title":"生物化学",
+
+            "nickname":"不知为何沉落",
+
+            "children":[
+
+
+                {
+
+                    "title":"静态生物化学",
+
+                    "file":
+                    "notes/001/static.md"
+
+                },
+
+
+                {
+
+                    "title":"动态生物化学",
+
+                    "file":
+                    "notes/001/dynamic.md"
+
+                }
+
+
+            ]
+
+        },
+
+
+
+        {
+
+            "id":"002",
+
+            "title":"动物生理学",
+
+            "nickname":"又是一年好风景",
+
+            "file":
+            "notes/002/index.md"
+
+        },
+
+
+
+        {
+
+            "id":"003",
+
+            "title":"细胞生物学",
+
+            "nickname":
+            "细胞生物学DLC",
+
+            "file":
+            "notes/003/index.md"
+
+        },
+
+
+
+        {
+
+            "id":"011",
+
+            "title":"生物信息学",
+
+            "nickname":
+            "黑客生物学",
+
+            "file":
+            "notes/011/index.md"
+
+        }
+
+
+
+    ]
+
+}
