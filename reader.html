@@ -3,131 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IWP Reader</title>
+    <title>IWP · 请输入文本</title>
     <link rel="icon" type="image/png" href="images/0721.png?v=1">
-    <link rel="stylesheet" href="css/style.css?v=6">
-    <!-- KaTeX -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    <!-- Marked -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Highlight.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <!-- 预连接 CDN（加快 DNS 和 TLS 握手） -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
+    <!-- 预取关键 JS 库 -->
+    <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/marked/marked.min.js" as="script">
+    <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" as="script">
+    <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" as="style">
+    <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" as="script">
+    <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js" as="script">
+    <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css" as="style">
+
+    <!-- 预取阅读器本地文件 -->
+    <link rel="prefetch" href="reader.html">
+    <link rel="prefetch" href="css/style.css">
+    <link rel="prefetch" href="js/reader.js">
+
+    <!-- 预取核心笔记文件（按需列出高频访问的章节） -->
+    <link rel="prefetch" href="notes/000/index.md" as="fetch" crossorigin>
+    <link rel="prefetch" href="notes/001/index.md" as="fetch" crossorigin>
+    <link rel="prefetch" href="notes/002/index.md" as="fetch" crossorigin>
+
     <style>
-        /* 加载遮罩 */
-        #loading-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #1e1e1e;
+        :root {
+            --bg: #1e1e1e;
+            --card-bg: #2d2d2d;
+            --border: #444;
+            --text: #fff;
+            --subtext: #aaa;
+            --btn-primary-bg: #fff;
+            --btn-primary-text: #1e1e1e;
+            --btn-secondary-bg: #3a3a3a;
+            --btn-secondary-text: #fff;
+            --footer-bg: #111;
+            --footer-text: #888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+        }
+
+        .home-container {
+            flex: 1;
+            display: flex;
             align-items: center;
-            z-index: 9999;
-            transition: opacity 0.4s ease;
+            justify-content: center;
+            padding: 2rem;
         }
-        #loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
+
+        .home-left {
+            flex: 1;
+            padding-right: 3rem;
+            text-align: left;
         }
-        .loader {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #555;
-            border-top: 4px solid #fff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+
+        .home-left h1 {
+            font-size: 3.2rem;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+            line-height: 1.2;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+
+        .home-left p {
+            font-size: 1.4rem;
+            color: var(--subtext);
+            margin-bottom: 2.5rem;
         }
-        #progress-text {
-            margin-top: 1.2rem;
-            color: #ccc;
-            font-size: 1rem;
-            letter-spacing: 0.5px;
+
+        .btn-group {
+            display: flex;
+            gap: 1.2rem;
+        }
+
+        .btn {
+            padding: 0.8rem 2.2rem;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background: #ccc;
+        }
+
+        .btn-secondary {
+            background: var(--btn-secondary-bg);
+            color: var(--btn-secondary-text);
+            border: 1px solid #555;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4a4a;
+        }
+
+        .home-right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-right img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        }
+
+        .footer-bar {
+            height: 36px;
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            font-size: 0.85rem;
         }
     </style>
 </head>
 <body>
-    <!-- 加载动画 -->
-    <div id="loading-overlay">
-        <div class="loader"></div>
-        <div id="progress-text">少女祈祷中...</div>
+    <div class="home-container">
+        <div class="home-left">
+            <h1>IWP</h1>
+            <p>Input wenben please · 请输入文本</p>
+            <div class="btn-group">
+                <a href="reader.html" class="btn btn-primary">开始阅读</a>
+                <a href="converter.html" class="btn btn-secondary">转换器</a>
+            </div>
+        </div>
+        <div class="home-right">
+            <img src="images/000/cover.png" alt="Cover Image">
+        </div>
     </div>
-
-    <div id="app">
-        <!-- 工具栏 -->
-        <div id="toolbar">
-            <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
-            <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
-        </div>
-        
-        <!-- 搜索面板 -->
-        <div id="search-panel" class="panel-hidden">
-            <div class="panel-content">
-                <button id="close-search" class="close-btn" onclick="toggleSearchPanel()">×</button>
-                <input type="text" id="search-input" placeholder="输入关键词搜索...">
-                <div id="search-results"></div>
-                <div class="auto-scroll-toggle">
-                    <label>
-                        <input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动
-                    </label>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 左侧目录 -->
-        <div id="sidebar">
-            <div class="sidebar-header">
-                <span>导航 <span id="version-tag" style="font-size:0.7rem; color:#888; margin-left:0.3rem; cursor:default; user-select:none;">v5.068</span></span>
-                <div>
-                    <button onclick="expandAll()" title="全部展开">＋</button>
-                    <button onclick="collapseAll()" title="全部折叠">－</button>
-                </div>
-            </div>
-            <div style="padding: 0.5rem 1rem; background: #252525; border-bottom: 1px solid #444;">
-                <select id="chapter-select" style="width: 100%; padding: 0.4rem; font-size: 0.9rem; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px;">
-                    <option value="">— 快速跳转章节 —</option>
-                </select>
-            </div>
-            <nav id="toc-tree"></nav>
-        </div>
-        
-        <div id="resizer"></div>
-        
-        <main id="content">
-            <div id="version-info"></div>
-            <div id="article-body"></div>
-        </main>
+    <div class="footer-bar">
+        WEB INFORMATION REPOSITORY : /input/  VERSION 1.2.0
     </div>
-    
-    <script src="js/reader.js"></script>
-    <script>
-        function toggleSearchPanel() {
-            var panel = document.getElementById('search-panel');
-            if (panel.classList.contains('panel-visible')) {
-                panel.classList.remove('panel-visible');
-            } else {
-                panel.classList.add('panel-visible');
-            }
-        }
-
-        (function() {
-            var versionTag = document.getElementById('version-tag');
-            var clickCount = 0, firstClickTime = 0;
-            versionTag.addEventListener('click', function(e) {
-                e.stopPropagation();
-                var now = Date.now();
-                if (now - firstClickTime > 5000) { clickCount = 0; firstClickTime = now; }
-                clickCount++;
-                if (clickCount === 6) {
-                    window.location.href = 'https://github.com/GumingDilian-hub/input';
-                }
-            });
-        })();
-    </script>
 </body>
 </html>
