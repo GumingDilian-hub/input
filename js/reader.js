@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSidebarResize();
     setupAuthorPanel();
     setupChapterSelect();
+    setupSearch();
     restoreProgress();
     setupProgressSaving();
 });
@@ -23,19 +24,21 @@ async function loadAndRenderAll() {
             const resp = await fetch(mdPath);
             if (!resp.ok) continue;
             let md = await resp.text();
+
             const fm = parseFrontMatter(md);
-            if (fm && !versionMeta && fm.title) versionMeta = fm;
+            if (fm) {
+                if (!versionMeta && fm.title) versionMeta = fm;
+                md = md.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, '');
+            }
             const chapterNum = mdPath.split('/')[1];
 
-            // 补全 ![alt](src) 路径
+            // 补全图片路径
             md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
                 if (!src.startsWith('http') && !src.startsWith('/')) {
                     return `![${alt}](images/${chapterNum}/${src})`;
                 }
                 return match;
             });
-
-            // 补全 :::image 路径
             md = md.replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (match, prefix, filename, suffix) => {
                 if (!filename.startsWith('http') && !filename.startsWith('/')) {
                     return prefix + 'images/' + chapterNum + '/' + filename + suffix;
@@ -70,6 +73,70 @@ async function loadAndRenderAll() {
     buildTOC();
     insertClearfix(body);
 }
+
+// ... 其他辅助函数保持不变 ...
+
+// 搜索功能：基于###小标题 + 下一行上下文
+function setupSearch() {
+    const searchInput = document.getElementById('search-input');
+    const resultsDiv = document.getElementById('search-results');
+
+    function buildSearchIndex() {
+        const articleBody = document.getElementById('article-body');
+        // 获取所有h3标题及其后续的一段文本
+        const h3Elements = articleBody.querySelectorAll('h3');
+        searchIndex = [];
+        h3Elements.forEach((h3, idx) => {
+            const title = h3.textContent.trim();
+            let nextNode = h3.nextElementSibling;
+            let context = '';
+            while (nextNode && nextNode.tagName !== 'H3' && nextNode.tagName !== 'H2' && nextNode.tagName !== 'H1') {
+                if (nextNode.textContent.trim()) {
+                    context += nextNode.textContent.trim() + ' ';
+                }
+                nextNode = nextNode.nextElementSibling;
+                if (context.length > 80) break; // 只取一小段
+            }
+            context = context.slice(0, 80).trim();
+            // 存储标题、上下文、以及h3的id
+            if (!h3.id) h3.id = 'h3-' + idx;
+            searchIndex.push({ title, context, id: h3.id });
+        });
+    }
+
+    buildSearchIndex();
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        resultsDiv.innerHTML = '';
+        if (!query) return;
+
+        const matched = searchIndex.filter(item =>
+            item.title.toLowerCase().includes(query) || item.context.toLowerCase().includes(query)
+        );
+
+        matched.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `
+                <div class="title">${item.title}</div>
+                <div class="context">${item.context}</div>
+            `;
+            div.addEventListener('click', () => {
+                const target = document.getElementById(item.id);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // 关闭搜索面板
+                    document.getElementById('search-panel').classList.remove('panel-visible');
+                }
+            });
+            resultsDiv.appendChild(div);
+        });
+    });
+}
+
+// 其他原有函数省略，保持与之前完全一致 ...
+// (以下补全全部函数，确保完整可运行)
 
 function parseFrontMatter(md) {
     const match = md.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -220,7 +287,6 @@ function toggleCollapse(heading, toggleEl) {
     }
 }
 
-// 全部展开/折叠挂载到全局
 function expandAll() {
     document.querySelectorAll('.section-wrapper').forEach(w => w.style.display = '');
     document.querySelectorAll('.toc-toggle').forEach(t => t.textContent = '▼');
@@ -257,7 +323,7 @@ function setupSidebarResize() {
 
 function setupAuthorPanel() {
     const btn = document.getElementById('btn-author');
-    if (!btn) return; // 如果没有作者按钮则跳过
+    if (!btn) return;
     const panel = document.getElementById('author-panel');
     const closeBtn = document.getElementById('close-author');
     btn.addEventListener('click', async () => {
