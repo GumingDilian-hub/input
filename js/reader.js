@@ -28,12 +28,23 @@ async function loadAndRenderAll() {
             const fm = parseFrontMatter(md);
             if (fm && !versionMeta && fm.title) versionMeta = fm;
             const chapterNum = mdPath.split('/')[1];
+
+            // 补全 ![alt](src) 路径
             md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
                 if (!src.startsWith('http') && !src.startsWith('/')) {
                     return `![${alt}](images/${chapterNum}/${src})`;
                 }
                 return match;
             });
+
+            // 补全 :::image 路径
+            md = md.replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (match, prefix, filename, suffix) => {
+                if (!filename.startsWith('http') && !filename.startsWith('/')) {
+                    return prefix + 'images/' + chapterNum + '/' + filename + suffix;
+                }
+                return match;
+            });
+
             fullMarkdown += md + '\n\n';
         } catch (e) {
             console.warn(`加载失败: ${mdPath}`, e);
