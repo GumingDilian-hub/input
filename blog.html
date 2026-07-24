@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWP Blog</title>
+    <link rel="icon" type="image/png" href="images/0721.png?v=1">
+    <link rel="stylesheet" href="css/style.css?v=7">
+    <!-- Marked -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部工具栏 -->
+        <div id="toolbar">
+            <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
+            <button id="btn-write" class="toolbar-btn" onclick="blogApp.openEditor()">✎ 发文</button>
+        </div>
+
+        <!-- 左侧侧边栏：复用 style.css 的 #sidebar 样式 -->
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <span>Blog 导航</span>
+            </div>
+            <nav id="toc-tree">
+                <!-- 这里动态插入文章列表 -->
+            </nav>
+        </div>
+        
+        <div id="resizer"></div>
+        
+        <!-- 右侧内容区 -->
+        <main id="content">
+            <!-- 视图1：文章列表 (初始显示) -->
+            <div id="blog-list-view">
+                <div style="margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem;">
+                    <input type="text" id="blog-search" placeholder="搜索文章..." style="padding: 0.5rem; width: 200px; border: 1px solid #ccc; border-radius: 4px;">
+                    <button onclick="blogApp.fetchPosts()" style="padding: 0.5rem; margin-left: 5px;">搜索</button>
+                    <span style="margin: 0 10px; color: #888;">|</span>
+                    <a href="#" onclick="location.href='more.html?type=hot'" style="color: #007bff; text-decoration: none;">🔥 热度榜</a>
+                </div>
+                <div id="posts-container">
+                    <!-- 文章卡片 -->
+                </div>
+            </div>
+
+            <!-- 视图2：文章阅读 (默认隐藏) -->
+            <div id="blog-read-view" style="display: none;">
+                <button onclick="blogApp.backToList()" style="margin-bottom: 1rem; padding: 0.5rem 1rem;">← 返回列表</button>
+                <div id="article-container"></div>
+                
+                <!-- 操作区 -->
+                <div class="post-actions" style="margin: 2rem 0; border-top: 1px solid #eee; padding-top: 1rem;">
+                    <button id="btn-like-post" class="toolbar-btn" style="background: #fff; border: 1px solid #ccc; color: #333;">❤️ 点赞</button>
+                    <span style="margin-left: 10px; color: #666;" id="post-stats"></span>
+                    <button id="btn-next-post" style="float: right; padding: 0.5rem 1rem; background: #333; color: #fff; border: none; border-radius: 4px; cursor: pointer;">下一篇 →</button>
+                </div>
+
+                <!-- 评论区 (复用 Reader 的样式类) -->
+                <div id="blog-comments-area" class="comment-section" style="display: none;">
+                    <div class="comment-toggle" onclick="document.getElementById('blog-comments-body').style.display = document.getElementById('blog-comments-body').style.display==='none'?'block':'none'">
+                        来喵两句～ <span id="blog-comment-count"></span>
+                    </div>
+                    <div id="blog-comments-body" class="comment-body" style="display: none;">
+                        <div id="blog-comment-list" class="comment-list"></div>
+                        <div id="blog-comment-form" class="comment-form">
+                            <div id="blog-auth-panel" class="auth-panel"></div>
+                            <div id="blog-input-area" class="input-area" style="display: none;">
+                                <textarea id="blog-comment-input" rows="3"></textarea>
+                                <button onclick="blogApp.submitComment()">说话！</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 编辑器悬浮面板 (极简设计) -->
+    <div id="editor-panel" class="panel-hidden" style="right: 0; width: 500px; background: #2d2d2d;">
+        <div class="panel-content">
+            <div style="display:flex; justify-content:space-between; margin-bottom:1rem; border-bottom:1px solid #444; padding-bottom:0.5rem;">
+                <span style="font-weight:600; color:#fff;">新文章</span>
+                <button class="close-btn" onclick="blogApp.closeEditor()">×</button>
+            </div>
+            
+            <input type="text" id="editor-title" placeholder="标题" style="width:100%; padding:0.8rem; margin-bottom:1rem; background:#1e1e1e; border:1px solid #444; color:#fff; border-radius:4px;">
+            
+            <!-- 极简工具栏 -->
+            <div style="margin-bottom:0.5rem; display:flex; gap:0.5rem;">
+                <button class="editor-tool-btn" onclick="editor.insert('**','**')"><b>B</b></button>
+                <button class="editor-tool-btn" onclick="editor.insert('*','*')"><i>I</i></button>
+                <button class="editor-tool-btn" onclick="editor.insertTable()">Table</button>
+                <button class="editor-tool-btn" onclick="editor.insert('`','`')">Code</button>
+            </div>
+            
+            <textarea id="editor-content" style="flex:1; width:100%; background:#1e1e1e; color:#ccc; border:none; padding:1rem; font-family:monospace; resize:none; min-height:400px;" placeholder="支持 Markdown..."></textarea>
+            
+            <div style="margin-top:1rem; text-align:right;">
+                <button onclick="blogApp.submitPost()" style="padding:0.6rem 1.5rem; background:#fff; color:#1e1e1e; border:none; border-radius:4px; font-weight:600; cursor:pointer;">发布</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本 -->
+    <script src="js/reader.js"></script> <!-- 复用一些工具函数如 escapeHtml -->
+    <script src="js/editor.js"></script>
+    <script src="js/blog.js"></script>
+</body>
+</html>
