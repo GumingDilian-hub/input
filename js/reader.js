@@ -12,10 +12,13 @@ let allSections = [], searchIndex = [], chapterHeadings = [];
 const GH_TOKEN = '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';
 const REPO_OWNER = 'GumingDilian-hub';
 const REPO_NAME = 'input';
-const COMMENT_LABEL = 'comment';
-const USER_LABEL = 'users';
 
-// 特殊账号（仅判断，不存储于 Issue）
+// 三个独立的 Label
+const COMMENT_LABEL = 'comment';           // 评论 Issue 标签
+const USER_LABEL = 'users';               // 用户数据 Issue 标签
+const CHAPTER_LIKE_LABEL = 'chapter-like'; // 文章点赞 Issue 标签
+
+// 特殊账号
 const SPECIAL_USER = 'loading';
 const SPECIAL_PASS = '10000';
 const SPECIAL_TAG = '始作俑者';
@@ -40,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupComments();
 });
 
-// ========== 并行下载 + 分批渲染（原版，保留你的所有细节） ==========
+// ========== 并行下载 + 分批渲染（无变化） ==========
 async function loadAndRenderAll() {
     const body = document.getElementById('article-body');
     const progressText = document.getElementById('progress-text');
@@ -116,7 +119,7 @@ async function loadAndRenderAll() {
     body.appendChild(spacer);
 }
 
-// ========== 辅助函数（原封不动保留） ==========
+// ========== 辅助函数（保留所有原版） ==========
 function extractAndRemoveFrontMatter(md) {
     const lines = md.split(/\r?\n/);
     if (lines[0].trim() !== '---') return { content: md, meta: null };
@@ -535,7 +538,7 @@ function openCommentPanel() {
     }
 }
 
-// ==================== 评论与点赞核心 ====================
+// ==================== 评论核心（无点赞） ====================
 function getCurrentChapterId() {
     const h1s = document.querySelectorAll('#article-body h1');
     const scrollTop = document.getElementById('content').scrollTop + 80;
@@ -559,9 +562,9 @@ function getCurrentChapterTitle() {
     return '序言';
 }
 
-async function getChapterIssue(chapterId) {
-    const title = `comments-${chapterId}`;
-    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${COMMENT_LABEL}&state=open&per_page=100`;
+// 根据 Label 获取或创建 Issue（通用函数，用于评论和点赞）
+async function getIssueByLabel(title, label) {
+    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${label}&state=open&per_page=100`;
     const resp = await fetch(searchUrl);
     const issues = await resp.json();
     let issue = issues.find(i => i.title === title);
@@ -570,33 +573,19 @@ async function getChapterIssue(chapterId) {
     const createResp = await fetch(createUrl, {
         method: 'POST',
         headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, labels: [COMMENT_LABEL] })
+        body: JSON.stringify({ title, labels: [label] })
     });
     return await createResp.json();
 }
 
-function parseLikes(body) {
-    const match = body.match(/<!--likes:(\d+)-->/);
-    return match ? parseInt(match[1]) : 0;
+// 评论专用 Issue
+async function getChapterIssue(chapterId) {
+    return getIssueByLabel(`comments-${chapterId}`, COMMENT_LABEL);
 }
 
-function setLikes(body, count) {
-    return body.replace(/<!--likes:\d+-->/, '') + `<!--likes:${count}-->`;
-}
-
-async function likeComment(commentId, currentLikes) {
-    const newLikes = currentLikes + 1;
-    const getUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/comments/${commentId}`;
-    const resp = await fetch(getUrl);
-    const comment = await resp.json();
-    const newBody = setLikes(comment.body, newLikes);
-    const updateUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/comments/${commentId}`;
-    await fetch(updateUrl, {
-        method: 'PATCH',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: newBody })
-    });
-    return newLikes;
+// 文章点赞专用 Issue
+async function getChapterLikeIssue(chapterId) {
+    return getIssueByLabel(`chapter-like-${chapterId}`, CHAPTER_LIKE_LABEL);
 }
 
 async function loadComments(chapterId) {
@@ -608,9 +597,8 @@ async function loadComments(chapterId) {
         const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments?per_page=100`;
         const resp = await fetch(commentsUrl);
         const comments = await resp.json();
-        const sorted = comments.map(c => ({ ...c, likes: parseLikes(c.body) })).sort((a, b) => b.likes - a.likes);
-        renderComments(sorted);
-        document.getElementById('comment-count').textContent = `(${sorted.length})`;
+        renderComments(comments);
+        document.getElementById('comment-count').textContent = `(${comments.length})`;
     } catch (e) {
         list.innerHTML = '<p style="color:#e74c3c;">加载失败</p>';
         document.getElementById('comment-count').textContent = '';
@@ -624,7 +612,7 @@ function renderComments(comments) {
         return;
     }
     list.innerHTML = comments.map(c => {
-        let body = c.body.replace(/<!--likes:\d+-->/, '').trim();
+        let body = c.body.trim();
         const prefixMatch = body.match(/^\[(.*?)\]\s*/);
         let displayName = c.user.login;
         if (prefixMatch) {
@@ -639,21 +627,8 @@ function renderComments(comments) {
                 <span style="font-size:0.7rem; color:#888; margin-left:auto;">${new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
             </div>
             <p style="font-size:0.85rem; color:#ccc; margin:0; white-space:pre-wrap;">${escapeHtml(body)}</p>
-            <div style="display:flex; align-items:center; gap:0.3rem; margin-top:0.3rem;">
-                <button class="like-btn" data-id="${c.id}" data-likes="${c.likes}">👍 ${c.likes}</button>
-            </div>
         </div>`;
     }).join('');
-    list.querySelectorAll('.like-btn').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const id = this.getAttribute('data-id');
-            const likes = parseInt(this.getAttribute('data-likes'));
-            const newLikes = await likeComment(id, likes);
-            this.setAttribute('data-likes', newLikes);
-            this.textContent = `👍 ${newLikes}`;
-            loadComments(getCurrentChapterId());
-        });
-    });
 }
 
 function escapeHtml(text) {
@@ -669,7 +644,7 @@ async function postComment() {
     const chapterId = getCurrentChapterId();
     try {
         const issue = await getChapterIssue(chapterId);
-        let commentBody = body + '<!--likes:0-->';
+        let commentBody = body;
         if (currentUser.username === SPECIAL_USER) {
             commentBody = `[${SPECIAL_TAG}] ${commentBody}`;
         } else {
@@ -696,17 +671,19 @@ function loadCurrentChapterComments() {
     loadComments(getCurrentChapterId());
 }
 
-// ==================== 文章点赞 ====================
+// ==================== 文章点赞（独立 Label） ====================
 async function loadChapterLikes() {
     try {
         const chapterId = getCurrentChapterId();
-        const issue = await getChapterIssue(chapterId);
+        const issue = await getChapterLikeIssue(chapterId);
         const body = issue.body || '';
-        const match = body.match(/<!--chapter-likes:(\d+)-->/);
+        const match = body.match(/<!--likes:(\d+)-->/);
         const likes = match ? parseInt(match[1]) : 0;
         document.getElementById('chapter-like-count').textContent = likes;
         document.getElementById('chapter-like-btn').setAttribute('data-likes', likes);
-    } catch (e) {}
+    } catch (e) {
+        document.getElementById('chapter-like-count').textContent = '0';
+    }
 }
 
 document.addEventListener('click', async (e) => {
@@ -715,7 +692,7 @@ document.addEventListener('click', async (e) => {
         const likes = parseInt(btn.getAttribute('data-likes')) || 0;
         const newLikes = likes + 1;
         const chapterId = getCurrentChapterId();
-        const issue = await getChapterIssue(chapterId);
+        const issue = await getChapterLikeIssue(chapterId);
         const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/, '') + `<!--chapter-likes:${newLikes}-->`;
         await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
             method: 'PATCH',
