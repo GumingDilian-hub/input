@@ -66,7 +66,7 @@ async function loadAndRenderAll() {
         versionDiv.style.display = 'block';
     }
 
-    if (progressText) progressText.textContent = '恭喜！你网卡了...';
+    if (progressText) progressText.textContent = '少女折寿中...';
     body.innerHTML = '';
 
     for (let i = 0; i < results.length; i++) {
