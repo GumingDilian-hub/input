@@ -844,6 +844,7 @@ async function detectGitHubApi() {
 
 // 暴露到全局以便在控制台调用 detectGitHubApi()
 window.detectGitHubApi = detectGitHubApi;
+
 // ========== 修正版：检测 Token ==========
 (async () => {
     const btn = document.createElement('button');
