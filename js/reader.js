@@ -844,59 +844,7 @@ async function detectGitHubApi() {
 
 // 暴露到全局以便在控制台调用 detectGitHubApi()
 window.detectGitHubApi = detectGitHubApi;
-// ========== 专为平板/手机准备的检测代码 ==========
-async function debugForTablet() {
-    let report = "📱 平板检测报告\n----------------\n";
-
-    // 1. Token 基础检查
-    if (!GH_TOKEN) {
-        report += "❌ 错误：找不到 GH_TOKEN 变量！\n请检查是不是代码没保存成功，或者变量名写错了。";
-        alert(report);
-        return;
-    }
-    report += "1. Token 长度: " + GH_TOKEN.length + " (正常应该 > 80)\n";
-    report += "2. Token 开头: " + GH_TOKEN.substring(0, 15) + "...\n\n";
-
-    try {
-        // 2. 测试 Token 有效性 (看看是不是过期了)
-        const userResp = await fetch('https://api.github.com/user', {
-            headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-        });
-
-        if (userResp.status === 401) {
-            report += "❌ 3. Token 身份验证失败 (401)\n\n原因：\nToken 可能已过期、复制不完整，或者被撤销了。\n\n解决办法：\n请去 GitHub 重新生成一个新的 Token，并完整复制粘贴替换掉旧的。";
-        } else if (userResp.ok) {
-            report += "✅ 3. Token 本身有效！登录成功。\n\n";
-
-            // 3. 测试仓库权限 (看看能不能访问你的仓库)
-            const repoUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?per_page=1`;
-            const repoResp = await fetch(repoUrl, {
-                headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json' }
-            });
-
-            if (repoResp.status === 403) {
-                report += "❌ 4. 仓库访问被拒绝 (403)\n\n原因：\nToken 没有权限访问这个仓库。\n\n解决办法：\n去 GitHub Token 设置页面，检查 'Repository access'，务必勾选 'GumingDilian-hub/input' 这个仓库。";
-            } else if (repoResp.status === 404) {
-                report += "❌ 4. 仓库未找到 (404)\n\n原因：\n代码里的仓库名字 (REPO_OWNER 或 REPO_NAME) 可能写错了，或者这个仓库根本不存在。";
-            } else if (repoResp.ok) {
-                report += "✅ 4. 仓库访问成功！\n\n结论：\n权限完全没问题。如果还是报错，请尝试清除浏览器缓存，或者强制刷新页面。";
-            } else {
-                report += "⚠️ 4. 仓库访问状态异常: " + repoResp.status;
-            }
-        } else {
-            report += "⚠️ 3. Token 未知错误: " + userResp.status;
-        }
-
-    } catch (e) {
-        report += "⚠️ 网络连接错误: " + e.message + "\n请检查平板是否联网。";
-    }
-
-    alert(report);
-}
-
-// 运行检测（沉默子，删去斜杠）
-//debugForTablet();
-// 极简活体检测（用于验证新 Token 是否生效）
+// ========== 修正版：检测 Token ==========
 (async () => {
     const btn = document.createElement('button');
     btn.textContent = '🔍 检测 Token（点击）';
@@ -908,28 +856,24 @@ async function debugForTablet() {
     document.body.appendChild(btn);
 
     btn.onclick = async () => {
-        if (!window.GH_TOKEN) {
-            alert('GH_TOKEN 未定义，代码可能没保存成功。');
+        // 这里直接读取变量 GH_TOKEN
+        if (typeof GH_TOKEN === 'undefined') {
+            alert('❌ GH_TOKEN 变量没找到！\n\n原因可能是：\n1. 你把这段检测代码贴得太靠上了，必须贴在文件【最最最后面】。\n2. 你可能不小心把文件顶部的 const GH_TOKEN = ... 这行代码删掉了。');
             return;
         }
-        const preview = window.GH_TOKEN.substring(0, 18) + '...';
-        const len = window.GH_TOKEN.length;
+        
+        const preview = GH_TOKEN.substring(0, 18) + '...';
+        const len = GH_TOKEN.length;
+        
+        if (len < 50) {
+            alert(`⚠️ Token 长度异常 (${len})！\n\n看起来只复制了一半，或者粘贴的时候出错了。\n请回到 GitHub 重新复制完整。`);
+            return;
+        }
+
         try {
             const resp = await fetch('https://api.github.com/user', {
                 headers: {
-                    'Authorization': `Bearer ${window.GH_TOKEN}`,
+                    'Authorization': `Bearer ${GH_TOKEN}`,
                     'Accept': 'application/vnd.github+json'
                 }
-            });
-            if (resp.ok) {
-                const u = await resp.json();
-                alert(`✅ Token 已生效！登录账号：${u.login}\n长度：${len}\n前缀预览：${preview}`);
-            } else {
-                const txt = await resp.text();
-                alert(`❌ 请求失败 (${resp.status})\n${txt}`);
-            }
-        } catch (e) {
-            alert('网络请求异常：' + e.message);
-        }
-    };
-})();
+ 
