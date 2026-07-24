@@ -1,6 +1,6 @@
-// ========== 请在这里填入你的新 GitHub Fine-grained Token（需有 Issues 读写权限） ==========
-const GH_TOKEN = 'github_pat_11CCJOKZA05hSx9LAdJe94_qF5j2YnHlA7mlazPT1aioksB5Krsbr9hTkvcI1mFv3CEKH3XVnYGW7RoF';
-// =====================================================================================
+// ========== 请在这里填入你的 GitHub Token（需要 Issues 写权限） ==========
+const GH_TOKEN = 'YOUR_TOKEN_HERE';
+// ====================================================================
 
 const REPO_OWNER = 'GumingDilian-hub';
 const REPO_NAME = 'input';
@@ -77,9 +77,15 @@ async function loadAndRenderAll() {
     for (const r of results) {
         if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
     }
+
+    // ===== 修复 1：版本信息拼接不再截断 =====
     const versionDiv = document.getElementById('version-info');
     if (versionMeta && versionDiv) {
-        versionDiv.innerHTML = `<strong>${escapeHtml(versionMeta.title||'')}</strong> ${versionMeta.date?'· 更新:'+escapeHtml(versionMeta.date):''} ${versionMeta.version?'· v'+escapeHtml(versionMeta.version):''} ${versionMeta.tags?'· 标签:'+escapeHtml(Array.isArray(versionMeta.tags)?versionMeta.tags.join(', '):versionMeta.tags):''}`;
+        versionDiv.innerHTML =
+            `<strong>${escapeHtml(versionMeta.title || '')}</strong>` +
+            (versionMeta.date ? ` · 更新: ${escapeHtml(versionMeta.date)}` : '') +
+            (versionMeta.version ? ` · v${escapeHtml(versionMeta.version)}` : '') +
+            (versionMeta.tags ? ` · 标签: ${escapeHtml(Array.isArray(versionMeta.tags) ? versionMeta.tags.join(', ') : versionMeta.tags)}` : '');
         versionDiv.style.display = 'block';
     }
 
@@ -163,6 +169,7 @@ function postProcessImages(container) {
     });
 }
 
+// ===== 修复 2：完整返回 HTML，不再截断 =====
 function postProcessFigure(container) {
     const regex = /:::image\s+(left|right|center)?\s*([^\s]+)\s*(.*?)\s*:::/g;
     container.innerHTML = container.innerHTML.replace(regex, (m, pos, filename, caption) => {
