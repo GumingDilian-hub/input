@@ -49,7 +49,7 @@ async function loadAndRenderAll() {
                 return { meta: fmResult.meta, content };
             })
             .catch(err => {
-                console.warn(`加载失败: ${path}`, err);
+                console.warn(`是的，你网卡了: ${path}`, err);
                 return { meta: null, content: '' };
             })
     );
@@ -66,7 +66,7 @@ async function loadAndRenderAll() {
         versionDiv.style.display = 'block';
     }
 
-    if (progressText) progressText.textContent = '正在排版渲染...';
+    if (progressText) progressText.textContent = '恭喜！你网卡了...';
     body.innerHTML = '';
 
     for (let i = 0; i < results.length; i++) {
@@ -348,7 +348,7 @@ function setupSearch() {
 
 function setupChapterSelect() {
     const select = document.getElementById('chapter-select');
-    select.innerHTML = '<option value="">— 快速跳转章节 —</option>';
+    select.innerHTML = '<option value="">— 火速前往 —</option>';
     chapterHeadings.forEach(ch => { const opt = document.createElement('option'); opt.value=ch.id; opt.textContent=ch.text; select.appendChild(opt); });
     select.addEventListener('change', ()=>{ const el=document.getElementById(select.value); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); });
 }
