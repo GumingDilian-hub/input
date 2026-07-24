@@ -441,7 +441,7 @@ function setupProgressSaving() {
 async function ghFetch(url, options = {}) {
     const headers = {
         ...(options.headers || {}),
-        Authorization: `token ${GH_TOKEN}`,
+        Authorization: `Bearer ${GH_TOKEN}`,
         Accept: 'application/vnd.github+json'
     };
     const resp = await fetch(url, { ...options, headers });
