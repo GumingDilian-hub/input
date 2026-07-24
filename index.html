@@ -5,23 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IWP · 请输入文本</title>
     <link rel="icon" type="image/png" href="images/0721.png?v=1">
-    <!-- 预取阅读器资源 -->
+    <!-- 预取阅读器资源，加速打开 -->
     <link rel="prefetch" href="reader.html">
     <link rel="prefetch" href="css/style.css">
     <link rel="prefetch" href="js/reader.js">
     <style>
-        :root {
-            --bg: #1e1e1e;
-            --card-bg: #2d2d2d;
-            --border: #444;
-            --text: #fff;
-            --subtext: #aaa;
-        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            background: #1e1e1e;
+            color: #fff;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -46,7 +39,7 @@
         }
         .home-left p {
             font-size: 1.4rem;
-            color: var(--subtext);
+            color: #aaa;
             margin-bottom: 2.5rem;
         }
         .btn-group {
@@ -76,7 +69,6 @@
         }
         .home-right img {
             width: 100%;
-            max-width: 100%;
             height: auto;
             border-radius: 6px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.6);
