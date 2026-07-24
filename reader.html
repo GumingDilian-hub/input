@@ -63,6 +63,7 @@
         <div id="toolbar">
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
+            <button id="btn-comment" class="toolbar-btn" onclick="toggleCommentPanel()">评论 <span id="comment-count" style="font-size:0.75rem; margin-left:2px;"></span></button>
         </div>
         
         <!-- 搜索面板 -->
@@ -75,6 +76,45 @@
                     <label>
                         <input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动
                     </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 评论面板 -->
+        <div id="comment-panel" class="panel-hidden">
+            <div class="panel-content">
+                <button id="close-comment" class="close-btn" onclick="toggleCommentPanel()">×</button>
+                <h3 style="margin:0 0 1rem; color:#fff; font-size:1.1rem;">评论 · <span id="comment-chapter-title" style="color:#aaa;">—</span></h3>
+                
+                <!-- 登录/注册区域（未登录时显示） -->
+                <div id="auth-section" style="display:none;">
+                    <div id="auth-login">
+                        <input type="text" id="login-username" placeholder="用户名" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
+                        <input type="password" id="login-password" placeholder="密码" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button id="btn-login" style="flex:1; padding:0.5rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">登录</button>
+                            <button id="btn-to-register" style="flex:1; padding:0.5rem; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer;">去注册</button>
+                        </div>
+                    </div>
+                    <div id="auth-register" style="display:none;">
+                        <input type="text" id="reg-username" placeholder="用户名" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
+                        <input type="password" id="reg-password" placeholder="密码" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button id="btn-register" style="flex:1; padding:0.5rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">注册</button>
+                            <button id="btn-to-login" style="flex:1; padding:0.5rem; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer;">去登录</button>
+                        </div>
+                    </div>
+                    <p style="font-size:0.7rem; color:#888; margin-top:0.5rem;">⚠️ 密码明文存储在 GitHub Issue 中，请勿使用真实密码</p>
+                </div>
+
+                <!-- 已登录时的评论区域 -->
+                <div id="comment-logged-in" style="display:none; flex-direction:column; flex:1;">
+                    <p style="font-size:0.8rem; color:#bbb; margin-bottom:0.5rem;">已登录：<span id="current-user" style="font-weight:bold;"></span> <button id="btn-logout" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.75rem;">退出</button></p>
+                    <div id="comments-list" style="flex:1; overflow-y:auto; margin-bottom:1rem;"></div>
+                    <div style="display:flex; gap:0.5rem; margin-top:auto;">
+                        <input type="text" id="comment-input" placeholder="说点什么..." style="flex:1; padding:0.5rem; border:1px solid #555; border-radius:4px; font-size:0.85rem; background:#1e1e1e; color:#ddd;">
+                        <button id="comment-submit" style="padding:0.5rem 1.2rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">发送</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -112,6 +152,15 @@
                 panel.classList.remove('panel-visible');
             } else {
                 panel.classList.add('panel-visible');
+            }
+        }
+
+        // 评论面板切换
+        function toggleCommentPanel() {
+            var p = document.getElementById('comment-panel');
+            p.classList.toggle('panel-visible');
+            if (p.classList.contains('panel-visible')) {
+                if (typeof openCommentPanel === 'function') openCommentPanel();
             }
         }
 
