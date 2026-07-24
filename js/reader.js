@@ -25,68 +25,97 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupProgressSaving();
 });
 
-// ========== 核心加载（带进度） ==========
+// ========== 核心：并行下载 + 渐进渲染 ==========
 async function loadAndRenderAll() {
     const body = document.getElementById('article-body');
-    let fullMarkdown = '', versionMeta = null;
-    const total = CHAPTERS.length;
     const progressText = document.getElementById('progress-text');
+    const total = CHAPTERS.length;
 
-    for (let i = 0; i < total; i++) {
-        const mdPath = CHAPTERS[i];
-        try {
-            const resp = await fetch(mdPath);
-            if (!resp.ok) continue;
-            let md = await resp.text();
+    // 1. 并行下载所有章节（同时发起请求）
+    const fetchPromises = CHAPTERS.map((path, i) =>
+        fetch(path)
+            .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP ${resp.status}`))
+            .then(md => {
+                // 下载完成，更新进度
+                if (progressText) {
+                    progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
+                }
+                // 处理 front matter 和图片路径
+                const fmResult = extractAndRemoveFrontMatter(md);
+                let content = fmResult.content;
+                const chapterNum = path.split('/')[1];
+                content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
+                    if (!src.startsWith('http') && !src.startsWith('/')) return `![${alt}](images/${chapterNum}/${src})`;
+                    return m;
+                });
+                content = content.replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (m, prefix, filename, suffix) => {
+                    if (!filename.startsWith('http') && !filename.startsWith('/')) return prefix + 'images/' + chapterNum + '/' + filename + suffix;
+                    return m;
+                });
+                return { meta: fmResult.meta, content };
+            })
+            .catch(err => {
+                console.warn(`加载失败: ${path}`, err);
+                return { meta: null, content: '' };
+            })
+    );
 
-            const fmResult = extractAndRemoveFrontMatter(md);
-            if (fmResult.meta && !versionMeta && fmResult.meta.title) versionMeta = fmResult.meta;
-            md = fmResult.content;
+    // 等待所有章节下载完毕
+    const results = await Promise.all(fetchPromises);
 
-            const chapterNum = mdPath.split('/')[1];
-            // 图片路径补全
-            md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
-                if (!src.startsWith('http') && !src.startsWith('/')) return `![${alt}](images/${chapterNum}/${src})`;
-                return m;
-            });
-            md = md.replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (m, prefix, filename, suffix) => {
-                if (!filename.startsWith('http') && !filename.startsWith('/')) return prefix + 'images/' + chapterNum + '/' + filename + suffix;
-                return m;
-            });
-
-            fullMarkdown += md + '\n\n';
-
-            // 更新进度
-            if (progressText) {
-                progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-            }
-        } catch (e) {
-            console.warn(`加载失败: ${mdPath}`, e);
-        }
+    // 提取第一个有效的元数据
+    let versionMeta = null;
+    for (const r of results) {
+        if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
     }
 
+    // 显示版本信息
     const versionDiv = document.getElementById('version-info');
     if (versionMeta) {
         versionDiv.innerHTML = `<strong>${versionMeta.title||''}</strong> ${versionMeta.date?'· 更新:'+versionMeta.date:''} ${versionMeta.version?'· v'+versionMeta.version:''} ${versionMeta.tags?'· 标签:'+(Array.isArray(versionMeta.tags)?versionMeta.tags.join(', '):versionMeta.tags):''}`;
         versionDiv.style.display = 'block';
     }
 
-    let html = marked.parse(fullMarkdown);
-    body.innerHTML = html;
-    postProcessImages(body);
-    postProcessFigure(body);
-    highlightCode();
-    renderMath();
+    // 2. 分批渲染，避免长时间白屏（每3章暂停一次，让浏览器更新UI）
+    if (progressText) progressText.textContent = '正在排版渲染...';
+    body.innerHTML = ''; // 清空容器
+
+    for (let i = 0; i < results.length; i++) {
+        const chunk = results[i].content;
+        if (!chunk) continue;
+
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'section-chunk';
+        const html = marked.parse(chunk);
+        sectionDiv.innerHTML = html;
+
+        // 处理本批次的图片、图注、代码高亮（公式需全局处理）
+        postProcessImages(sectionDiv);
+        postProcessFigure(sectionDiv);
+        sectionDiv.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+
+        body.appendChild(sectionDiv);
+
+        // 每3章释放一次主线程
+        if (i % 3 === 2 || i === results.length - 1) {
+            if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${results.length}`;
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+    }
+
+    // 3. 全局后处理（数学公式、目录构建、折叠结构）
+    renderMath(); // KaTeX 需要在整个文档上运行
     buildHeadingStructure(body);
-    // 底部透明占位符防遮挡
+    buildTOC();
+    insertClearfix(body);
+
+    // 底部透明占位符
     const spacer = document.createElement('div');
     spacer.style.height = '25vh'; spacer.style.width = '100%'; spacer.style.clear = 'both';
     body.appendChild(spacer);
-    buildTOC();
-    insertClearfix(body);
 }
 
-// ========== Front Matter 解析 ==========
+// ========== Front Matter 提取（保持不变） ==========
 function extractAndRemoveFrontMatter(md) {
     const lines = md.split(/\r?\n/);
     if (lines[0].trim() !== '---') return { content: md, meta: null };
@@ -106,9 +135,9 @@ function extractAndRemoveFrontMatter(md) {
     return { content, meta };
 }
 
-// ========== 图片后处理 ==========
-function postProcessImages(body) {
-    body.querySelectorAll('img').forEach(img => {
+// ========== 图片后处理（保持不变） ==========
+function postProcessImages(container) {
+    container.querySelectorAll('img').forEach(img => {
         const alt = img.alt || '';
         const match = alt.match(/\{(left|right|around)\s*(width=(\d+))?\}/);
         if (match) {
@@ -122,27 +151,39 @@ function postProcessImages(body) {
     });
 }
 
-function postProcessFigure(body) {
+function postProcessFigure(container) {
     const regex = /:::image\s+(left|right|center)?\s*([^\s]+)\s*(.*?)\s*:::/g;
-    body.innerHTML = body.innerHTML.replace(regex, (m, pos, filename, caption) => {
+    container.innerHTML = container.innerHTML.replace(regex, (m, pos, filename, caption) => {
         pos = pos || 'center';
         return `<div class="figure-container figure-${pos}"><img src="${filename}" alt="${caption}" class="iwp-img-${pos}"><div class="figure-caption">${caption}</div></div>`;
     });
-    body.querySelectorAll('img').forEach(img => {
+    container.querySelectorAll('img').forEach(img => {
         if (img.parentElement.classList.contains('figure-container')) return;
         if (!img.className.includes('iwp-img-')) img.classList.add('iwp-img-center');
     });
 }
 
-function highlightCode() { document.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b)); }
-function renderMath() { renderMathInElement(document.getElementById('article-body'), { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError: false }); }
+function highlightCode() { /* 已在分批中处理，此处可留空 */ }
+function renderMath() {
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.getElementById('article-body'), {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+}
 
-// ========== 章节包裹 ==========
+// ========== 章节包裹（适配分批渲染后的 DOM） ==========
 function buildHeadingStructure(body) {
+    // 由于渲染是分块追加的，直接基于现有 h1 包裹
     const h1s = body.querySelectorAll('h1');
     if (!h1s.length) return;
     const fragment = document.createDocumentFragment();
     let currentWrapper = null;
+
     Array.from(body.childNodes).forEach(node => {
         if (node.nodeType === 1 && node.tagName === 'H1') {
             if (currentWrapper) fragment.appendChild(currentWrapper);
@@ -156,10 +197,12 @@ function buildHeadingStructure(body) {
         }
     });
     if (currentWrapper) fragment.appendChild(currentWrapper);
+
     body.innerHTML = '';
     body.appendChild(fragment);
 
-    allSections = []; chapterHeadings = [];
+    allSections = [];
+    chapterHeadings = [];
     body.querySelectorAll('.section-wrapper').forEach(w => {
         const h1 = w.querySelector('h1');
         if (h1) {
@@ -176,9 +219,10 @@ function insertClearfix(body) {
     });
 }
 
-// ========== 目录与折叠 ==========
+// ========== 目录与折叠（保持不变） ==========
 function buildTOC() {
-    const toc = document.getElementById('toc-tree'); toc.innerHTML = '';
+    const toc = document.getElementById('toc-tree');
+    toc.innerHTML = '';
     const headings = document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3');
     let lastH1=null, lastH2=null;
     headings.forEach((h, idx) => {
@@ -255,7 +299,7 @@ function collapseAll() {
 window.expandAll = expandAll;
 window.collapseAll = collapseAll;
 
-// ========== 侧栏拖动 ==========
+// ========== 侧栏拖动（保持不变） ==========
 function setupSidebarResize() {
     const sidebar = document.getElementById('sidebar'), resizer = document.getElementById('resizer');
     let isResizing = false;
@@ -264,7 +308,7 @@ function setupSidebarResize() {
     document.addEventListener('mouseup', () => { isResizing=false; document.body.style.cursor=''; document.body.style.userSelect=''; });
 }
 
-// ========== 作者面板（保留，尽管当前未显示按钮） ==========
+// ========== 作者面板（保留） ==========
 function setupAuthorPanel() {
     const btn = document.getElementById('btn-author'); if(!btn) return;
     const panel = document.getElementById('author-panel'), close = document.getElementById('close-author');
@@ -284,7 +328,7 @@ function setupAuthorPanel() {
     close.addEventListener('click', ()=> panel.classList.remove('panel-visible'));
 }
 
-// ========== 搜索（基于三级标题） ==========
+// ========== 搜索（基于三级标题，保持不变） ==========
 function setupSearch() {
     const input = document.getElementById('search-input'), results = document.getElementById('search-results');
     function buildIndex() {
@@ -320,7 +364,7 @@ function setupSearch() {
     });
 }
 
-// ========== 章节下拉跳转 ==========
+// ========== 章节下拉跳转（保持不变） ==========
 function setupChapterSelect() {
     const select = document.getElementById('chapter-select');
     select.innerHTML = '<option value="">— 快速跳转章节 —</option>';
@@ -328,58 +372,67 @@ function setupChapterSelect() {
     select.addEventListener('change', ()=>{ const el=document.getElementById(select.value); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); });
 }
 
-// ========== 滚动监听 + 多级高亮 + 自动跟随 ==========
+// ========== 滚动监听（使用 IntersectionObserver，性能极佳） ==========
 function setupScrollSpy() {
-    const content = document.getElementById('content');
     const tocItems = document.querySelectorAll('.toc-item');
     const autoCheckbox = document.getElementById('auto-scroll-checkbox');
 
-    const headingToToc = new Map();
+    // 构建标题ID到目录项的映射
+    const idToToc = new Map();
     tocItems.forEach(item => {
         const targetId = item.getAttribute('data-target');
-        if(targetId) { const h = document.getElementById(targetId); if(h) headingToToc.set(h, item); }
+        if (targetId) idToToc.set(targetId, item);
     });
-    const allHeadings = [...headingToToc.keys()].sort((a,b)=>a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
 
-    function onScroll() {
-        const scrollTop = content.scrollTop + 60;
-        let activeHeading = null;
-        for(let i=allHeadings.length-1; i>=0; i--) {
-            if(allHeadings[i].offsetTop <= scrollTop) { activeHeading = allHeadings[i]; break; }
-        }
+    // 高亮所有相关目录项（自身及父级）
+    function highlightChain(targetId) {
+        // 清除所有高亮
         tocItems.forEach(i => i.classList.remove('active'));
-        if(!activeHeading) return;
-
-        let currentItem = headingToToc.get(activeHeading);
-        while(currentItem) {
-            currentItem.classList.add('active');
-            const parentId = currentItem.getAttribute('data-parent');
-            if(parentId) {
-                currentItem = document.querySelector(`.toc-item[data-target="${parentId}"]`);
-            } else break;
-        }
-
-        if(autoCheckbox.checked && activeHeading) {
-            const targetItem = headingToToc.get(activeHeading);
-            if(targetItem) targetItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        let current = document.querySelector(`.toc-item[data-target="${targetId}"]`);
+        while (current) {
+            current.classList.add('active');
+            const parentId = current.getAttribute('data-parent');
+            if (parentId) {
+                current = document.querySelector(`.toc-item[data-target="${parentId}"]`);
+            } else {
+                break;
+            }
         }
     }
 
-    // 使用 requestAnimationFrame 节流，优化性能
-    let ticking = false;
-    content.addEventListener('scroll', () => {
-        if (!ticking) {
-            requestAnimationFrame(() => {
-                onScroll();
-                ticking = false;
-            });
-            ticking = true;
+    // 自动跟随：让当前高亮的第一个标题滚动到侧栏可见区域
+    function scrollTocTo(targetId) {
+        if (!autoCheckbox.checked) return;
+        const item = document.querySelector(`.toc-item[data-target="${targetId}"]`);
+        if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        // 找出当前最靠近视口顶部的可见标题
+        let topMostEntry = null;
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!topMostEntry || entry.boundingClientRect.top < topMostEntry.boundingClientRect.top) {
+                    topMostEntry = entry;
+                }
+            }
+        });
+        if (topMostEntry) {
+            const id = topMostEntry.target.id;
+            highlightChain(id);
+            scrollTocTo(id);
         }
-    }, { passive: true });
-    onScroll();
+    }, {
+        root: document.getElementById('content'),
+        rootMargin: '-10% 0px -70% 0px', // 当标题进入中间区域时触发
+        threshold: 0
+    });
+
+    // 观察所有标题元素
+    document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3').forEach(h => observer.observe(h));
 }
 
-// ========== 阅读进度 ==========
+// ========== 阅读进度记忆 ==========
 function restoreProgress() {
     const saved = localStorage.getItem('iwp-progress');
     if (saved) document.getElementById('content').scrollTop = parseInt(saved) || 0;
