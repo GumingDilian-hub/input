@@ -28,72 +28,74 @@
             z-index: 9999;
             transition: opacity 0.4s ease;
         }
-        #loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
+        #loading-overlay.hidden { opacity: 0; pointer-events: none; }
         .loader {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #555;
-            border-top: 4px solid #fff;
-            border-radius: 50%;
+            width: 48px; height: 48px;
+            border: 4px solid #555; border-top: 4px solid #fff; border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #progress-text { margin-top: 1.2rem; color: #ccc; font-size: 1rem; letter-spacing: 0.5px; }
+        /* 评论面板额外样式 */
+        .like-btn {
+            background: none; border: none; color: #888; cursor: pointer; font-size: 0.8rem;
+            transition: color 0.2s; padding: 0 4px;
         }
-        #progress-text {
-            margin-top: 1.2rem;
-            color: #ccc;
-            font-size: 1rem;
-            letter-spacing: 0.5px;
+        .like-btn:hover { color: #ff6b6b; }
+        .like-btn.liked { color: #ff6b6b; }
+        .chapter-like-section {
+            margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #444;
         }
+        .chapter-like-btn {
+            background: none; border: 1px solid #555; color: #ccc; padding: 4px 12px;
+            border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: 0.2s;
+        }
+        .chapter-like-btn:hover { background: #3a3a3a; border-color: #888; }
     </style>
 </head>
 <body>
-    <!-- 加载动画 -->
     <div id="loading-overlay">
         <div class="loader"></div>
         <div id="progress-text">少女祈祷中...</div>
     </div>
 
     <div id="app">
-        <!-- 工具栏 -->
         <div id="toolbar">
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
             <button id="btn-comment" class="toolbar-btn" onclick="toggleCommentPanel()">评论 <span id="comment-count" style="font-size:0.75rem; margin-left:2px;"></span></button>
         </div>
         
-        <!-- 搜索面板 -->
         <div id="search-panel" class="panel-hidden">
             <div class="panel-content">
                 <button id="close-search" class="close-btn" onclick="toggleSearchPanel()">×</button>
                 <input type="text" id="search-input" placeholder="输入关键词搜索...">
                 <div id="search-results"></div>
                 <div class="auto-scroll-toggle">
-                    <label>
-                        <input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动
-                    </label>
+                    <label><input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动</label>
                 </div>
             </div>
         </div>
 
-        <!-- 评论面板 -->
         <div id="comment-panel" class="panel-hidden">
             <div class="panel-content">
                 <button id="close-comment" class="close-btn" onclick="toggleCommentPanel()">×</button>
                 <h3 style="margin:0 0 1rem; color:#fff; font-size:1.1rem;">评论 · <span id="comment-chapter-title" style="color:#aaa;">—</span></h3>
                 
-                <!-- 登录/注册区域（未登录时显示） -->
+                <!-- 文章点赞 -->
+                <div class="chapter-like-section">
+                    <span style="color:#ccc; font-size:0.9rem;">文章有用吗？</span>
+                    <button id="chapter-like-btn" class="chapter-like-btn">👍 <span id="chapter-like-count">0</span></button>
+                </div>
+
+                <!-- 未登录时的登录/注册表单 -->
                 <div id="auth-section" style="display:none;">
                     <div id="auth-login">
                         <input type="text" id="login-username" placeholder="用户名" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
                         <input type="password" id="login-password" placeholder="密码" style="width:100%; padding:0.5rem; margin-bottom:0.5rem; border:1px solid #555; border-radius:4px; background:#1e1e1e; color:#ddd;">
                         <div style="display:flex; gap:0.5rem;">
                             <button id="btn-login" style="flex:1; padding:0.5rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">登录</button>
-                            <button id="btn-to-register" style="flex:1; padding:0.5rem; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer;">去注册</button>
+                            <button id="btn-to-register" style="flex:1; padding:0.5rem; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer;">注册</button>
                         </div>
                     </div>
                     <div id="auth-register" style="display:none;">
@@ -107,9 +109,12 @@
                     <p style="font-size:0.7rem; color:#888; margin-top:0.5rem;">⚠️ 密码明文存储在 GitHub Issue 中，请勿使用真实密码</p>
                 </div>
 
-                <!-- 已登录时的评论区域 -->
+                <!-- 已登录后的评论区 -->
                 <div id="comment-logged-in" style="display:none; flex-direction:column; flex:1;">
-                    <p style="font-size:0.8rem; color:#bbb; margin-bottom:0.5rem;">已登录：<span id="current-user" style="font-weight:bold;"></span> <button id="btn-logout" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.75rem;">退出</button></p>
+                    <p style="font-size:0.8rem; color:#bbb; margin-bottom:0.5rem;">
+                        已登录：<span id="current-user" style="font-weight:bold;"></span>
+                        <button id="btn-logout" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.75rem;">退出</button>
+                    </p>
                     <div id="comments-list" style="flex:1; overflow-y:auto; margin-bottom:1rem;"></div>
                     <div style="display:flex; gap:0.5rem; margin-top:auto;">
                         <input type="text" id="comment-input" placeholder="说点什么..." style="flex:1; padding:0.5rem; border:1px solid #555; border-radius:4px; font-size:0.85rem; background:#1e1e1e; color:#ddd;">
@@ -119,7 +124,6 @@
             </div>
         </div>
         
-        <!-- 左侧目录 -->
         <div id="sidebar">
             <div class="sidebar-header">
                 <span>导航(=^･ω･^=) <span id="version-tag" style="font-size:0.7rem; color:#888; margin-left:0.3rem; cursor:default; user-select:none;">v5.068</span></span>
@@ -147,34 +151,23 @@
     <script src="js/reader.js"></script>
     <script>
         function toggleSearchPanel() {
-            var panel = document.getElementById('search-panel');
-            if (panel.classList.contains('panel-visible')) {
-                panel.classList.remove('panel-visible');
-            } else {
-                panel.classList.add('panel-visible');
-            }
+            document.getElementById('search-panel').classList.toggle('panel-visible');
         }
-
-        // 评论面板切换
         function toggleCommentPanel() {
-            var p = document.getElementById('comment-panel');
+            const p = document.getElementById('comment-panel');
             p.classList.toggle('panel-visible');
-            if (p.classList.contains('panel-visible')) {
-                if (typeof openCommentPanel === 'function') openCommentPanel();
+            if (p.classList.contains('panel-visible') && typeof openCommentPanel === 'function') {
+                openCommentPanel();
             }
         }
-
         (function() {
-            var versionTag = document.getElementById('version-tag');
-            var clickCount = 0, firstClickTime = 0;
-            versionTag.addEventListener('click', function(e) {
+            var v = document.getElementById('version-tag'), c = 0, t = 0;
+            v.addEventListener('click', function(e) {
                 e.stopPropagation();
-                var now = Date.now();
-                if (now - firstClickTime > 5000) { clickCount = 0; firstClickTime = now; }
-                clickCount++;
-                if (clickCount === 6) {
-                    window.location.href = 'https://github.com/GumingDilian-hub/input';
-                }
+                var n = Date.now();
+                if (n - t > 5000) { c = 0; t = n; }
+                c++;
+                if (c === 6) window.location.href = 'https://github.com/GumingDilian-hub/input';
             });
         })();
     </script>
