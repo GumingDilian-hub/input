@@ -2,7 +2,7 @@
 title: IWP 序言与说明
 date: 2026-07-24
 version: 1.0
-tags: [IWP, 序言, 说明]
+tags: [IWP, 点击版本号六次有彩蛋]
 ---
 # 扉页
 
