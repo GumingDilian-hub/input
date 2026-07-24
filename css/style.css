@@ -1,4 +1,4 @@
-/* 深色主题重置 */
+/* ========== 基础重置与全局深色主题 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -13,7 +13,7 @@ body {
     width: 100vw;
 }
 
-/* 侧边栏 - 深色 */
+/* ========== 侧边栏 - 深色 ========== */
 #sidebar {
     width: 260px;
     background: #252525;
@@ -42,6 +42,7 @@ body {
     color: #bbb;
 }
 .sidebar-header button:hover { background: #3a3a3a; border-radius: 3px; }
+
 #toc-tree { padding: 0.5rem 0; }
 .toc-item {
     padding: 0.2rem 1rem;
@@ -66,7 +67,7 @@ body {
     flex-shrink: 0;
 }
 
-/* 分隔条 */
+/* ========== 分隔条 ========== */
 #resizer {
     width: 4px;
     background: #444;
@@ -75,7 +76,7 @@ body {
 }
 #resizer:hover { background: #fff; }
 
-/* 正文 - 白底 */
+/* ========== 正文区域 - 白底 ========== */
 #content {
     flex: 1;
     overflow-y: auto;
@@ -95,7 +96,7 @@ body {
     display: none;
 }
 
-/* 工具栏 - 深色浮动 */
+/* ========== 工具栏 - 深色浮动 ========== */
 #toolbar {
     position: fixed;
     top: 10px;
@@ -116,7 +117,7 @@ body {
 }
 .toolbar-btn:hover { background: #3a3a3a; border-color: #888; }
 
-/* 搜索/其他面板 */
+/* ========== 面板通用（搜索、作者等） ========== */
 .panel-hidden {
     position: fixed;
     right: -360px;
@@ -141,6 +142,7 @@ body {
     color: #aaa;
 }
 
+/* ========== 搜索输入框与结果 ========== */
 #search-input {
     width: 100%;
     padding: 0.6rem;
@@ -153,30 +155,98 @@ body {
 }
 #search-results { margin-top: 1rem; }
 .search-result-item {
-    padding: 0.5rem;
+    padding: 0.3rem 0.5rem;        /* 紧凑型条目 */
     border-bottom: 1px solid #444;
     cursor: pointer;
+    line-height: 1.3;
 }
 .search-result-item:hover { background: #3a3a3a; }
-.search-result-item .title { font-weight: 600; color: #fff; }
-.search-result-item .excerpt { font-size: 0.85rem; color: #aaa; }
+.search-result-item .title {
+    font-weight: 600;
+    color: #fff;
+    font-size: 0.85rem;
+}
+.search-result-item .context {
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-top: 0.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-/* 正文排版 */
-#article-body h1 { font-size: 2rem; margin: 1.8rem 0 1rem; border-bottom: 2px solid #333; padding-bottom: 0.3rem; color: #111; }
+/* ========== 文章标题与内容 ========== */
+#article-body h1 {
+    font-size: 2rem;
+    margin: 1.8rem 0 1rem;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0.3rem;
+    color: #111;
+}
 #article-body h2 { font-size: 1.5rem; margin: 1.5rem 0 0.8rem; color: #222; }
 #article-body h3 { font-size: 1.2rem; margin: 1.2rem 0 0.6rem; color: #333; }
 #article-body p { margin: 0.8rem 0; color: #333; }
-pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; margin: 1rem 0; }
-code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; }
 
-/* 图片排版 - 保持原有 */
+/* 代码块 */
+pre {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+/* ========== 图片排版系统 ========== */
 img { max-width: 100%; border-radius: 4px; }
-img.iwp-img-center { display: block; margin: 1rem auto; }
-img.iwp-img-left { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; }
-img.iwp-img-right { float: right; margin: 0.5rem 0 0.5rem 1rem; max-width: 50%; }
-img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; shape-outside: margin-box; }
-.figure-container { margin: 1rem 0; text-align: center; }
-.figure-container.figure-left { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; }
-.figure-container.figure-right { float: right; margin: 0.5rem 0 0.5rem 1rem; max-width: 50%; }
-.figure-container .figure-caption { font-size: 0.85rem; color: #555; margin-top: 0.3rem; }
-.clearfix::after { content: ""; display: table; clear: both; }
+img.iwp-img-center {
+    display: block;
+    margin: 1rem auto;
+}
+img.iwp-img-left {
+    float: left;
+    margin: 0.5rem 1rem 0.5rem 0;
+    max-width: 50%;
+}
+img.iwp-img-right {
+    float: right;
+    margin: 0.5rem 0 0.5rem 1rem;
+    max-width: 50%;
+}
+img.iwp-img-around {
+    float: left;
+    margin: 0.5rem 1rem 0.5rem 0;
+    max-width: 50%;
+    shape-outside: margin-box;
+}
+
+/* 图注容器 */
+.figure-container {
+    margin: 1rem 0;
+    text-align: center;
+}
+.figure-container.figure-left {
+    float: left;
+    margin: 0.5rem 1rem 0.5rem 0;
+    max-width: 50%;
+}
+.figure-container.figure-right {
+    float: right;
+    margin: 0.5rem 0 0.5rem 1rem;
+    max-width: 50%;
+}
+.figure-container .figure-caption {
+    font-size: 0.85rem;
+    color: #555;
+    margin-top: 0.3rem;
+}
+
+/* 清除浮动 */
+.clearfix::after {
+    content: "";
+    display: table;
+    clear: both;
+}
