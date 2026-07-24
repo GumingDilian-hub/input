@@ -251,3 +251,182 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 #article-body tr:nth-child(odd) td { background-color: #fff; }
 #article-body tr:hover td { background-color: #e6f0fa; transition: background-color 0.15s; }
 #article-body td code { background-color: #f0f0f0; }
+
+/* ========== 评论区样式（现代化，浅灰背景，无 emoji） ========== */
+.comment-section {
+    margin: 2rem 0 1rem;
+    border-top: 1px solid #ddd;
+    padding-top: 1rem;
+}
+
+.comment-toggle {
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #555;
+    font-weight: 500;
+    user-select: none;
+    display: inline-block;
+}
+
+.comment-toggle:hover {
+    color: #111;
+}
+
+.comment-count-badge {
+    font-size: 0.85rem;
+    color: #888;
+    margin-left: 0.3rem;
+}
+
+.comment-body {
+    margin-top: 1rem;
+    padding: 1.2rem 1.5rem;
+    background: #f8f8f8;
+    border-radius: 6px;
+    border: 1px solid #e8e8e8;
+}
+
+.comment-list {
+    margin-bottom: 1rem;
+}
+
+.comment-item {
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid #eee;
+}
+
+.comment-avatar img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.comment-content {
+    flex: 1;
+}
+
+.comment-user {
+    font-weight: 600;
+    color: #333;
+    margin-right: 0.5rem;
+}
+
+.comment-time {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.comment-content p {
+    margin: 0.3rem 0 0.2rem;
+    color: #444;
+    line-height: 1.5;
+}
+
+.comment-actions button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+    margin-right: 0.8rem;
+    transition: color 0.2s;
+}
+
+.comment-actions button:hover {
+    color: #111;
+}
+
+.comment-pagination {
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+}
+
+.comment-pagination button {
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #333;
+}
+
+.comment-pagination button.active {
+    background: #333;
+    color: #fff;
+    border-color: #333;
+}
+
+.comment-form {
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+}
+
+.auth-panel {
+    margin-bottom: 0.8rem;
+}
+
+.auth-panel button {
+    margin-right: 0.5rem;
+    padding: 0.25rem 0.8rem;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.auth-panel button:hover {
+    background: #f0f0f0;
+}
+
+.auth-panel input {
+    padding: 0.3rem 0.5rem;
+    margin-right: 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 130px;
+}
+
+.input-area {
+    margin-top: 0.5rem;
+}
+
+.input-area textarea {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    font-size: 0.9rem;
+    background: #fff;
+}
+
+.input-area button {
+    padding: 0.3rem 1.2rem;
+    margin-top: 0.4rem;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.input-area button:hover {
+    background: #111;
+}
+
+.quote-hint {
+    font-size: 0.8rem;
+    color: #888;
+    margin-left: 0.5rem;
+}
