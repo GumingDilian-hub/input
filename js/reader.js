@@ -896,3 +896,40 @@ async function debugForTablet() {
 
 // 运行检测（沉默子，删去斜杠）
 //debugForTablet();
+// 极简活体检测（用于验证新 Token 是否生效）
+(async () => {
+    const btn = document.createElement('button');
+    btn.textContent = '🔍 检测 Token（点击）';
+    btn.style.position = 'fixed';
+    btn.style.bottom = '10px';
+    btn.style.right = '10px';
+    btn.style.zIndex = '9999';
+    btn.style.padding = '8px 12px';
+    document.body.appendChild(btn);
+
+    btn.onclick = async () => {
+        if (!window.GH_TOKEN) {
+            alert('GH_TOKEN 未定义，代码可能没保存成功。');
+            return;
+        }
+        const preview = window.GH_TOKEN.substring(0, 18) + '...';
+        const len = window.GH_TOKEN.length;
+        try {
+            const resp = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${window.GH_TOKEN}`,
+                    'Accept': 'application/vnd.github+json'
+                }
+            });
+            if (resp.ok) {
+                const u = await resp.json();
+                alert(`✅ Token 已生效！登录账号：${u.login}\n长度：${len}\n前缀预览：${preview}`);
+            } else {
+                const txt = await resp.text();
+                alert(`❌ 请求失败 (${resp.status})\n${txt}`);
+            }
+        } catch (e) {
+            alert('网络请求异常：' + e.message);
+        }
+    };
+})();
