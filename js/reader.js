@@ -1,8 +1,25 @@
-const CHAPTERS = [];
-// 自动生成 000 - 019 共20章路径
-for (let i = 0; i < 20; i++) {
-    CHAPTERS.push('notes/' + String(i).padStart(3, '0') + '/index.md');
-}
+const CHAPTERS = [
+    'notes/000/index.md',
+    'notes/001/index.md',
+    'notes/002/index.md',
+    'notes/003/index.md',
+    'notes/004/index.md',
+    'notes/005/index.md',
+    'notes/006/index.md',
+    'notes/007/index.md',
+    'notes/008/index.md',
+    'notes/009/index.md',
+    'notes/010/index.md',
+    'notes/011/index.md',
+    'notes/012/index.md',
+    'notes/013/index.md',
+    'notes/014/index.md',
+    'notes/015/index.md',
+    'notes/016/index.md',
+    'notes/017/index.md',
+    'notes/018/index.md',
+    'notes/019/index.md'
+];
 
 const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [];
