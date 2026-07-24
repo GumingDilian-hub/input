@@ -136,7 +136,7 @@ function injectCommentSections(body) {
         commentSection.setAttribute('data-section-id', sectionId);
         commentSection.innerHTML = `
             <div class="comment-toggle" onclick="toggleCommentSection(this, '${sectionId}')">
-                来喵两句～ <span class="comment-count-badge" id="comment-count-${sectionId}"></span>
+                来喵两句～（点击展开评论区） <span class="comment-count-badge" id="comment-count-${sectionId}"></span>
             </div>
             <div class="comment-body" id="comment-body-${sectionId}" style="display:none;">
                 <div class="comment-list" id="comment-list-${sectionId}"></div>
