@@ -10,6 +10,12 @@ let allSections = [], searchIndex = [], chapterHeadings = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadAndRenderAll();
+    // 隐藏加载动画
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => overlay.remove(), 500);
+    }
     setupSidebarResize();
     setupAuthorPanel();
     setupChapterSelect();
@@ -19,12 +25,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupProgressSaving();
 });
 
-// ========== 核心加载 ==========
+// ========== 核心加载（带进度） ==========
 async function loadAndRenderAll() {
     const body = document.getElementById('article-body');
     let fullMarkdown = '', versionMeta = null;
+    const total = CHAPTERS.length;
+    const progressText = document.getElementById('progress-text');
 
-    for (let mdPath of CHAPTERS) {
+    for (let i = 0; i < total; i++) {
+        const mdPath = CHAPTERS[i];
         try {
             const resp = await fetch(mdPath);
             if (!resp.ok) continue;
@@ -35,7 +44,7 @@ async function loadAndRenderAll() {
             md = fmResult.content;
 
             const chapterNum = mdPath.split('/')[1];
-            // 图片路径补全（两种语法）
+            // 图片路径补全
             md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
                 if (!src.startsWith('http') && !src.startsWith('/')) return `![${alt}](images/${chapterNum}/${src})`;
                 return m;
@@ -46,7 +55,14 @@ async function loadAndRenderAll() {
             });
 
             fullMarkdown += md + '\n\n';
-        } catch (e) { console.warn('加载失败:', mdPath, e); }
+
+            // 更新进度
+            if (progressText) {
+                progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
+            }
+        } catch (e) {
+            console.warn(`加载失败: ${mdPath}`, e);
+        }
     }
 
     const versionDiv = document.getElementById('version-info');
@@ -62,7 +78,7 @@ async function loadAndRenderAll() {
     highlightCode();
     renderMath();
     buildHeadingStructure(body);
-    // 底部透明占位符，防止遮挡
+    // 底部透明占位符防遮挡
     const spacer = document.createElement('div');
     spacer.style.height = '25vh'; spacer.style.width = '100%'; spacer.style.clear = 'both';
     body.appendChild(spacer);
@@ -70,7 +86,7 @@ async function loadAndRenderAll() {
     insertClearfix(body);
 }
 
-// ========== 工具函数 ==========
+// ========== Front Matter 解析 ==========
 function extractAndRemoveFrontMatter(md) {
     const lines = md.split(/\r?\n/);
     if (lines[0].trim() !== '---') return { content: md, meta: null };
@@ -90,6 +106,7 @@ function extractAndRemoveFrontMatter(md) {
     return { content, meta };
 }
 
+// ========== 图片后处理 ==========
 function postProcessImages(body) {
     body.querySelectorAll('img').forEach(img => {
         const alt = img.alt || '';
@@ -120,6 +137,7 @@ function postProcessFigure(body) {
 function highlightCode() { document.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b)); }
 function renderMath() { renderMathInElement(document.getElementById('article-body'), { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError: false }); }
 
+// ========== 章节包裹 ==========
 function buildHeadingStructure(body) {
     const h1s = body.querySelectorAll('h1');
     if (!h1s.length) return;
@@ -246,7 +264,7 @@ function setupSidebarResize() {
     document.addEventListener('mouseup', () => { isResizing=false; document.body.style.cursor=''; document.body.style.userSelect=''; });
 }
 
-// ========== 作者面板 ==========
+// ========== 作者面板（保留，尽管当前未显示按钮） ==========
 function setupAuthorPanel() {
     const btn = document.getElementById('btn-author'); if(!btn) return;
     const panel = document.getElementById('author-panel'), close = document.getElementById('close-author');
@@ -266,7 +284,7 @@ function setupAuthorPanel() {
     close.addEventListener('click', ()=> panel.classList.remove('panel-visible'));
 }
 
-// ========== 搜索（基于h3索引） ==========
+// ========== 搜索（基于三级标题） ==========
 function setupSearch() {
     const input = document.getElementById('search-input'), results = document.getElementById('search-results');
     function buildIndex() {
@@ -302,7 +320,7 @@ function setupSearch() {
     });
 }
 
-// ========== 章节跳转 ==========
+// ========== 章节下拉跳转 ==========
 function setupChapterSelect() {
     const select = document.getElementById('chapter-select');
     select.innerHTML = '<option value="">— 快速跳转章节 —</option>';
@@ -346,10 +364,31 @@ function setupScrollSpy() {
             if(targetItem) targetItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
     }
-    content.addEventListener('scroll', onScroll, { passive: true });
+
+    // 使用 requestAnimationFrame 节流，优化性能
+    let ticking = false;
+    content.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                onScroll();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }, { passive: true });
     onScroll();
 }
 
-// ========== 进度记忆 ==========
-function restoreProgress() { const s=localStorage.getItem('iwp-progress'); if(s) document.getElementById('content').scrollTop=parseInt(s)||0; }
-function setupProgressSaving() { const c=document.getElementById('content'); let t; c.addEventListener('scroll', ()=>{ clearTimeout(t); t=setTimeout(()=>localStorage.setItem('iwp-progress',c.scrollTop),300); }); }
+// ========== 阅读进度 ==========
+function restoreProgress() {
+    const saved = localStorage.getItem('iwp-progress');
+    if (saved) document.getElementById('content').scrollTop = parseInt(saved) || 0;
+}
+function setupProgressSaving() {
+    const content = document.getElementById('content');
+    let timer;
+    content.addEventListener('scroll', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => localStorage.setItem('iwp-progress', content.scrollTop), 300);
+    });
+}
