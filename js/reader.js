@@ -845,36 +845,3 @@ async function detectGitHubApi() {
 // 暴露到全局以便在控制台调用 detectGitHubApi()
 window.detectGitHubApi = detectGitHubApi;
 
-// ========== 修正版：检测 Token ==========
-(async () => {
-    const btn = document.createElement('button');
-    btn.textContent = '🔍 检测 Token（点击）';
-    btn.style.position = 'fixed';
-    btn.style.bottom = '10px';
-    btn.style.right = '10px';
-    btn.style.zIndex = '9999';
-    btn.style.padding = '8px 12px';
-    document.body.appendChild(btn);
-
-    btn.onclick = async () => {
-        // 这里直接读取变量 GH_TOKEN
-        if (typeof GH_TOKEN === 'undefined') {
-            alert('❌ GH_TOKEN 变量没找到！\n\n原因可能是：\n1. 你把这段检测代码贴得太靠上了，必须贴在文件【最最最后面】。\n2. 你可能不小心把文件顶部的 const GH_TOKEN = ... 这行代码删掉了。');
-            return;
-        }
-        
-        const preview = GH_TOKEN.substring(0, 18) + '...';
-        const len = GH_TOKEN.length;
-        
-        if (len < 50) {
-            alert(`⚠️ Token 长度异常 (${len})！\n\n看起来只复制了一半，或者粘贴的时候出错了。\n请回到 GitHub 重新复制完整。`);
-            return;
-        }
-
-        try {
-            const resp = await fetch('https://api.github.com/user', {
-                headers: {
-                    'Authorization': `Bearer ${GH_TOKEN}`,
-                    'Accept': 'application/vnd.github+json'
-                }
- 
