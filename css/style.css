@@ -97,7 +97,6 @@ body {
     background: #ffffff;
     color: #1a1a1a;
     position: relative;
-    /* 底部额外留白通过 JS 插入的占位符实现 */
 }
 #version-info {
     background: #f0f0f0;
