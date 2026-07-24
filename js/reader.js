@@ -9,7 +9,7 @@ const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [], searchIndex = [], chapterHeadings = [];
 
 // ========== GitHub 配置 ==========
-const GH_TOKEN = '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';
+const GH_TOKEN = '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';
 const REPO_OWNER = 'GumingDilian-hub';
 const REPO_NAME = 'input';
 
