@@ -8,6 +8,14 @@ const CHAPTERS = [
 const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [], searchIndex = [], chapterHeadings = [];
 
+// ========== GitHub 评论/用户系统配置 ==========
+const GH_TOKEN = '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';
+const REPO_OWNER = 'GumingDilian-hub';
+const REPO_NAME = 'input';
+const LABEL_NAME = 'comment';
+
+let currentUser = null;   // 当前登录用户 { username: '...' }
+
 document.addEventListener('DOMContentLoaded', async () => {
     await loadAndRenderAll();
     const overlay = document.getElementById('loading-overlay');
@@ -22,6 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupScrollSpy();
     restoreProgress();
     setupProgressSaving();
+    setupUserSystem();   // 恢复登录状态
+    setupComments();     // 绑定评论/注册事件
 });
 
 // ========== 并行下载 + 分批渲染 ==========
@@ -416,4 +426,290 @@ function setupProgressSaving() {
         clearTimeout(timer);
         timer = setTimeout(() => localStorage.setItem('iwp-progress', content.scrollTop), 300);
     });
+}
+
+// ==================== 评论 & 用户系统 ====================
+
+// 初始化登录状态
+function setupUserSystem() {
+    const saved = localStorage.getItem('iwp-user');
+    if (saved) currentUser = JSON.parse(saved);
+}
+
+// 获取或创建存储用户信息的 Issue（标题固定为 "users"）
+async function getUsersIssueNumber() {
+    const token = GH_TOKEN;
+    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${LABEL_NAME}&state=open&per_page=100`;
+    const resp = await fetch(searchUrl);
+    const issues = await resp.json();
+    let issue = issues.find(i => i.title === 'users');
+    if (issue) return issue.number;
+
+    const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
+    const createResp = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'users', labels: [LABEL_NAME] })
+    });
+    const newIssue = await createResp.json();
+    return newIssue.number;
+}
+
+// 获取所有用户（从 Issue 评论中解析）
+async function getAllUsers() {
+    try {
+        const issueNumber = await getUsersIssueNumber();
+        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
+        const resp = await fetch(commentsUrl);
+        const comments = await resp.json();
+        const users = [];
+        comments.forEach(c => {
+            try {
+                const u = JSON.parse(c.body);
+                if (u.username && u.password) users.push(u);
+            } catch (e) {}
+        });
+        return users;
+    } catch (e) {
+        return [];
+    }
+}
+
+// 注册
+async function register(username, password) {
+    const users = await getAllUsers();
+    if (users.find(u => u.username === username)) throw new Error('用户名已存在');
+    const issueNumber = await getUsersIssueNumber();
+    const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: JSON.stringify({ username, password }) })
+    });
+    if (!resp.ok) throw new Error('注册失败');
+    currentUser = { username };
+    localStorage.setItem('iwp-user', JSON.stringify(currentUser));
+}
+
+// 登录
+async function login(username, password) {
+    const users = await getAllUsers();
+    const user = users.find(u => u.username === username && u.password === password);
+    if (!user) throw new Error('用户名或密码错误');
+    currentUser = { username };
+    localStorage.setItem('iwp-user', JSON.stringify(currentUser));
+}
+
+// 退出
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('iwp-user');
+    updateAuthUI();
+}
+
+// 根据登录状态刷新评论区 UI
+function updateAuthUI() {
+    const authSection = document.getElementById('auth-section');
+    const loggedInSection = document.getElementById('comment-logged-in');
+    if (currentUser) {
+        authSection.style.display = 'none';
+        loggedInSection.style.display = 'flex';
+        document.getElementById('current-user').textContent = currentUser.username;
+    } else {
+        authSection.style.display = 'block';
+        loggedInSection.style.display = 'none';
+        document.getElementById('auth-login').style.display = 'block';
+        document.getElementById('auth-register').style.display = 'none';
+    }
+}
+
+// 打开评论面板时调用（由 toggleCommentPanel 触发）
+function openCommentPanel() {
+    updateAuthUI();
+    if (currentUser) {
+        loadCurrentChapterComments();
+    } else {
+        document.getElementById('comments-list').innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
+        document.getElementById('comment-count').textContent = '';
+    }
+}
+
+// 绑定评论和用户相关事件
+function setupComments() {
+    // 登录/注册切换
+    document.getElementById('btn-to-register').addEventListener('click', () => {
+        document.getElementById('auth-login').style.display = 'none';
+        document.getElementById('auth-register').style.display = 'block';
+    });
+    document.getElementById('btn-to-login').addEventListener('click', () => {
+        document.getElementById('auth-register').style.display = 'none';
+        document.getElementById('auth-login').style.display = 'block';
+    });
+
+    // 登录
+    document.getElementById('btn-login').addEventListener('click', async () => {
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        if (!username || !password) return alert('请填写用户名和密码');
+        try {
+            await login(username, password);
+            updateAuthUI();
+            loadCurrentChapterComments();
+        } catch (e) {
+            alert('登录失败：' + e.message);
+        }
+    });
+
+    // 注册
+    document.getElementById('btn-register').addEventListener('click', async () => {
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        if (!username || !password) return alert('请填写用户名和密码');
+        try {
+            await register(username, password);
+            updateAuthUI();
+            loadCurrentChapterComments();
+        } catch (e) {
+            alert('注册失败：' + e.message);
+        }
+    });
+
+    // 退出
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        logout();
+        loadCurrentChapterComments();
+    });
+
+    // 发送评论
+    document.getElementById('comment-submit').addEventListener('click', postComment);
+    document.getElementById('comment-input').addEventListener('keypress', e => {
+        if (e.key === 'Enter') postComment();
+    });
+}
+
+// ==================== 评论核心逻辑 ====================
+
+function getCurrentChapterId() {
+    const h1s = document.querySelectorAll('#article-body h1');
+    const scrollTop = document.getElementById('content').scrollTop + 80;
+    let currentId = '000';
+    for (let i = h1s.length - 1; i >= 0; i--) {
+        if (h1s[i].offsetTop <= scrollTop) {
+            const id = h1s[i].id.replace(/^h-/, '');
+            if (/^\d+$/.test(id)) currentId = id.padStart(3, '0');
+            break;
+        }
+    }
+    return currentId;
+}
+
+function getCurrentChapterTitle() {
+    const h1s = document.querySelectorAll('#article-body h1');
+    const scrollTop = document.getElementById('content').scrollTop + 80;
+    for (let i = h1s.length - 1; i >= 0; i--) {
+        if (h1s[i].offsetTop <= scrollTop) return h1s[i].textContent.trim();
+    }
+    return '序言';
+}
+
+async function findOrCreateChapterIssue(chapterId) {
+    const title = `comments-${chapterId}`;
+    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${LABEL_NAME}&state=open&per_page=100`;
+    const resp = await fetch(searchUrl);
+    const issues = await resp.json();
+    const exist = issues.find(i => i.title === title);
+    if (exist) return exist.number;
+
+    const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
+    const createResp = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, labels: [LABEL_NAME] })
+    });
+    const newIssue = await createResp.json();
+    return newIssue.number;
+}
+
+async function loadComments(chapterId) {
+    const list = document.getElementById('comments-list');
+    list.innerHTML = '<p style="color:#999;">加载中...</p>';
+    document.getElementById('comment-chapter-title').textContent = getCurrentChapterTitle();
+    try {
+        const issueNumber = await findOrCreateChapterIssue(chapterId);
+        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
+        const resp = await fetch(commentsUrl);
+        const comments = await resp.json();
+        renderComments(comments);
+        document.getElementById('comment-count').textContent = `(${comments.length})`;
+    } catch (e) {
+        list.innerHTML = '<p style="color:#e74c3c;">加载失败</p>';
+        document.getElementById('comment-count').textContent = '';
+    }
+}
+
+function renderComments(comments) {
+    const list = document.getElementById('comments-list');
+    if (!comments.length) {
+        list.innerHTML = '<p style="color:#999;">暂无评论，来抢沙发吧~</p>';
+        return;
+    }
+    list.innerHTML = comments.map(c => {
+        let body = c.body;
+        const prefixMatch = body.match(/^\[(.*?)\]\s*/);
+        let displayName = c.user.login;
+        if (prefixMatch) {
+            displayName = prefixMatch[1];
+            body = body.slice(prefixMatch[0].length);
+        }
+        return `
+        <div style="margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid #444;">
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+                <img src="${c.user.avatar_url}" style="width:22px; height:22px; border-radius:50%;">
+                <strong style="font-size:0.85rem; color:#ddd;">${escapeHtml(displayName)}</strong>
+                <span style="font-size:0.7rem; color:#888; margin-left:auto;">${new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
+            </div>
+            <p style="font-size:0.85rem; color:#ccc; margin:0; white-space:pre-wrap;">${escapeHtml(body)}</p>
+        </div>`;
+    }).join('');
+}
+
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
+}
+
+async function postComment() {
+    if (!currentUser) {
+        alert('请先登录');
+        return;
+    }
+    const input = document.getElementById('comment-input');
+    const body = input.value.trim();
+    if (!body) return;
+
+    const chapterId = getCurrentChapterId();
+    try {
+        const issueNumber = await findOrCreateChapterIssue(chapterId);
+        const commentBody = `[${currentUser.username}] ${body}`;
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body: commentBody })
+        });
+        if (!resp.ok) throw new Error('发送失败');
+        input.value = '';
+        loadComments(chapterId);
+    } catch (e) {
+        alert('评论失败: ' + e.message);
+    }
+}
+
+function loadCurrentChapterComments() {
+    if (!currentUser) {
+        document.getElementById('comments-list').innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
+        document.getElementById('comment-count').textContent = '';
+        return;
+    }
+    const chapterId = getCurrentChapterId();
+    loadComments(chapterId);
 }
