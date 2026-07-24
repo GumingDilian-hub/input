@@ -894,5 +894,5 @@ async function debugForTablet() {
     alert(report);
 }
 
-// 运行检测
-debugForTablet();
+// 运行检测（沉默子，删去斜杠）
+//debugForTablet();
