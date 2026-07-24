@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IWP Reader</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -17,7 +17,7 @@
 </head>
 <body>
     <div id="app">
-        <!-- 工具栏（精简） -->
+        <!-- 工具栏 -->
         <div id="toolbar">
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
@@ -29,6 +29,12 @@
                 <button id="close-search" class="close-btn" onclick="toggleSearchPanel()">×</button>
                 <input type="text" id="search-input" placeholder="输入关键词搜索...">
                 <div id="search-results"></div>
+                <!-- 自动跟随开关 -->
+                <div class="auto-scroll-toggle">
+                    <label>
+                        <input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动
+                    </label>
+                </div>
             </div>
         </div>
         
@@ -69,7 +75,7 @@
             }
         }
 
-        // 彩蛋：版本号 v5.068，5秒内点击6次跳转
+        // 版本号彩蛋
         (function() {
             var versionTag = document.getElementById('version-tag');
             var clickCount = 0;
