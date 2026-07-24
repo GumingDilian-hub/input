@@ -22,6 +22,7 @@ body {
     flex-direction: column;
     overflow-y: auto;
     user-select: none;
+    padding-bottom: 3rem;
 }
 .sidebar-header {
     display: flex;
@@ -43,7 +44,8 @@ body {
 }
 .sidebar-header button:hover { background: #3a3a3a; border-radius: 3px; }
 
-#toc-tree { padding: 0.5rem 0; }
+#toc-tree { padding: 0.5rem 0 2rem; }
+
 .toc-item {
     padding: 0.2rem 1rem;
     cursor: pointer;
@@ -80,7 +82,7 @@ body {
 #content {
     flex: 1;
     overflow-y: auto;
-    padding: 2rem 3rem;
+    padding: 2rem 3rem 6rem;   /* 底部留白加大，防止浏览器工具栏遮挡 */
     line-height: 1.8;
     background: #ffffff;
     color: #1a1a1a;
@@ -132,7 +134,9 @@ body {
     color: #ccc;
 }
 .panel-visible { right: 0; }
-.panel-content { padding: 2rem; }
+.panel-content {
+    padding: 2rem 2rem 5rem;
+}
 .close-btn {
     float: right;
     border: none;
@@ -187,7 +191,6 @@ body {
 #article-body h3 { font-size: 1.2rem; margin: 1.2rem 0 0.6rem; color: #333; }
 #article-body p { margin: 0.8rem 0; color: #333; }
 
-/* 代码块 */
 pre {
     background: #f5f5f5;
     padding: 1rem;
@@ -223,7 +226,6 @@ img.iwp-img-around {
     shape-outside: margin-box;
 }
 
-/* 图注容器 */
 .figure-container {
     margin: 1rem 0;
     text-align: center;
@@ -244,7 +246,6 @@ img.iwp-img-around {
     margin-top: 0.3rem;
 }
 
-/* 清除浮动 */
 .clearfix::after {
     content: "";
     display: table;
@@ -272,14 +273,12 @@ img.iwp-img-around {
     color: #222;
     white-space: nowrap;
 }
-/* 斑马条纹 */
 #article-body tr:nth-child(even) td {
     background-color: #fafafa;
 }
 #article-body tr:nth-child(odd) td {
     background-color: #fff;
 }
-/* 悬停高亮 */
 #article-body tr:hover td {
     background-color: #e6f0fa;
     transition: background-color 0.15s;
