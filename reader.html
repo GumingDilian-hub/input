@@ -6,8 +6,9 @@
     <title>IWP · 请输入文本</title>
     <link rel="icon" type="image/png" href="images/0721.png?v=1">
 
-    <!-- 预连接 CDN（加快 DNS 和 TLS 握手） -->
+    <!-- 预连接 CDN -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
     <!-- 预取关键 JS 库 -->
     <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/marked/marked.min.js" as="script">
@@ -17,37 +18,17 @@
     <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js" as="script">
     <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css" as="style">
 
-    <!-- 预取阅读器本地文件 -->
-    <link rel="prefetch" href="reader.html">
-    <link rel="prefetch" href="css/style.css">
-    <link rel="prefetch" href="js/reader.js">
-
-    <!-- 预取核心笔记文件（按需列出高频访问的章节） -->
+    <!-- 预取核心笔记（高频章节） -->
     <link rel="prefetch" href="notes/000/index.md" as="fetch" crossorigin>
     <link rel="prefetch" href="notes/001/index.md" as="fetch" crossorigin>
-    <link rel="prefetch" href="notes/002/index.md" as="fetch" crossorigin>
 
     <style>
         :root {
             --bg: #1e1e1e;
-            --card-bg: #2d2d2d;
-            --border: #444;
             --text: #fff;
             --subtext: #aaa;
-            --btn-primary-bg: #fff;
-            --btn-primary-text: #1e1e1e;
-            --btn-secondary-bg: #3a3a3a;
-            --btn-secondary-text: #fff;
-            --footer-bg: #111;
-            --footer-text: #888;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
             background: var(--bg);
@@ -56,7 +37,6 @@
             display: flex;
             flex-direction: column;
         }
-
         .home-container {
             flex: 1;
             display: flex;
@@ -64,32 +44,26 @@
             justify-content: center;
             padding: 2rem;
         }
-
         .home-left {
             flex: 1;
             padding-right: 3rem;
             text-align: left;
         }
-
         .home-left h1 {
             font-size: 3.2rem;
             font-weight: 300;
             margin-bottom: 0.5rem;
             letter-spacing: 2px;
-            line-height: 1.2;
         }
-
         .home-left p {
             font-size: 1.4rem;
             color: var(--subtext);
             margin-bottom: 2.5rem;
         }
-
         .btn-group {
             display: flex;
             gap: 1.2rem;
         }
-
         .btn {
             padding: 0.8rem 2.2rem;
             font-size: 1.1rem;
@@ -100,50 +74,28 @@
             display: inline-block;
             transition: background 0.2s, transform 0.1s;
         }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-primary {
-            background: var(--btn-primary-bg);
-            color: var(--btn-primary-text);
-            font-weight: 600;
-        }
-
-        .btn-primary:hover {
-            background: #ccc;
-        }
-
-        .btn-secondary {
-            background: var(--btn-secondary-bg);
-            color: var(--btn-secondary-text);
-            border: 1px solid #555;
-        }
-
-        .btn-secondary:hover {
-            background: #4a4a4a;
-        }
-
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: #fff; color: #1e1e1e; font-weight: 600; }
+        .btn-primary:hover { background: #ccc; }
+        .btn-secondary { background: #3a3a3a; color: #fff; border: 1px solid #555; }
+        .btn-secondary:hover { background: #4a4a4a; }
         .home-right {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-
         .home-right img {
             width: 100%;
             max-width: 100%;
             height: auto;
             border-radius: 6px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
         }
-
         .footer-bar {
             height: 36px;
-            background: var(--footer-bg);
-            color: var(--footer-text);
+            background: #111;
+            color: #888;
             display: flex;
             align-items: center;
             padding: 0 1.5rem;
