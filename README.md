@@ -3,7 +3,7 @@
 [![Website](https://img.shields.io/badge/🏠-gumingdilian--hub.github.io%2Finput-F8B8C8?style=for-the-badge)](https://gumingdilian-hub.github.io/input/)
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-lightgrey)
-![Status](https://img.shields.io/badge/status-updating-brightgreen)
+![Status](https://img.shields.io/badge/status-updating-lightgrey)
 
 作者 cz，WeChat 河北廊坊生人，衡水二中熟人，2025 届生物竞赛省一。
 
