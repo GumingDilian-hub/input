@@ -1,5 +1,5 @@
-// ========== 请在这里填入你的 GitHub Token（需要 Issues 写权限） ==========
-const GH_TOKEN = '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';
+// ========== 请在这里填入你的 GitHub（需要 Issues 写权限） ==========
+const GH_TOKEN = 'PLACEHOLDER_TOKEN';
 // ====================================================================
 
 const REPO_OWNER = 'GumingDilian-hub';
