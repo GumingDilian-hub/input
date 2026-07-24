@@ -1,3 +1,16 @@
+// ========== 请在这里填入你的新 GitHub Fine-grained Token（需有 Issues 读写权限） ==========
+const GH_TOKEN = 'github_pat_11CCJOKZA05hSx9LAdJe94_qF5j2YnHlA7mlazPT1aioksB5Krsbr9hTkvcI1mFv3CEKH3XVnYGW7RoF';
+// =====================================================================================
+
+const REPO_OWNER = 'GumingDilian-hub';
+const REPO_NAME = 'input';
+const COMMENT_LABEL = 'comment';
+const USER_LABEL = 'users';
+const CHAPTER_LIKE_LABEL = 'chapter-like';
+const SPECIAL_USER = 'loading';
+const SPECIAL_PASS = '10000';
+const SPECIAL_TAG = '始作俑者';
+
 const CHAPTERS = [
     'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
     'notes/004/index.md', 'notes/005/index.md', 'notes/006/index.md', 'notes/007/index.md',
@@ -7,22 +20,6 @@ const CHAPTERS = [
 ];
 const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [], searchIndex = [], chapterHeadings = [];
-
-// ========== GitHub 配置 ==========
-const GH_TOKEN = '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';
-const REPO_OWNER = 'GumingDilian-hub';
-const REPO_NAME = 'input';
-
-// 三个独立的 Label
-const COMMENT_LABEL = 'comment';           // 评论 Issue 标签
-const USER_LABEL = 'users';               // 用户数据 Issue 标签
-const CHAPTER_LIKE_LABEL = 'chapter-like'; // 文章点赞 Issue 标签
-
-// 特殊账号
-const SPECIAL_USER = 'loading';
-const SPECIAL_PASS = '10000';
-const SPECIAL_TAG = '始作俑者';
-
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -43,9 +40,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupComments();
 });
 
-// ========== 并行下载 + 分批渲染（无变化） ==========
+// ========== 并行下载 + 分批渲染 ==========
 async function loadAndRenderAll() {
     const body = document.getElementById('article-body');
+    if (!body) return;
     const progressText = document.getElementById('progress-text');
     const total = CHAPTERS.length;
 
@@ -65,11 +63,11 @@ async function loadAndRenderAll() {
                     if (!filename.startsWith('http') && !filename.startsWith('/')) return prefix + 'images/' + chapterNum + '/' + filename + suffix;
                     return m;
                 });
-                return { meta: fmResult.meta, content };
+                return { meta: fmResult.meta, content, chapterNum };
             })
             .catch(err => {
-                console.warn(`是的，你网卡了: ${path}`, err);
-                return { meta: null, content: '' };
+                console.warn(`加载失败: ${path}`, err);
+                return { meta: null, content: '', chapterNum: path.split('/')[1] };
             })
     );
 
@@ -80,12 +78,12 @@ async function loadAndRenderAll() {
         if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
     }
     const versionDiv = document.getElementById('version-info');
-    if (versionMeta) {
-        versionDiv.innerHTML = `<strong>${versionMeta.title||''}</strong> ${versionMeta.date?'· 更新:'+versionMeta.date:''} ${versionMeta.version?'· v'+versionMeta.version:''} ${versionMeta.tags?'· 标签:'+(Array.isArray(versionMeta.tags)?versionMeta.tags.join(', '):versionMeta.tags):''}`;
+    if (versionMeta && versionDiv) {
+        versionDiv.innerHTML = `<strong>${escapeHtml(versionMeta.title||'')}</strong> ${versionMeta.date?'· 更新:'+escapeHtml(versionMeta.date):''} ${versionMeta.version?'· v'+escapeHtml(versionMeta.version):''} ${versionMeta.tags?'· 标签:'+escapeHtml(Array.isArray(versionMeta.tags)?versionMeta.tags.join(', '):versionMeta.tags):''}`;
         versionDiv.style.display = 'block';
     }
 
-    if (progressText) progressText.textContent = '少女折寿中...';
+    if (progressText) progressText.textContent = '正在排版渲染...';
     body.innerHTML = '';
 
     for (let i = 0; i < results.length; i++) {
@@ -96,6 +94,14 @@ async function loadAndRenderAll() {
         sectionDiv.className = 'section-chunk';
         const html = marked.parse(chunk);
         sectionDiv.innerHTML = html;
+
+        const chapterNum = results[i].chapterNum;
+        const firstH1 = sectionDiv.querySelector('h1');
+        if (firstH1 && chapterNum) {
+            firstH1.dataset.chapter = chapterNum;
+        } else if (sectionDiv.dataset) {
+            sectionDiv.dataset.chapter = chapterNum;
+        }
 
         postProcessImages(sectionDiv);
         postProcessFigure(sectionDiv);
@@ -115,11 +121,13 @@ async function loadAndRenderAll() {
     insertClearfix(body);
 
     const spacer = document.createElement('div');
-    spacer.style.height = '25vh'; spacer.style.width = '100%'; spacer.style.clear='both';
+    spacer.style.height = '25vh';
+    spacer.style.width = '100%';
+    spacer.style.clear = 'both';
     body.appendChild(spacer);
 }
 
-// ========== 辅助函数（保留所有原版） ==========
+// ========== Front Matter ==========
 function extractAndRemoveFrontMatter(md) {
     const lines = md.split(/\r?\n/);
     if (lines[0].trim() !== '---') return { content: md, meta: null };
@@ -139,6 +147,7 @@ function extractAndRemoveFrontMatter(md) {
     return { content, meta };
 }
 
+// ========== 图片后处理 ==========
 function postProcessImages(container) {
     container.querySelectorAll('img').forEach(img => {
         const alt = img.alt || '';
@@ -158,7 +167,7 @@ function postProcessFigure(container) {
     const regex = /:::image\s+(left|right|center)?\s*([^\s]+)\s*(.*?)\s*:::/g;
     container.innerHTML = container.innerHTML.replace(regex, (m, pos, filename, caption) => {
         pos = pos || 'center';
-        return `<div class="figure-container figure-${pos}"><img src="${filename}" alt="${caption}" class="iwp-img-${pos}"><div class="figure-caption">${caption}</div></div>`;
+        return `<div class="figure-container figure-${pos}"><img src="${filename}" alt="${escapeHtml(caption)}" class="iwp-img-${pos}"><div class="figure-caption">${escapeHtml(caption)}</div></div>`;
     });
     container.querySelectorAll('img').forEach(img => {
         if (img.parentElement.classList.contains('figure-container')) return;
@@ -167,8 +176,9 @@ function postProcessFigure(container) {
 }
 
 function renderMath() {
-    if (typeof renderMathInElement === 'function') {
-        renderMathInElement(document.getElementById('article-body'), {
+    const ab = document.getElementById('article-body');
+    if (ab && typeof renderMathInElement === 'function') {
+        renderMathInElement(ab, {
             delimiters: [
                 {left: '$$', right: '$$', display: true},
                 {left: '$', right: '$', display: false}
@@ -178,6 +188,7 @@ function renderMath() {
     }
 }
 
+// ========== 章节包裹 ==========
 function buildHeadingStructure(body) {
     const h1s = body.querySelectorAll('h1');
     if (!h1s.length) return;
@@ -207,6 +218,9 @@ function buildHeadingStructure(body) {
         const h1 = w.querySelector('h1');
         if (h1) {
             if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2,8);
+            if (h1.dataset && h1.dataset.chapter) {
+                w.dataset.chapter = h1.dataset.chapter;
+            }
             allSections.push({ type:'h1', id:h1.id, wrapper:w });
             chapterHeadings.push({ id:h1.id, text:h1.textContent.trim() });
         }
@@ -219,8 +233,10 @@ function insertClearfix(body) {
     });
 }
 
+// ========== 目录与折叠 ==========
 function buildTOC() {
     const toc = document.getElementById('toc-tree');
+    if (!toc) return;
     toc.innerHTML = '';
     const headings = document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3');
     let lastH1=null, lastH2=null;
@@ -298,17 +314,21 @@ function collapseAll() {
 window.expandAll = expandAll;
 window.collapseAll = collapseAll;
 
+// ========== 侧栏拖动 ==========
 function setupSidebarResize() {
     const sidebar = document.getElementById('sidebar'), resizer = document.getElementById('resizer');
+    if (!sidebar || !resizer) return;
     let isResizing = false;
     resizer.addEventListener('mousedown', () => { isResizing=true; document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; });
     document.addEventListener('mousemove', e => { if(!isResizing) return; let w=e.clientX; if(w>180&&w<500) sidebar.style.width=w+'px'; });
     document.addEventListener('mouseup', () => { isResizing=false; document.body.style.cursor=''; document.body.style.userSelect=''; });
 }
 
+// ========== 作者面板 ==========
 function setupAuthorPanel() {
     const btn = document.getElementById('btn-author'); if(!btn) return;
     const panel = document.getElementById('author-panel'), close = document.getElementById('close-author');
+    if (!panel || !close) return;
     btn.addEventListener('click', async () => {
         panel.classList.add('panel-visible');
         try {
@@ -318,16 +338,20 @@ function setupAuthorPanel() {
                 const fm = extractAndRemoveFrontMatter(md).meta || {};
                 let name=fm.name||'未署名', bio=fm.bio||'暂无简介', avatar=fm.avatar||'';
                 if(avatar&&!avatar.startsWith('http')) avatar='images/000/'+avatar;
-                document.getElementById('author-info').innerHTML = `${avatar?`<img src="${avatar}" style="width:80px;border-radius:50%;margin-bottom:1rem;">`:''}<h2>${name}</h2><p>${bio}</p>`;
+                const authorInfo = document.getElementById('author-info');
+                if (authorInfo) {
+                    authorInfo.innerHTML = `${avatar?`<img src="${avatar}" style="width:80px;border-radius:50%;margin-bottom:1rem;">`:''}<h2>${escapeHtml(name)}</h2><p>${escapeHtml(bio)}</p>`;
+                }
             }
         } catch(e){}
     });
     close.addEventListener('click', ()=> panel.classList.remove('panel-visible'));
 }
 
-// 搜索（带防抖）
+// ========== 搜索（带防抖 + 小写索引） ==========
 function setupSearch() {
     const input = document.getElementById('search-input'), results = document.getElementById('search-results');
+    if (!input || !results) return;
     let debounceTimer;
     function buildIndex() {
         const h3s = document.querySelectorAll('#article-body h3');
@@ -341,7 +365,14 @@ function setupSearch() {
                 node = node.nextElementSibling;
                 if(ctx.length>80) break;
             }
-            searchIndex.push({ title, context: ctx.slice(0,80).trim(), id: h3.id });
+            const context = ctx.slice(0,80).trim();
+            searchIndex.push({
+                title,
+                titleLower: title.toLowerCase(),
+                context,
+                contextLower: context.toLowerCase(),
+                id: h3.id
+            });
         });
     }
     buildIndex();
@@ -351,13 +382,21 @@ function setupSearch() {
             const q = input.value.trim().toLowerCase();
             results.innerHTML = '';
             if(!q) return;
-            searchIndex.filter(i=>i.title.includes(q)||i.context.includes(q)).forEach(i=>{
+            searchIndex.filter(i => i.titleLower.includes(q) || i.contextLower.includes(q)).forEach(i=>{
                 const div = document.createElement('div');
                 div.className='search-result-item';
-                div.innerHTML = `<div class="title">${i.title}</div><div class="context">${i.context}</div>`;
+                const titleEl = document.createElement('div');
+                titleEl.className = 'title';
+                titleEl.textContent = i.title;
+                const ctxEl = document.createElement('div');
+                ctxEl.className = 'context';
+                ctxEl.textContent = i.context;
+                div.appendChild(titleEl);
+                div.appendChild(ctxEl);
                 div.addEventListener('click', ()=>{
                     document.getElementById(i.id)?.scrollIntoView({behavior:'smooth',block:'start'});
-                    document.getElementById('search-panel').classList.remove('panel-visible');
+                    const sp = document.getElementById('search-panel');
+                    if (sp) sp.classList.remove('panel-visible');
                 });
                 results.appendChild(div);
             });
@@ -365,17 +404,20 @@ function setupSearch() {
     });
 }
 
+// ========== 章节下拉跳转 ==========
 function setupChapterSelect() {
     const select = document.getElementById('chapter-select');
-    select.innerHTML = '<option value="">— 火速前往 —</option>';
+    if (!select) return;
+    select.innerHTML = '<option value="">— 快速跳转章节 —</option>';
     chapterHeadings.forEach(ch => { const opt = document.createElement('option'); opt.value=ch.id; opt.textContent=ch.text; select.appendChild(opt); });
     select.addEventListener('change', ()=>{ const el=document.getElementById(select.value); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); });
 }
 
-// IntersectionObserver 滚动监听
+// ========== IntersectionObserver 滚动监听 ==========
 function setupScrollSpy() {
     const tocItems = document.querySelectorAll('.toc-item');
     const autoCheckbox = document.getElementById('auto-scroll-checkbox');
+    const rootEl = document.getElementById('content') || null;
 
     const idToToc = new Map();
     tocItems.forEach(item => {
@@ -396,7 +438,7 @@ function setupScrollSpy() {
     }
 
     function scrollTocTo(targetId) {
-        if (!autoCheckbox.checked) return;
+        if (!autoCheckbox || !autoCheckbox.checked) return;
         const item = document.querySelector(`.toc-item[data-target="${targetId}"]`);
         if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -416,20 +458,25 @@ function setupScrollSpy() {
             scrollTocTo(id);
         }
     }, {
-        root: document.getElementById('content'),
+        root: rootEl,
         rootMargin: '-10% 0px -70% 0px',
         threshold: 0
     });
 
-    document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3').forEach(h => observer.observe(h));
+    document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3').forEach(h => {
+        try { observer.observe(h); } catch (e) {}
+    });
 }
 
+// ========== 阅读进度 ==========
 function restoreProgress() {
     const saved = localStorage.getItem('iwp-progress');
-    if (saved) document.getElementById('content').scrollTop = parseInt(saved) || 0;
+    const contentEl = document.getElementById('content');
+    if (saved && contentEl) contentEl.scrollTop = parseInt(saved) || 0;
 }
 function setupProgressSaving() {
     const content = document.getElementById('content');
+    if (!content) return;
     let timer;
     content.addEventListener('scroll', () => {
         clearTimeout(timer);
@@ -437,33 +484,36 @@ function setupProgressSaving() {
     });
 }
 
-// ==================== 通用：带错误详情的 ghFetch ====================
+// ==================== 评论系统 ====================
+
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
+}
+
 async function ghFetch(url, options = {}) {
     const headers = {
         ...(options.headers || {}),
-        Authorization: `Bearer ${GH_TOKEN}`,
         Accept: 'application/vnd.github+json'
     };
+    if (GH_TOKEN && GH_TOKEN !== 'YOUR_TOKEN_HERE') {
+        headers.Authorization = `token ${GH_TOKEN}`;
+    } else {
+        const method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD') {
+            throw new Error('未配置有效的 GH_TOKEN，写操作被禁止');
+        }
+    }
     const resp = await fetch(url, { ...options, headers });
     if (!resp.ok) {
-        let detailText = '';
-        try {
-            const errJson = await resp.json();
-            detailText = errJson.message || JSON.stringify(errJson);
-        } catch {
-            detailText = await resp.text();
-        }
-        const msg = `GitHub API 请求失败 (${resp.status})：${detailText}`;
-        console.error('[ghFetch]', url, resp.status, detailText);
-        const err = new Error(msg);
-        err.status = resp.status;
-        err.body = detailText;
-        throw err;
+        let detail = '';
+        try { detail = (await resp.json()).message || ''; } catch { detail = await resp.text(); }
+        console.error('GitHub 请求失败', resp.status, detail);
+        throw new Error(`GitHub API 请求失败 (${resp.status})：${detail}`);
     }
     return resp;
 }
 
-// ==================== 用户系统 ====================
+// ---------- 用户系统 ----------
 function setupUserSystem() {
     const saved = localStorage.getItem('iwp-user');
     if (saved) currentUser = JSON.parse(saved);
@@ -471,57 +521,41 @@ function setupUserSystem() {
 
 async function getUserIssueNumber() {
     const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${USER_LABEL}&state=open&per_page=100`;
-    const searchResp = await ghFetch(searchUrl);
-    const issues = await searchResp.json();
+    const issues = await (await ghFetch(searchUrl)).json();
     let issue = issues.find(i => i.title === 'users');
     if (issue) return issue.number;
-
-    const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
-    const createResp = await ghFetch(createUrl, {
+    const createResp = await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'users', labels: [USER_LABEL] })
     });
     const newIssue = await createResp.json();
-    if (typeof newIssue.number !== 'number') {
-        throw new Error('创建 Issue 返回数据异常：缺少 number');
-    }
+    if (typeof newIssue.number !== 'number') throw new Error('创建用户 Issue 失败');
     return newIssue.number;
 }
 
 async function getAllUsers() {
     try {
         const issueNumber = await getUserIssueNumber();
-        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
-        const resp = await ghFetch(commentsUrl);
-        const comments = await resp.json();
+        const comments = await (await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`)).json();
         const users = [];
         comments.forEach(c => {
-            try {
-                const u = JSON.parse(c.body);
-                if (u.username && u.password) users.push(u);
-            } catch (e) {}
+            try { const u = JSON.parse(c.body); if (u.username && u.password) users.push(u); } catch(e) {}
         });
         return users;
-    } catch (e) {
-        console.error('获取用户列表失败', e);
-        return [];
-    }
+    } catch(e) { return []; }
 }
 
 async function register(username, password) {
     if (username === SPECIAL_USER) throw new Error('此用户名不可用');
     const users = await getAllUsers();
     if (users.find(u => u.username === username)) throw new Error('用户名已存在');
-
     const issueNumber = await getUserIssueNumber();
-    const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
-    const resp = await ghFetch(url, {
+    await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: JSON.stringify({ username, password }) })
     });
-    // 写入成功
     currentUser = { username };
     localStorage.setItem('iwp-user', JSON.stringify(currentUser));
 }
@@ -549,14 +583,17 @@ function updateAuthUI() {
     const authSection = document.getElementById('auth-section');
     const loggedInSection = document.getElementById('comment-logged-in');
     if (currentUser) {
-        authSection.style.display = 'none';
-        loggedInSection.style.display = 'flex';
-        document.getElementById('current-user').textContent = currentUser.username;
+        if (authSection) authSection.style.display = 'none';
+        if (loggedInSection) loggedInSection.style.display = 'flex';
+        const cu = document.getElementById('current-user');
+        if (cu) cu.textContent = currentUser.username;
     } else {
-        authSection.style.display = 'block';
-        loggedInSection.style.display = 'none';
-        document.getElementById('auth-login').style.display = 'block';
-        document.getElementById('auth-register').style.display = 'none';
+        if (authSection) authSection.style.display = 'block';
+        if (loggedInSection) loggedInSection.style.display = 'none';
+        const al = document.getElementById('auth-login');
+        const ar = document.getElementById('auth-register');
+        if (al) al.style.display = 'block';
+        if (ar) ar.style.display = 'none';
     }
 }
 
@@ -566,54 +603,55 @@ function openCommentPanel() {
         loadCurrentChapterComments();
         loadChapterLikes();
     } else {
-        document.getElementById('comments-list').innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
-        document.getElementById('comment-count').textContent = '';
-        document.getElementById('chapter-like-count').textContent = '0';
+        const cl = document.getElementById('comments-list');
+        if (cl) cl.innerHTML = '<p style="color:#999;">登录后可查看评论</p>';
+        const cc = document.getElementById('comment-count');
+        if (cc) cc.textContent = '';
+        const clike = document.getElementById('chapter-like-count');
+        if (clike) clike.textContent = '0';
     }
 }
 
-// ==================== 评论核心 ====================
+// ---------- 评论核心 ----------
 function getCurrentChapterId() {
-    const h1s = document.querySelectorAll('#article-body h1');
-    const scrollTop = document.getElementById('content').scrollTop + 80;
-    let currentId = '000';
-    for (let i = h1s.length - 1; i >= 0; i--) {
-        if (h1s[i].offsetTop <= scrollTop) {
-            const id = h1s[i].id.replace(/^h-/, '');
-            if (/^\d+$/.test(id)) currentId = id.padStart(3, '0');
-            break;
+    const wrappers = document.querySelectorAll('.section-wrapper');
+    const contentEl = document.getElementById('content');
+    const scrollTop = (contentEl ? contentEl.scrollTop : (window.scrollY || 0)) + 80;
+    for (let i = wrappers.length - 1; i >= 0; i--) {
+        if (wrappers[i].offsetTop <= scrollTop) {
+            if (wrappers[i].dataset && wrappers[i].dataset.chapter) {
+                return String(wrappers[i].dataset.chapter).padStart(3, '0');
+            }
         }
     }
-    return currentId;
+    return '000';
 }
 
 function getCurrentChapterTitle() {
-    const h1s = document.querySelectorAll('#article-body h1');
-    const scrollTop = document.getElementById('content').scrollTop + 80;
-    for (let i = h1s.length - 1; i >= 0; i--) {
-        if (h1s[i].offsetTop <= scrollTop) return h1s[i].textContent.trim();
+    const wrappers = document.querySelectorAll('.section-wrapper');
+    const contentEl = document.getElementById('content');
+    const scrollTop = (contentEl ? contentEl.scrollTop : (window.scrollY || 0)) + 80;
+    for (let i = wrappers.length - 1; i >= 0; i--) {
+        if (wrappers[i].offsetTop <= scrollTop) {
+            const h1 = wrappers[i].querySelector('h1');
+            if (h1) return h1.textContent.trim();
+        }
     }
     return '序言';
 }
 
-// 根据 Label 获取或创建 Issue（通用函数，用于评论和点赞）
 async function getIssueByLabel(title, label) {
     const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${label}&state=open&per_page=100`;
-    const searchResp = await ghFetch(searchUrl);
-    const issues = await searchResp.json();
+    const issues = await (await ghFetch(searchUrl)).json();
     let issue = issues.find(i => i.title === title);
     if (issue) return issue;
-
-    const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
-    const createResp = await ghFetch(createUrl, {
+    const createResp = await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, labels: [label] })
     });
     const created = await createResp.json();
-    if (typeof created.number !== 'number') {
-        throw new Error('创建 Issue 返回异常：缺少 number');
-    }
+    if (typeof created.number !== 'number') throw new Error('创建 Issue 失败');
     return created;
 }
 
@@ -627,221 +665,177 @@ async function getChapterLikeIssue(chapterId) {
 
 async function loadComments(chapterId) {
     const list = document.getElementById('comments-list');
-    list.innerHTML = '<p style="color:#999;">加载中...</p>';
-    document.getElementById('comment-chapter-title').textContent = getCurrentChapterTitle();
+    if (list) list.innerHTML = '<p style="color:#999;">加载中...</p>';
+    const titleEl = document.getElementById('comment-chapter-title');
+    if (titleEl) titleEl.textContent = getCurrentChapterTitle();
     try {
         const issue = await getChapterIssue(chapterId);
-        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments?per_page=100`;
-        const resp = await ghFetch(commentsUrl);
-        const comments = await resp.json();
+        const comments = await (await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments?per_page=100`)).json();
         renderComments(comments);
-        document.getElementById('comment-count').textContent = `(${comments.length})`;
-    } catch (e) {
-        console.error('加载评论失败', e);
-        list.innerHTML = `<p style="color:#e74c3c;">加载失败：${e.message}</p>`;
-        document.getElementById('comment-count').textContent = '';
+        const countEl = document.getElementById('comment-count');
+        if (countEl) countEl.textContent = `(${comments.length})`;
+    } catch(e) {
+        if (list) list.innerHTML = `<p style="color:#e74c3c;">加载失败：${escapeHtml(e.message)}</p>`;
     }
 }
 
 function renderComments(comments) {
     const list = document.getElementById('comments-list');
-    if (!comments.length) {
+    if (!list) return;
+    if (!comments || !comments.length) {
         list.innerHTML = '<p style="color:#999;">暂无评论，来抢沙发吧~</p>';
         return;
     }
-    list.innerHTML = comments.map(c => {
-        let body = c.body.trim();
+    list.innerHTML = '';
+    comments.forEach(c => {
+        let body = (c.body || '').trim();
         const prefixMatch = body.match(/^\[(.*?)\]\s*/);
-        let displayName = c.user.login;
-        if (prefixMatch) {
-            displayName = prefixMatch[1];
-            body = body.slice(prefixMatch[0].length);
-        }
-        return `
-        <div style="margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid #444;">
-            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
-                <img src="${c.user.avatar_url}" style="width:22px; height:22px; border-radius:50%;">
-                <strong style="font-size:0.85rem; color:#ddd;">${escapeHtml(displayName)}</strong>
-                <span style="font-size:0.7rem; color:#888; margin-left:auto;">${new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
-            </div>
-            <p style="font-size:0.85rem; color:#ccc; margin:0; white-space:pre-wrap;">${escapeHtml(body)}</p>
-        </div>`;
-    }).join('');
-}
+        let displayName = (c.user && c.user.login) ? c.user.login : '匿名';
+        if (prefixMatch) { displayName = prefixMatch[1]; body = body.slice(prefixMatch[0].length); }
 
-function escapeHtml(text) {
-    return String(text).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
+        const item = document.createElement('div');
+        item.style.cssText = 'margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:1px solid #444;';
+
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;';
+        const avatar = document.createElement('img');
+        avatar.style.cssText = 'width:22px;height:22px;border-radius:50%;';
+        if (c.user && c.user.avatar_url) avatar.src = c.user.avatar_url;
+        head.appendChild(avatar);
+        const strong = document.createElement('strong');
+        strong.style.cssText = 'font-size:0.85rem;color:#ddd;';
+        strong.textContent = displayName;
+        head.appendChild(strong);
+        const dateSpan = document.createElement('span');
+        dateSpan.style.cssText = 'font-size:0.7rem;color:#888;margin-left:auto;';
+        dateSpan.textContent = c.created_at ? new Date(c.created_at).toLocaleDateString('zh-CN') : '';
+        head.appendChild(dateSpan);
+        item.appendChild(head);
+
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:0.85rem;color:#ccc;margin:0;white-space:pre-wrap;';
+        p.textContent = body;
+        item.appendChild(p);
+        list.appendChild(item);
+    });
 }
 
 async function postComment() {
     if (!currentUser) { alert('请先登录'); return; }
     const input = document.getElementById('comment-input');
+    if (!input) return;
     const body = input.value.trim();
     if (!body) return;
-
     const chapterId = getCurrentChapterId();
     try {
         const issue = await getChapterIssue(chapterId);
-        let commentBody = body;
-        if (currentUser.username === SPECIAL_USER) {
-            commentBody = `[${SPECIAL_TAG}] ${commentBody}`;
-        } else {
-            commentBody = `[${currentUser.username}] ${commentBody}`;
-        }
-        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments`;
-        await ghFetch(url, {
+        let commentBody = (currentUser.username === SPECIAL_USER) ? `[${SPECIAL_TAG}] ${body}` : `[${currentUser.username}] ${body}`;
+        await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ body: commentBody })
         });
         input.value = '';
         loadComments(chapterId);
-    } catch (e) {
-        console.error('发送评论失败', e);
-        alert('评论失败：' + e.message);
-    }
+    } catch(e) { alert('评论失败：' + e.message); }
 }
 
 function loadCurrentChapterComments() {
     if (!currentUser) {
-        document.getElementById('comments-list').innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
-        document.getElementById('comment-count').textContent = '';
+        const cl = document.getElementById('comments-list');
+        if (cl) cl.innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
         return;
     }
     loadComments(getCurrentChapterId());
 }
 
-// ==================== 文章点赞（独立 Label） ====================
+// ---------- 点赞 ----------
 async function loadChapterLikes() {
     try {
         const chapterId = getCurrentChapterId();
         const issue = await getChapterLikeIssue(chapterId);
-        const bodyStr = issue.body || '';
-        const match = bodyStr.match(/<!--likes:(\d+)-->/);
-        const likes = match ? parseInt(match[1], 10) : 0;
-        document.getElementById('chapter-like-count').textContent = likes;
-        document.getElementById('chapter-like-btn').setAttribute('data-likes', String(likes));
-    } catch (e) {
-        console.error('加载点赞数失败', e);
-        document.getElementById('chapter-like-count').textContent = '0';
+        const match = (issue.body || '').match(/<!--chapter-likes:(\d+)-->/);
+        const likes = match ? parseInt(match[1],10) : 0;
+        const countEl = document.getElementById('chapter-like-count');
+        if (countEl) countEl.textContent = likes;
+        const btn = document.getElementById('chapter-like-btn');
+        if (btn) btn.setAttribute('data-likes', String(likes));
+    } catch(e) {
+        const countEl = document.getElementById('chapter-like-count');
+        if (countEl) countEl.textContent = '0';
     }
 }
 
 document.addEventListener('click', async (e) => {
-    if (e.target.id === 'chapter-like-btn') {
-        const btn = e.target;
-        const likes = parseInt(btn.getAttribute('data-likes'), 10) || 0;
-        const newLikes = likes + 1;
-        const chapterId = getCurrentChapterId();
-        try {
-            const issue = await getChapterLikeIssue(chapterId);
-            const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/g, '') + `<!--chapter-likes:${newLikes}-->`;
-            await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ body: newBody })
-            });
-            btn.setAttribute('data-likes', String(newLikes));
-            document.getElementById('chapter-like-count').textContent = String(newLikes);
-        } catch (err) {
-            console.error('点赞失败', err);
-            alert('点赞失败：' + err.message);
-        }
-    }
+    const likeBtn = e.target.closest('#chapter-like-btn');
+    if (!likeBtn) return;
+    const btn = likeBtn;
+    const likes = parseInt(btn.getAttribute('data-likes'),10) || 0;
+    const newLikes = likes + 1;
+    const chapterId = getCurrentChapterId();
+    try {
+        const issue = await getChapterLikeIssue(chapterId);
+        const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/g, '') + `<!--chapter-likes:${newLikes}-->`;
+        await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body: newBody })
+        });
+        btn.setAttribute('data-likes', String(newLikes));
+        const countEl = document.getElementById('chapter-like-count');
+        if (countEl) countEl.textContent = String(newLikes);
+    } catch(err) { alert('点赞失败：' + err.message); }
 });
 
-// ==================== 初始化绑定 ====================
+// ---------- 评论 UI 绑定 ----------
 function setupComments() {
-    document.getElementById('btn-to-register').addEventListener('click', () => {
-        document.getElementById('auth-login').style.display = 'none';
-        document.getElementById('auth-register').style.display = 'block';
+    const commentsPanel = document.getElementById('comments-panel');
+    const btnComments = document.getElementById('btn-comments');
+    if (btnComments) btnComments.addEventListener('click', () => {
+        if (commentsPanel) commentsPanel.classList.add('panel-visible');
+        openCommentPanel();
     });
-    document.getElementById('btn-to-login').addEventListener('click', () => {
-        document.getElementById('auth-register').style.display = 'none';
-        document.getElementById('auth-login').style.display = 'block';
+    const closeBtn = commentsPanel ? commentsPanel.querySelector('.close-btn') : null;
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        if (commentsPanel) commentsPanel.classList.remove('panel-visible');
     });
-    document.getElementById('btn-login').addEventListener('click', async () => {
-        const username = document.getElementById('login-username').value.trim();
-        const password = document.getElementById('login-password').value;
+
+    const btnToRegister = document.getElementById('btn-to-register');
+    const btnToLogin = document.getElementById('btn-to-login');
+    if (btnToRegister) btnToRegister.addEventListener('click', () => {
+        const al = document.getElementById('auth-login'); if(al) al.style.display = 'none';
+        const ar = document.getElementById('auth-register'); if(ar) ar.style.display = 'block';
+    });
+    if (btnToLogin) btnToLogin.addEventListener('click', () => {
+        const ar = document.getElementById('auth-register'); if(ar) ar.style.display = 'none';
+        const al = document.getElementById('auth-login'); if(al) al.style.display = 'block';
+    });
+
+    const btnLogin = document.getElementById('btn-login');
+    if (btnLogin) btnLogin.addEventListener('click', async () => {
+        const username = document.getElementById('login-username')?.value?.trim?.() || '';
+        const password = document.getElementById('login-password')?.value || '';
         if (!username || !password) return alert('请填写用户名和密码');
-        try {
-            await login(username, password);
-            updateAuthUI();
-            loadCurrentChapterComments();
-            loadChapterLikes();
-        } catch (e) {
-            console.error('登录失败', e);
-            alert('登录失败：' + e.message);
-        }
+        try { await login(username, password); updateAuthUI(); loadCurrentChapterComments(); loadChapterLikes(); }
+        catch(e) { alert('登录失败：' + e.message); }
     });
-    document.getElementById('btn-register').addEventListener('click', async () => {
-        const username = document.getElementById('reg-username').value.trim();
-        const password = document.getElementById('reg-password').value;
+
+    const btnRegister = document.getElementById('btn-register');
+    if (btnRegister) btnRegister.addEventListener('click', async () => {
+        const username = document.getElementById('reg-username')?.value?.trim?.() || '';
+        const password = document.getElementById('reg-password')?.value || '';
         if (!username || !password) return alert('请填写用户名和密码');
-        try {
-            await register(username, password);
-            updateAuthUI();
-            loadCurrentChapterComments();
-            loadChapterLikes();
-        } catch (e) {
-            console.error('注册失败', e);
-            alert('注册失败：' + e.message);
-        }
+        try { await register(username, password); updateAuthUI(); loadCurrentChapterComments(); loadChapterLikes(); }
+        catch(e) { alert('注册失败：' + e.message); }
     });
-    document.getElementById('btn-logout').addEventListener('click', () => {
-        logout();
-        loadCurrentChapterComments();
-    });
-    document.getElementById('comment-submit').addEventListener('click', postComment);
-    document.getElementById('comment-input').addEventListener('keypress', e => {
-        if (e.key === 'Enter') postComment();
+
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) btnLogout.addEventListener('click', () => { logout(); loadCurrentChapterComments(); });
+
+    const commentSubmit = document.getElementById('comment-submit');
+    if (commentSubmit) commentSubmit.addEventListener('click', postComment);
+    const commentInput = document.getElementById('comment-input');
+    if (commentInput) commentInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); }
     });
 }
-
-// ==================== 检测函数（快速排查） ====================
-async function detectGitHubApi() {
-    const report = {
-        tokenValid: false,
-        repoAccessible: false,
-        issuesEnabled: false,
-        errors: []
-    };
-    try {
-        // 1) 验证 token
-        const userResp = await ghFetch('https://api.github.com/user');
-        if (userResp.ok) {
-            report.tokenValid = true;
-        }
-    } catch (e) {
-        report.errors.push('Token 验证失败：' + e.message);
-    }
-
-    try {
-        // 2) 仓库是否存在（尝试读取 issues 列表）
-        const issuesUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?per_page=1`;
-        await ghFetch(issuesUrl);
-        report.repoAccessible = true;
-    } catch (e) {
-        report.errors.push('仓库访问失败（可能不存在或无权限）：' + e.message);
-    }
-
-    try {
-        // 3) 尝试列出带指定 label 的 issues（如果 Issues 被关闭通常会 404/410）
-        const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${USER_LABEL}&state=open&per_page=1`;
-        await ghFetch(searchUrl);
-        report.issuesEnabled = true;
-    } catch (e) {
-        if (e.status === 404 || e.status === 410) {
-            report.errors.push('仓库的 Issues 功能可能已关闭：' + e.message);
-        } else {
-            report.errors.push('检测 Issues 功能失败：' + e.message);
-        }
-    }
-
-    console.log('[detectGitHubApi] 检测结果：', report);
-    return report;
-}
-
-// 暴露到全局以便在控制台调用 detectGitHubApi()
-window.detectGitHubApi = detectGitHubApi;
-
