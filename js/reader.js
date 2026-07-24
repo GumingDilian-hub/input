@@ -8,8 +8,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadAndRenderAll();
     setupSidebarResize();
     setupAuthorPanel();
-    setupSearchPanel();
-    setupToolbarButtons();
     setupChapterSelect();
     restoreProgress();
     setupProgressSaving();
@@ -222,6 +220,7 @@ function toggleCollapse(heading, toggleEl) {
     }
 }
 
+// 全部展开/折叠挂载到全局
 function expandAll() {
     document.querySelectorAll('.section-wrapper').forEach(w => w.style.display = '');
     document.querySelectorAll('.toc-toggle').forEach(t => t.textContent = '▼');
@@ -230,6 +229,8 @@ function collapseAll() {
     document.querySelectorAll('.section-wrapper').forEach(w => w.style.display = 'none');
     document.querySelectorAll('.toc-toggle').forEach(t => t.textContent = '▶');
 }
+window.expandAll = expandAll;
+window.collapseAll = collapseAll;
 
 function setupSidebarResize() {
     const sidebar = document.getElementById('sidebar');
@@ -256,6 +257,7 @@ function setupSidebarResize() {
 
 function setupAuthorPanel() {
     const btn = document.getElementById('btn-author');
+    if (!btn) return; // 如果没有作者按钮则跳过
     const panel = document.getElementById('author-panel');
     const closeBtn = document.getElementById('close-author');
     btn.addEventListener('click', async () => {
@@ -282,55 +284,6 @@ function setupAuthorPanel() {
         }
     });
     closeBtn.addEventListener('click', () => panel.classList.remove('panel-visible'));
-}
-
-function setupSearchPanel() {
-    const btn = document.getElementById('btn-search');
-    const panel = document.getElementById('search-panel');
-    const closeBtn = document.getElementById('close-search');
-    const input = document.getElementById('search-input');
-    const resultsDiv = document.getElementById('search-results');
-
-    btn.addEventListener('click', () => panel.classList.add('panel-visible'));
-    closeBtn.addEventListener('click', () => panel.classList.remove('panel-visible'));
-
-    async function buildIndex() {
-        const bodyText = document.getElementById('article-body').innerText;
-        const sections = bodyText.split(/\n(?=#{1,3}\s)/);
-        searchIndex = [];
-        sections.forEach(sec => {
-            const lines = sec.split('\n');
-            const title = lines[0].replace(/^#+\s*/, '');
-            const content = lines.slice(1).join(' ');
-            searchIndex.push({ title, content, path: '' });
-        });
-    }
-    buildIndex();
-
-    input.addEventListener('input', () => {
-        const query = input.value.trim().toLowerCase();
-        resultsDiv.innerHTML = '';
-        if (!query) return;
-        const matched = searchIndex.filter(item => 
-            item.title.toLowerCase().includes(query) || item.content.toLowerCase().includes(query)
-        );
-        matched.forEach(m => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.innerHTML = `<div class="title">${m.title}</div><div class="excerpt">${m.content.slice(0, 100)}...</div>`;
-            div.addEventListener('click', () => {
-                const allH = document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3');
-                for (let h of allH) {
-                    if (h.textContent.trim() === m.title) {
-                        h.scrollIntoView({ behavior: 'smooth' });
-                        panel.classList.remove('panel-visible');
-                        break;
-                    }
-                }
-            });
-            resultsDiv.appendChild(div);
-        });
-    });
 }
 
 function setupChapterSelect() {
@@ -371,9 +324,4 @@ function setupProgressSaving() {
             localStorage.setItem('iwp-progress', contentDiv.scrollTop);
         }, 300);
     });
-}
-
-function setupToolbarButtons() {
-    document.getElementById('expand-all').addEventListener('click', expandAll);
-    document.getElementById('collapse-all').addEventListener('click', collapseAll);
 }
