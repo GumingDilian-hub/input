@@ -115,7 +115,7 @@ async function loadAndRenderAll() {
     insertClearfix(body);
 
     const spacer = document.createElement('div');
-    spacer.style.height = '25vh'; spacer.style.width = '100%'; spacer.style.clear = 'both';
+    spacer.style.height = '25vh'; spacer.style.width = '100%'; spacer.style.clear='both';
     body.appendChild(spacer);
 }
 
@@ -437,6 +437,32 @@ function setupProgressSaving() {
     });
 }
 
+// ==================== 通用：带错误详情的 ghFetch ====================
+async function ghFetch(url, options = {}) {
+    const headers = {
+        ...(options.headers || {}),
+        Authorization: `token ${GH_TOKEN}`,
+        Accept: 'application/vnd.github+json'
+    };
+    const resp = await fetch(url, { ...options, headers });
+    if (!resp.ok) {
+        let detailText = '';
+        try {
+            const errJson = await resp.json();
+            detailText = errJson.message || JSON.stringify(errJson);
+        } catch {
+            detailText = await resp.text();
+        }
+        const msg = `GitHub API 请求失败 (${resp.status})：${detailText}`;
+        console.error('[ghFetch]', url, resp.status, detailText);
+        const err = new Error(msg);
+        err.status = resp.status;
+        err.body = detailText;
+        throw err;
+    }
+    return resp;
+}
+
 // ==================== 用户系统 ====================
 function setupUserSystem() {
     const saved = localStorage.getItem('iwp-user');
@@ -445,17 +471,21 @@ function setupUserSystem() {
 
 async function getUserIssueNumber() {
     const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${USER_LABEL}&state=open&per_page=100`;
-    const resp = await fetch(searchUrl);
-    const issues = await resp.json();
+    const searchResp = await ghFetch(searchUrl);
+    const issues = await searchResp.json();
     let issue = issues.find(i => i.title === 'users');
     if (issue) return issue.number;
+
     const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
-    const createResp = await fetch(createUrl, {
+    const createResp = await ghFetch(createUrl, {
         method: 'POST',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: 'users', labels: [USER_LABEL] })
     });
     const newIssue = await createResp.json();
+    if (typeof newIssue.number !== 'number') {
+        throw new Error('创建 Issue 返回数据异常：缺少 number');
+    }
     return newIssue.number;
 }
 
@@ -463,7 +493,7 @@ async function getAllUsers() {
     try {
         const issueNumber = await getUserIssueNumber();
         const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
-        const resp = await fetch(commentsUrl);
+        const resp = await ghFetch(commentsUrl);
         const comments = await resp.json();
         const users = [];
         comments.forEach(c => {
@@ -473,21 +503,25 @@ async function getAllUsers() {
             } catch (e) {}
         });
         return users;
-    } catch (e) { return []; }
+    } catch (e) {
+        console.error('获取用户列表失败', e);
+        return [];
+    }
 }
 
 async function register(username, password) {
     if (username === SPECIAL_USER) throw new Error('此用户名不可用');
     const users = await getAllUsers();
     if (users.find(u => u.username === username)) throw new Error('用户名已存在');
+
     const issueNumber = await getUserIssueNumber();
     const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
-    const resp = await fetch(url, {
+    const resp = await ghFetch(url, {
         method: 'POST',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: JSON.stringify({ username, password }) })
     });
-    if (!resp.ok) throw new Error('注册失败');
+    // 写入成功
     currentUser = { username };
     localStorage.setItem('iwp-user', JSON.stringify(currentUser));
 }
@@ -538,7 +572,7 @@ function openCommentPanel() {
     }
 }
 
-// ==================== 评论核心（无点赞） ====================
+// ==================== 评论核心 ====================
 function getCurrentChapterId() {
     const h1s = document.querySelectorAll('#article-body h1');
     const scrollTop = document.getElementById('content').scrollTop + 80;
@@ -565,25 +599,28 @@ function getCurrentChapterTitle() {
 // 根据 Label 获取或创建 Issue（通用函数，用于评论和点赞）
 async function getIssueByLabel(title, label) {
     const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${label}&state=open&per_page=100`;
-    const resp = await fetch(searchUrl);
-    const issues = await resp.json();
+    const searchResp = await ghFetch(searchUrl);
+    const issues = await searchResp.json();
     let issue = issues.find(i => i.title === title);
     if (issue) return issue;
+
     const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
-    const createResp = await fetch(createUrl, {
+    const createResp = await ghFetch(createUrl, {
         method: 'POST',
-        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, labels: [label] })
     });
-    return await createResp.json();
+    const created = await createResp.json();
+    if (typeof created.number !== 'number') {
+        throw new Error('创建 Issue 返回异常：缺少 number');
+    }
+    return created;
 }
 
-// 评论专用 Issue
 async function getChapterIssue(chapterId) {
     return getIssueByLabel(`comments-${chapterId}`, COMMENT_LABEL);
 }
 
-// 文章点赞专用 Issue
 async function getChapterLikeIssue(chapterId) {
     return getIssueByLabel(`chapter-like-${chapterId}`, CHAPTER_LIKE_LABEL);
 }
@@ -595,12 +632,13 @@ async function loadComments(chapterId) {
     try {
         const issue = await getChapterIssue(chapterId);
         const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments?per_page=100`;
-        const resp = await fetch(commentsUrl);
+        const resp = await ghFetch(commentsUrl);
         const comments = await resp.json();
         renderComments(comments);
         document.getElementById('comment-count').textContent = `(${comments.length})`;
     } catch (e) {
-        list.innerHTML = '<p style="color:#e74c3c;">加载失败</p>';
+        console.error('加载评论失败', e);
+        list.innerHTML = `<p style="color:#e74c3c;">加载失败：${e.message}</p>`;
         document.getElementById('comment-count').textContent = '';
     }
 }
@@ -651,15 +689,17 @@ async function postComment() {
             commentBody = `[${currentUser.username}] ${commentBody}`;
         }
         const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments`;
-        const resp = await fetch(url, {
+        await ghFetch(url, {
             method: 'POST',
-            headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ body: commentBody })
         });
-        if (!resp.ok) throw new Error('发送失败');
         input.value = '';
         loadComments(chapterId);
-    } catch (e) { alert('评论失败: ' + e.message); }
+    } catch (e) {
+        console.error('发送评论失败', e);
+        alert('评论失败：' + e.message);
+    }
 }
 
 function loadCurrentChapterComments() {
@@ -676,12 +716,13 @@ async function loadChapterLikes() {
     try {
         const chapterId = getCurrentChapterId();
         const issue = await getChapterLikeIssue(chapterId);
-        const body = issue.body || '';
-        const match = body.match(/<!--likes:(\d+)-->/);
-        const likes = match ? parseInt(match[1]) : 0;
+        const bodyStr = issue.body || '';
+        const match = bodyStr.match(/<!--likes:(\d+)-->/);
+        const likes = match ? parseInt(match[1], 10) : 0;
         document.getElementById('chapter-like-count').textContent = likes;
-        document.getElementById('chapter-like-btn').setAttribute('data-likes', likes);
+        document.getElementById('chapter-like-btn').setAttribute('data-likes', String(likes));
     } catch (e) {
+        console.error('加载点赞数失败', e);
         document.getElementById('chapter-like-count').textContent = '0';
     }
 }
@@ -689,18 +730,23 @@ async function loadChapterLikes() {
 document.addEventListener('click', async (e) => {
     if (e.target.id === 'chapter-like-btn') {
         const btn = e.target;
-        const likes = parseInt(btn.getAttribute('data-likes')) || 0;
+        const likes = parseInt(btn.getAttribute('data-likes'), 10) || 0;
         const newLikes = likes + 1;
         const chapterId = getCurrentChapterId();
-        const issue = await getChapterLikeIssue(chapterId);
-        const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/, '') + `<!--chapter-likes:${newLikes}-->`;
-        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ body: newBody })
-        });
-        btn.setAttribute('data-likes', newLikes);
-        document.getElementById('chapter-like-count').textContent = newLikes;
+        try {
+            const issue = await getChapterLikeIssue(chapterId);
+            const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/g, '') + `<!--chapter-likes:${newLikes}-->`;
+            await ghFetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: newBody })
+            });
+            btn.setAttribute('data-likes', String(newLikes));
+            document.getElementById('chapter-like-count').textContent = String(newLikes);
+        } catch (err) {
+            console.error('点赞失败', err);
+            alert('点赞失败：' + err.message);
+        }
     }
 });
 
@@ -723,7 +769,10 @@ function setupComments() {
             updateAuthUI();
             loadCurrentChapterComments();
             loadChapterLikes();
-        } catch (e) { alert('登录失败：' + e.message); }
+        } catch (e) {
+            console.error('登录失败', e);
+            alert('登录失败：' + e.message);
+        }
     });
     document.getElementById('btn-register').addEventListener('click', async () => {
         const username = document.getElementById('reg-username').value.trim();
@@ -734,7 +783,10 @@ function setupComments() {
             updateAuthUI();
             loadCurrentChapterComments();
             loadChapterLikes();
-        } catch (e) { alert('注册失败：' + e.message); }
+        } catch (e) {
+            console.error('注册失败', e);
+            alert('注册失败：' + e.message);
+        }
     });
     document.getElementById('btn-logout').addEventListener('click', () => {
         logout();
@@ -745,3 +797,50 @@ function setupComments() {
         if (e.key === 'Enter') postComment();
     });
 }
+
+// ==================== 检测函数（快速排查） ====================
+async function detectGitHubApi() {
+    const report = {
+        tokenValid: false,
+        repoAccessible: false,
+        issuesEnabled: false,
+        errors: []
+    };
+    try {
+        // 1) 验证 token
+        const userResp = await ghFetch('https://api.github.com/user');
+        if (userResp.ok) {
+            report.tokenValid = true;
+        }
+    } catch (e) {
+        report.errors.push('Token 验证失败：' + e.message);
+    }
+
+    try {
+        // 2) 仓库是否存在（尝试读取 issues 列表）
+        const issuesUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?per_page=1`;
+        await ghFetch(issuesUrl);
+        report.repoAccessible = true;
+    } catch (e) {
+        report.errors.push('仓库访问失败（可能不存在或无权限）：' + e.message);
+    }
+
+    try {
+        // 3) 尝试列出带指定 label 的 issues（如果 Issues 被关闭通常会 404/410）
+        const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${USER_LABEL}&state=open&per_page=1`;
+        await ghFetch(searchUrl);
+        report.issuesEnabled = true;
+    } catch (e) {
+        if (e.status === 404 || e.status === 410) {
+            report.errors.push('仓库的 Issues 功能可能已关闭：' + e.message);
+        } else {
+            report.errors.push('检测 Issues 功能失败：' + e.message);
+        }
+    }
+
+    console.log('[detectGitHubApi] 检测结果：', report);
+    return report;
+}
+
+// 暴露到全局以便在控制台调用 detectGitHubApi()
+window.detectGitHubApi = detectGitHubApi;
