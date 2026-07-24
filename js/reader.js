@@ -1,4 +1,9 @@
-const CHAPTERS = ['notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md'];
+const CHAPTERS = [];
+// 自动生成 000 - 019 共20章路径
+for (let i = 0; i < 20; i++) {
+    CHAPTERS.push('notes/' + String(i).padStart(3, '0') + '/index.md');
+}
+
 const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [];
 let searchIndex = [];
@@ -28,17 +33,20 @@ async function loadAndRenderAll() {
             const fm = parseFrontMatter(md);
             if (fm) {
                 if (!versionMeta && fm.title) versionMeta = fm;
+                // 删除 front matter 块，避免原文出现在正文中
                 md = md.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, '');
             }
             const chapterNum = mdPath.split('/')[1];
 
-            // 补全图片路径
+            // 补全 ![alt](src) 图片路径
             md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
                 if (!src.startsWith('http') && !src.startsWith('/')) {
                     return `![${alt}](images/${chapterNum}/${src})`;
                 }
                 return match;
             });
+
+            // 补全 :::image 语法图片路径
             md = md.replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (match, prefix, filename, suffix) => {
                 if (!filename.startsWith('http') && !filename.startsWith('/')) {
                     return prefix + 'images/' + chapterNum + '/' + filename + suffix;
@@ -52,6 +60,7 @@ async function loadAndRenderAll() {
         }
     }
 
+    // 显示版本信息（取第一个有效的 front matter）
     const versionDiv = document.getElementById('version-info');
     if (versionMeta) {
         versionDiv.innerHTML = `
@@ -73,70 +82,6 @@ async function loadAndRenderAll() {
     buildTOC();
     insertClearfix(body);
 }
-
-// ... 其他辅助函数保持不变 ...
-
-// 搜索功能：基于###小标题 + 下一行上下文
-function setupSearch() {
-    const searchInput = document.getElementById('search-input');
-    const resultsDiv = document.getElementById('search-results');
-
-    function buildSearchIndex() {
-        const articleBody = document.getElementById('article-body');
-        // 获取所有h3标题及其后续的一段文本
-        const h3Elements = articleBody.querySelectorAll('h3');
-        searchIndex = [];
-        h3Elements.forEach((h3, idx) => {
-            const title = h3.textContent.trim();
-            let nextNode = h3.nextElementSibling;
-            let context = '';
-            while (nextNode && nextNode.tagName !== 'H3' && nextNode.tagName !== 'H2' && nextNode.tagName !== 'H1') {
-                if (nextNode.textContent.trim()) {
-                    context += nextNode.textContent.trim() + ' ';
-                }
-                nextNode = nextNode.nextElementSibling;
-                if (context.length > 80) break; // 只取一小段
-            }
-            context = context.slice(0, 80).trim();
-            // 存储标题、上下文、以及h3的id
-            if (!h3.id) h3.id = 'h3-' + idx;
-            searchIndex.push({ title, context, id: h3.id });
-        });
-    }
-
-    buildSearchIndex();
-
-    searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim().toLowerCase();
-        resultsDiv.innerHTML = '';
-        if (!query) return;
-
-        const matched = searchIndex.filter(item =>
-            item.title.toLowerCase().includes(query) || item.context.toLowerCase().includes(query)
-        );
-
-        matched.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.innerHTML = `
-                <div class="title">${item.title}</div>
-                <div class="context">${item.context}</div>
-            `;
-            div.addEventListener('click', () => {
-                const target = document.getElementById(item.id);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    // 关闭搜索面板
-                    document.getElementById('search-panel').classList.remove('panel-visible');
-                }
-            });
-            resultsDiv.appendChild(div);
-        });
-    });
-}
-
-// 其他原有函数省略，保持与之前完全一致 ...
-// (以下补全全部函数，确保完整可运行)
 
 function parseFrontMatter(md) {
     const match = md.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -287,6 +232,7 @@ function toggleCollapse(heading, toggleEl) {
     }
 }
 
+// 全局展开/折叠函数
 function expandAll() {
     document.querySelectorAll('.section-wrapper').forEach(w => w.style.display = '');
     document.querySelectorAll('.toc-toggle').forEach(t => t.textContent = '▼');
@@ -350,6 +296,61 @@ function setupAuthorPanel() {
         }
     });
     closeBtn.addEventListener('click', () => panel.classList.remove('panel-visible'));
+}
+
+// 搜索功能：基于 ### 三级标题 + 下文摘要
+function setupSearch() {
+    const searchInput = document.getElementById('search-input');
+    const resultsDiv = document.getElementById('search-results');
+
+    function buildSearchIndex() {
+        const articleBody = document.getElementById('article-body');
+        const h3Elements = articleBody.querySelectorAll('h3');
+        searchIndex = [];
+        h3Elements.forEach((h3, idx) => {
+            const title = h3.textContent.trim();
+            let nextNode = h3.nextElementSibling;
+            let context = '';
+            while (nextNode && nextNode.tagName !== 'H3' && nextNode.tagName !== 'H2' && nextNode.tagName !== 'H1') {
+                if (nextNode.textContent.trim()) {
+                    context += nextNode.textContent.trim() + ' ';
+                }
+                nextNode = nextNode.nextElementSibling;
+                if (context.length > 80) break;
+            }
+            context = context.slice(0, 80).trim();
+            if (!h3.id) h3.id = 'h3-' + idx;
+            searchIndex.push({ title, context, id: h3.id });
+        });
+    }
+    buildSearchIndex();
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        resultsDiv.innerHTML = '';
+        if (!query) return;
+
+        const matched = searchIndex.filter(item =>
+            item.title.toLowerCase().includes(query) || item.context.toLowerCase().includes(query)
+        );
+
+        matched.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `
+                <div class="title">${item.title}</div>
+                <div class="context">${item.context}</div>
+            `;
+            div.addEventListener('click', () => {
+                const target = document.getElementById(item.id);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    document.getElementById('search-panel').classList.remove('panel-visible');
+                }
+            });
+            resultsDiv.appendChild(div);
+        });
+    });
 }
 
 function setupChapterSelect() {
