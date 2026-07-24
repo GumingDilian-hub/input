@@ -72,7 +72,7 @@ body {
     flex-shrink: 0;
 }
 
-/* 高亮的任何级别标题（白底黑字） */
+/* 多级高亮 */
 .toc-item.active {
     background-color: #ffffff;
     color: #111;
@@ -92,15 +92,12 @@ body {
 #content {
     flex: 1;
     overflow-y: auto;
-    padding: 2rem 3rem 6rem;   /* 初始底部留白 */
+    padding: 2rem 3rem;
     line-height: 1.8;
     background: #ffffff;
     color: #1a1a1a;
     position: relative;
-}
-/* 追加：使用 scroll-padding-bottom 确保滚动到锚点时不贴底 */
-#content {
-    scroll-padding-bottom: 8rem;
+    /* 底部额外留白通过 JS 插入的占位符实现 */
 }
 #version-info {
     background: #f0f0f0;
@@ -112,7 +109,7 @@ body {
     display: none;
 }
 
-/* ========== 工具栏 - 深色浮动 ========== */
+/* ========== 工具栏 ========== */
 #toolbar {
     position: fixed;
     top: 10px;
@@ -155,7 +152,6 @@ body {
     min-height: 100%;
 }
 .close-btn {
-    float: right;
     border: none;
     background: transparent;
     font-size: 1.5rem;
@@ -164,7 +160,7 @@ body {
     align-self: flex-end;
 }
 
-/* 搜索栏 */
+/* 搜索输入 */
 #search-input {
     width: 100%;
     padding: 0.6rem;
@@ -176,9 +172,17 @@ body {
     color: #ddd;
 }
 #search-results { margin-top: 1rem; flex: 1; }
-.search-result-item { /* 保持不变 */ }
+.search-result-item {
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid #444;
+    cursor: pointer;
+    line-height: 1.3;
+}
+.search-result-item:hover { background: #3a3a3a; }
+.search-result-item .title { font-weight: 600; color: #fff; font-size: 0.85rem; }
+.search-result-item .context { font-size: 0.75rem; color: #aaa; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 自动跟随开关样式 */
+/* 自动跟随开关 */
 .auto-scroll-toggle {
     margin-top: auto;
     padding: 1rem 0 0.5rem;
@@ -186,16 +190,65 @@ body {
     font-size: 0.85rem;
     color: #bbb;
 }
-.auto-scroll-toggle label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-}
-.auto-scroll-toggle input[type="checkbox"] {
-    accent-color: #fff;
-    width: 1rem;
-    height: 1rem;
-}
+.auto-scroll-toggle label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.auto-scroll-toggle input[type="checkbox"] { accent-color: #fff; width: 1rem; height: 1rem; }
 
-/* ========== 表格等其余样式保持不变（略，与之前版本相同） ========== */
+/* ========== 文章标题与内容 ========== */
+#article-body h1 {
+    font-size: 2rem;
+    margin: 1.8rem 0 1rem;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0.3rem;
+    color: #111;
+}
+#article-body h2 { font-size: 1.5rem; margin: 1.5rem 0 0.8rem; color: #222; }
+#article-body h3 { font-size: 1.2rem; margin: 1.2rem 0 0.6rem; color: #333; }
+#article-body p { margin: 0.8rem 0; color: #333; }
+
+pre {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; }
+
+/* ========== 图片排版 ========== */
+img { max-width: 100%; border-radius: 4px; }
+img.iwp-img-center { display: block; margin: 1rem auto; }
+img.iwp-img-left { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; }
+img.iwp-img-right { float: right; margin: 0.5rem 0 0.5rem 1rem; max-width: 50%; }
+img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; shape-outside: margin-box; }
+
+.figure-container { margin: 1rem 0; text-align: center; }
+.figure-container.figure-left { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; }
+.figure-container.figure-right { float: right; margin: 0.5rem 0 0.5rem 1rem; max-width: 50%; }
+.figure-container .figure-caption { font-size: 0.85rem; color: #555; margin-top: 0.3rem; }
+
+.clearfix::after { content: ""; display: table; clear: both; }
+
+/* ========== 表格优化 ========== */
+#article-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+#article-body th, #article-body td {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+}
+#article-body th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+    color: #222;
+    white-space: nowrap;
+}
+#article-body tr:nth-child(even) td { background-color: #fafafa; }
+#article-body tr:nth-child(odd) td { background-color: #fff; }
+#article-body tr:hover td { background-color: #e6f0fa; transition: background-color 0.15s; }
+#article-body td code { background-color: #f0f0f0; }
