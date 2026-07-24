@@ -155,7 +155,7 @@ body {
 }
 #search-results { margin-top: 1rem; }
 .search-result-item {
-    padding: 0.3rem 0.5rem;        /* 紧凑型条目 */
+    padding: 0.3rem 0.5rem;
     border-bottom: 1px solid #444;
     cursor: pointer;
     line-height: 1.3;
@@ -249,4 +249,41 @@ img.iwp-img-around {
     content: "";
     display: table;
     clear: both;
+}
+
+/* ========== 表格视觉优化 ========== */
+#article-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+#article-body th,
+#article-body td {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+}
+#article-body th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+    color: #222;
+    white-space: nowrap;
+}
+/* 斑马条纹 */
+#article-body tr:nth-child(even) td {
+    background-color: #fafafa;
+}
+#article-body tr:nth-child(odd) td {
+    background-color: #fff;
+}
+/* 悬停高亮 */
+#article-body tr:hover td {
+    background-color: #e6f0fa;
+    transition: background-color 0.15s;
+}
+#article-body td code {
+    background-color: #f0f0f0;
 }
