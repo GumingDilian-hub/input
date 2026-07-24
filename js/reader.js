@@ -44,15 +44,23 @@ async function loadAndRenderAll() {
     for (let mdPath of CHAPTERS) {
         try {
             const resp = await fetch(mdPath);
-            if (!resp.ok) continue;
+            if (!resp.ok) {
+                console.warn(`跳过缺失章节: ${mdPath}`);
+                continue;
+            }
             let md = await resp.text();
 
-            const fm = parseFrontMatter(md);
-            if (fm) {
-                if (!versionMeta && fm.title) versionMeta = fm;
-                // 删除 front matter 块，避免原文出现在正文中
-                md = md.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, '');
+            // ---------- 完全移除 Front Matter ----------
+            const fmMatch = md.match(/^---\s*\n([\s\S]*?)\n---/);
+            if (fmMatch) {
+                if (!versionMeta) {
+                    versionMeta = parseFrontMatterFromMatch(fmMatch[1]);
+                }
+                // 截掉整个 front matter 块（从开头到 --- 结束位置），并去除后续空白行
+                md = md.substring(fmMatch.index + fmMatch[0].length).trimStart();
             }
+            // ---------------------------------------------
+
             const chapterNum = mdPath.split('/')[1];
 
             // 补全 ![alt](src) 图片路径
@@ -73,11 +81,11 @@ async function loadAndRenderAll() {
 
             fullMarkdown += md + '\n\n';
         } catch (e) {
-            console.warn(`加载失败: ${mdPath}`, e);
+            console.warn(`无法加载章节 ${mdPath}: ${e}`);
         }
     }
 
-    // 显示版本信息（取第一个有效的 front matter）
+    // 版本信息栏
     const versionDiv = document.getElementById('version-info');
     if (versionMeta) {
         versionDiv.innerHTML = `
@@ -87,6 +95,14 @@ async function loadAndRenderAll() {
             ${versionMeta.tags ? '· 标签: ' + (Array.isArray(versionMeta.tags) ? versionMeta.tags.join(', ') : versionMeta.tags) : ''}
         `;
         versionDiv.style.display = 'block';
+    } else {
+        versionDiv.style.display = 'none';
+    }
+
+    // 空内容提示
+    if (!fullMarkdown.trim()) {
+        body.innerHTML = '<p style="color:#999; text-align:center; padding:3rem;">暂无笔记内容，请在 notes/ 文件夹中添加 Markdown 文件。</p>';
+        return;
     }
 
     let html = marked.parse(fullMarkdown);
@@ -100,10 +116,9 @@ async function loadAndRenderAll() {
     insertClearfix(body);
 }
 
-function parseFrontMatter(md) {
-    const match = md.match(/^---\s*\n([\s\S]*?)\n---/);
-    if (!match) return null;
-    const lines = match[1].split('\n');
+// 解析 front matter 内容（只传 YAML 部分）
+function parseFrontMatterFromMatch(yamlText) {
+    const lines = yamlText.split('\n');
     const meta = {};
     lines.forEach(line => {
         const m = line.match(/^(\w+):\s*(.*)/);
@@ -115,7 +130,7 @@ function parseFrontMatter(md) {
             meta[key] = val;
         }
     });
-    return meta;
+    return Object.keys(meta).length ? meta : null;
 }
 
 function postProcessImages(body) {
@@ -210,7 +225,7 @@ function buildTOC() {
     tocContainer.innerHTML = '';
     const body = document.getElementById('article-body');
     const headings = body.querySelectorAll('h1, h2, h3');
-    headings.forEach((h, idx) => {
+    headings.forEach((h) => {
         const level = parseInt(h.tagName.charAt(1));
         const text = h.textContent.trim();
         const item = document.createElement('div');
@@ -249,7 +264,6 @@ function toggleCollapse(heading, toggleEl) {
     }
 }
 
-// 全局展开/折叠函数
 function expandAll() {
     document.querySelectorAll('.section-wrapper').forEach(w => w.style.display = '');
     document.querySelectorAll('.toc-toggle').forEach(t => t.textContent = '▼');
@@ -265,7 +279,7 @@ function setupSidebarResize() {
     const sidebar = document.getElementById('sidebar');
     const resizer = document.getElementById('resizer');
     let isResizing = false;
-    resizer.addEventListener('mousedown', (e) => {
+    resizer.addEventListener('mousedown', () => {
         isResizing = true;
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
@@ -295,7 +309,7 @@ function setupAuthorPanel() {
             const resp = await fetch(AUTHOR_MD);
             if (resp.ok) {
                 const md = await resp.text();
-                const fm = parseFrontMatter(md);
+                const fm = parseFrontMatterFromMatch((md.match(/^---\s*\n([\s\S]*?)\n---/) || [])[1] || '');
                 let name = fm?.name || '未署名';
                 let bio = fm?.bio || '暂无简介';
                 let avatar = fm?.avatar || '';
@@ -315,7 +329,6 @@ function setupAuthorPanel() {
     closeBtn.addEventListener('click', () => panel.classList.remove('panel-visible'));
 }
 
-// 搜索功能：基于 ### 三级标题 + 下文摘要
 function setupSearch() {
     const searchInput = document.getElementById('search-input');
     const resultsDiv = document.getElementById('search-results');
