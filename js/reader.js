@@ -8,13 +8,19 @@ const CHAPTERS = [
 const AUTHOR_MD = 'notes/000/index.md';
 let allSections = [], searchIndex = [], chapterHeadings = [];
 
-// ========== GitHub 评论/用户系统配置 ==========
+// ========== GitHub 配置 ==========
 const GH_TOKEN = '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';
 const REPO_OWNER = 'GumingDilian-hub';
 const REPO_NAME = 'input';
-const LABEL_NAME = 'comment';
+const COMMENT_LABEL = 'comment';
+const USER_LABEL = 'users';
 
-let currentUser = null;   // 当前登录用户 { username: '...' }
+// 特殊账号（仅判断，不存储于 Issue）
+const SPECIAL_USER = 'loading';
+const SPECIAL_PASS = '10000';
+const SPECIAL_TAG = '始作俑者';
+
+let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadAndRenderAll();
@@ -30,11 +36,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupScrollSpy();
     restoreProgress();
     setupProgressSaving();
-    setupUserSystem();   // 恢复登录状态
-    setupComments();     // 绑定评论/注册事件
+    setupUserSystem();
+    setupComments();
 });
 
-// ========== 并行下载 + 分批渲染 ==========
+// ========== 并行下载 + 分批渲染（原版，保留你的所有细节） ==========
 async function loadAndRenderAll() {
     const body = document.getElementById('article-body');
     const progressText = document.getElementById('progress-text');
@@ -110,7 +116,7 @@ async function loadAndRenderAll() {
     body.appendChild(spacer);
 }
 
-// ========== 辅助函数 ==========
+// ========== 辅助函数（原封不动保留） ==========
 function extractAndRemoveFrontMatter(md) {
     const lines = md.split(/\r?\n/);
     if (lines[0].trim() !== '---') return { content: md, meta: null };
@@ -428,37 +434,31 @@ function setupProgressSaving() {
     });
 }
 
-// ==================== 评论 & 用户系统 ====================
-
-// 初始化登录状态
+// ==================== 用户系统 ====================
 function setupUserSystem() {
     const saved = localStorage.getItem('iwp-user');
     if (saved) currentUser = JSON.parse(saved);
 }
 
-// 获取或创建存储用户信息的 Issue（标题固定为 "users"）
-async function getUsersIssueNumber() {
-    const token = GH_TOKEN;
-    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${LABEL_NAME}&state=open&per_page=100`;
+async function getUserIssueNumber() {
+    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${USER_LABEL}&state=open&per_page=100`;
     const resp = await fetch(searchUrl);
     const issues = await resp.json();
     let issue = issues.find(i => i.title === 'users');
     if (issue) return issue.number;
-
     const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
     const createResp = await fetch(createUrl, {
         method: 'POST',
-        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'users', labels: [LABEL_NAME] })
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'users', labels: [USER_LABEL] })
     });
     const newIssue = await createResp.json();
     return newIssue.number;
 }
 
-// 获取所有用户（从 Issue 评论中解析）
 async function getAllUsers() {
     try {
-        const issueNumber = await getUsersIssueNumber();
+        const issueNumber = await getUserIssueNumber();
         const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
         const resp = await fetch(commentsUrl);
         const comments = await resp.json();
@@ -470,16 +470,14 @@ async function getAllUsers() {
             } catch (e) {}
         });
         return users;
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
 }
 
-// 注册
 async function register(username, password) {
+    if (username === SPECIAL_USER) throw new Error('此用户名不可用');
     const users = await getAllUsers();
     if (users.find(u => u.username === username)) throw new Error('用户名已存在');
-    const issueNumber = await getUsersIssueNumber();
+    const issueNumber = await getUserIssueNumber();
     const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
     const resp = await fetch(url, {
         method: 'POST',
@@ -491,8 +489,12 @@ async function register(username, password) {
     localStorage.setItem('iwp-user', JSON.stringify(currentUser));
 }
 
-// 登录
 async function login(username, password) {
+    if (username === SPECIAL_USER && password === SPECIAL_PASS) {
+        currentUser = { username };
+        localStorage.setItem('iwp-user', JSON.stringify(currentUser));
+        return;
+    }
     const users = await getAllUsers();
     const user = users.find(u => u.username === username && u.password === password);
     if (!user) throw new Error('用户名或密码错误');
@@ -500,14 +502,12 @@ async function login(username, password) {
     localStorage.setItem('iwp-user', JSON.stringify(currentUser));
 }
 
-// 退出
 function logout() {
     currentUser = null;
     localStorage.removeItem('iwp-user');
     updateAuthUI();
 }
 
-// 根据登录状态刷新评论区 UI
 function updateAuthUI() {
     const authSection = document.getElementById('auth-section');
     const loggedInSection = document.getElementById('comment-logged-in');
@@ -523,72 +523,19 @@ function updateAuthUI() {
     }
 }
 
-// 打开评论面板时调用（由 toggleCommentPanel 触发）
 function openCommentPanel() {
     updateAuthUI();
     if (currentUser) {
         loadCurrentChapterComments();
+        loadChapterLikes();
     } else {
         document.getElementById('comments-list').innerHTML = '<p style="color:#999;">请登录后查看评论</p>';
         document.getElementById('comment-count').textContent = '';
+        document.getElementById('chapter-like-count').textContent = '0';
     }
 }
 
-// 绑定评论和用户相关事件
-function setupComments() {
-    // 登录/注册切换
-    document.getElementById('btn-to-register').addEventListener('click', () => {
-        document.getElementById('auth-login').style.display = 'none';
-        document.getElementById('auth-register').style.display = 'block';
-    });
-    document.getElementById('btn-to-login').addEventListener('click', () => {
-        document.getElementById('auth-register').style.display = 'none';
-        document.getElementById('auth-login').style.display = 'block';
-    });
-
-    // 登录
-    document.getElementById('btn-login').addEventListener('click', async () => {
-        const username = document.getElementById('login-username').value.trim();
-        const password = document.getElementById('login-password').value;
-        if (!username || !password) return alert('请填写用户名和密码');
-        try {
-            await login(username, password);
-            updateAuthUI();
-            loadCurrentChapterComments();
-        } catch (e) {
-            alert('登录失败：' + e.message);
-        }
-    });
-
-    // 注册
-    document.getElementById('btn-register').addEventListener('click', async () => {
-        const username = document.getElementById('reg-username').value.trim();
-        const password = document.getElementById('reg-password').value;
-        if (!username || !password) return alert('请填写用户名和密码');
-        try {
-            await register(username, password);
-            updateAuthUI();
-            loadCurrentChapterComments();
-        } catch (e) {
-            alert('注册失败：' + e.message);
-        }
-    });
-
-    // 退出
-    document.getElementById('btn-logout').addEventListener('click', () => {
-        logout();
-        loadCurrentChapterComments();
-    });
-
-    // 发送评论
-    document.getElementById('comment-submit').addEventListener('click', postComment);
-    document.getElementById('comment-input').addEventListener('keypress', e => {
-        if (e.key === 'Enter') postComment();
-    });
-}
-
-// ==================== 评论核心逻辑 ====================
-
+// ==================== 评论与点赞核心 ====================
 function getCurrentChapterId() {
     const h1s = document.querySelectorAll('#article-body h1');
     const scrollTop = document.getElementById('content').scrollTop + 80;
@@ -612,22 +559,44 @@ function getCurrentChapterTitle() {
     return '序言';
 }
 
-async function findOrCreateChapterIssue(chapterId) {
+async function getChapterIssue(chapterId) {
     const title = `comments-${chapterId}`;
-    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${LABEL_NAME}&state=open&per_page=100`;
+    const searchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues?labels=${COMMENT_LABEL}&state=open&per_page=100`;
     const resp = await fetch(searchUrl);
     const issues = await resp.json();
-    const exist = issues.find(i => i.title === title);
-    if (exist) return exist.number;
-
+    let issue = issues.find(i => i.title === title);
+    if (issue) return issue;
     const createUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`;
     const createResp = await fetch(createUrl, {
         method: 'POST',
         headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, labels: [LABEL_NAME] })
+        body: JSON.stringify({ title, labels: [COMMENT_LABEL] })
     });
-    const newIssue = await createResp.json();
-    return newIssue.number;
+    return await createResp.json();
+}
+
+function parseLikes(body) {
+    const match = body.match(/<!--likes:(\d+)-->/);
+    return match ? parseInt(match[1]) : 0;
+}
+
+function setLikes(body, count) {
+    return body.replace(/<!--likes:\d+-->/, '') + `<!--likes:${count}-->`;
+}
+
+async function likeComment(commentId, currentLikes) {
+    const newLikes = currentLikes + 1;
+    const getUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/comments/${commentId}`;
+    const resp = await fetch(getUrl);
+    const comment = await resp.json();
+    const newBody = setLikes(comment.body, newLikes);
+    const updateUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/comments/${commentId}`;
+    await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: newBody })
+    });
+    return newLikes;
 }
 
 async function loadComments(chapterId) {
@@ -635,12 +604,13 @@ async function loadComments(chapterId) {
     list.innerHTML = '<p style="color:#999;">加载中...</p>';
     document.getElementById('comment-chapter-title').textContent = getCurrentChapterTitle();
     try {
-        const issueNumber = await findOrCreateChapterIssue(chapterId);
-        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments?per_page=100`;
+        const issue = await getChapterIssue(chapterId);
+        const commentsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments?per_page=100`;
         const resp = await fetch(commentsUrl);
         const comments = await resp.json();
-        renderComments(comments);
-        document.getElementById('comment-count').textContent = `(${comments.length})`;
+        const sorted = comments.map(c => ({ ...c, likes: parseLikes(c.body) })).sort((a, b) => b.likes - a.likes);
+        renderComments(sorted);
+        document.getElementById('comment-count').textContent = `(${sorted.length})`;
     } catch (e) {
         list.innerHTML = '<p style="color:#e74c3c;">加载失败</p>';
         document.getElementById('comment-count').textContent = '';
@@ -654,7 +624,7 @@ function renderComments(comments) {
         return;
     }
     list.innerHTML = comments.map(c => {
-        let body = c.body;
+        let body = c.body.replace(/<!--likes:\d+-->/, '').trim();
         const prefixMatch = body.match(/^\[(.*?)\]\s*/);
         let displayName = c.user.login;
         if (prefixMatch) {
@@ -669,8 +639,21 @@ function renderComments(comments) {
                 <span style="font-size:0.7rem; color:#888; margin-left:auto;">${new Date(c.created_at).toLocaleDateString('zh-CN')}</span>
             </div>
             <p style="font-size:0.85rem; color:#ccc; margin:0; white-space:pre-wrap;">${escapeHtml(body)}</p>
+            <div style="display:flex; align-items:center; gap:0.3rem; margin-top:0.3rem;">
+                <button class="like-btn" data-id="${c.id}" data-likes="${c.likes}">👍 ${c.likes}</button>
+            </div>
         </div>`;
     }).join('');
+    list.querySelectorAll('.like-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.getAttribute('data-id');
+            const likes = parseInt(this.getAttribute('data-likes'));
+            const newLikes = await likeComment(id, likes);
+            this.setAttribute('data-likes', newLikes);
+            this.textContent = `👍 ${newLikes}`;
+            loadComments(getCurrentChapterId());
+        });
+    });
 }
 
 function escapeHtml(text) {
@@ -678,19 +661,21 @@ function escapeHtml(text) {
 }
 
 async function postComment() {
-    if (!currentUser) {
-        alert('请先登录');
-        return;
-    }
+    if (!currentUser) { alert('请先登录'); return; }
     const input = document.getElementById('comment-input');
     const body = input.value.trim();
     if (!body) return;
 
     const chapterId = getCurrentChapterId();
     try {
-        const issueNumber = await findOrCreateChapterIssue(chapterId);
-        const commentBody = `[${currentUser.username}] ${body}`;
-        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}/comments`;
+        const issue = await getChapterIssue(chapterId);
+        let commentBody = body + '<!--likes:0-->';
+        if (currentUser.username === SPECIAL_USER) {
+            commentBody = `[${SPECIAL_TAG}] ${commentBody}`;
+        } else {
+            commentBody = `[${currentUser.username}] ${commentBody}`;
+        }
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/comments`;
         const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
@@ -699,9 +684,7 @@ async function postComment() {
         if (!resp.ok) throw new Error('发送失败');
         input.value = '';
         loadComments(chapterId);
-    } catch (e) {
-        alert('评论失败: ' + e.message);
-    }
+    } catch (e) { alert('评论失败: ' + e.message); }
 }
 
 function loadCurrentChapterComments() {
@@ -710,6 +693,78 @@ function loadCurrentChapterComments() {
         document.getElementById('comment-count').textContent = '';
         return;
     }
-    const chapterId = getCurrentChapterId();
-    loadComments(chapterId);
+    loadComments(getCurrentChapterId());
+}
+
+// ==================== 文章点赞 ====================
+async function loadChapterLikes() {
+    try {
+        const chapterId = getCurrentChapterId();
+        const issue = await getChapterIssue(chapterId);
+        const body = issue.body || '';
+        const match = body.match(/<!--chapter-likes:(\d+)-->/);
+        const likes = match ? parseInt(match[1]) : 0;
+        document.getElementById('chapter-like-count').textContent = likes;
+        document.getElementById('chapter-like-btn').setAttribute('data-likes', likes);
+    } catch (e) {}
+}
+
+document.addEventListener('click', async (e) => {
+    if (e.target.id === 'chapter-like-btn') {
+        const btn = e.target;
+        const likes = parseInt(btn.getAttribute('data-likes')) || 0;
+        const newLikes = likes + 1;
+        const chapterId = getCurrentChapterId();
+        const issue = await getChapterIssue(chapterId);
+        const newBody = (issue.body || '').replace(/<!--chapter-likes:\d+-->/, '') + `<!--chapter-likes:${newLikes}-->`;
+        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body: newBody })
+        });
+        btn.setAttribute('data-likes', newLikes);
+        document.getElementById('chapter-like-count').textContent = newLikes;
+    }
+});
+
+// ==================== 初始化绑定 ====================
+function setupComments() {
+    document.getElementById('btn-to-register').addEventListener('click', () => {
+        document.getElementById('auth-login').style.display = 'none';
+        document.getElementById('auth-register').style.display = 'block';
+    });
+    document.getElementById('btn-to-login').addEventListener('click', () => {
+        document.getElementById('auth-register').style.display = 'none';
+        document.getElementById('auth-login').style.display = 'block';
+    });
+    document.getElementById('btn-login').addEventListener('click', async () => {
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        if (!username || !password) return alert('请填写用户名和密码');
+        try {
+            await login(username, password);
+            updateAuthUI();
+            loadCurrentChapterComments();
+            loadChapterLikes();
+        } catch (e) { alert('登录失败：' + e.message); }
+    });
+    document.getElementById('btn-register').addEventListener('click', async () => {
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        if (!username || !password) return alert('请填写用户名和密码');
+        try {
+            await register(username, password);
+            updateAuthUI();
+            loadCurrentChapterComments();
+            loadChapterLikes();
+        } catch (e) { alert('注册失败：' + e.message); }
+    });
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        logout();
+        loadCurrentChapterComments();
+    });
+    document.getElementById('comment-submit').addEventListener('click', postComment);
+    document.getElementById('comment-input').addEventListener('keypress', e => {
+        if (e.key === 'Enter') postComment();
+    });
 }
