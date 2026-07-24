@@ -56,7 +56,7 @@ async function loadAndRenderAll() {
                 return { meta: fmResult.meta, content, chapterNum };
             })
             .catch(err => {
-                console.warn(`加载失败: ${path}`, err);
+                console.warn(`我输了: ${path}`, err);
                 return { meta: null, content: '', chapterNum: path.split('/')[1] };
             })
     );
@@ -77,7 +77,7 @@ async function loadAndRenderAll() {
         versionDiv.style.display = 'block';
     }
 
-    if (progressText) progressText.textContent = '正在排版渲染...';
+    if (progressText) progressText.textContent = '少女折寿中...';
     body.innerHTML = '';
 
     for (let i = 0; i < results.length; i++) {
@@ -136,7 +136,7 @@ function injectCommentSections(body) {
         commentSection.setAttribute('data-section-id', sectionId);
         commentSection.innerHTML = `
             <div class="comment-toggle" onclick="toggleCommentSection(this, '${sectionId}')">
-                💬 评论 <span class="comment-count-badge" id="comment-count-${sectionId}"></span>
+                来喵两句～ <span class="comment-count-badge" id="comment-count-${sectionId}"></span>
             </div>
             <div class="comment-body" id="comment-body-${sectionId}" style="display:none;">
                 <div class="comment-list" id="comment-list-${sectionId}"></div>
@@ -144,8 +144,8 @@ function injectCommentSections(body) {
                 <div class="comment-form" id="comment-form-${sectionId}">
                     <div class="auth-panel" id="auth-panel-${sectionId}"></div>
                     <div class="input-area" id="input-area-${sectionId}" style="display:none;">
-                        <textarea id="comment-input-${sectionId}" placeholder="写下你的评论..." rows="3"></textarea>
-                        <button onclick="submitComment('${sectionId}')">发表</button>
+                        <textarea id="comment-input-${sectionId}" placeholder="良言一句我就热，恶语伤人我就冷..." rows="3"></textarea>
+                        <button onclick="submitComment('${sectionId}')">说话！</button>
                         <span class="quote-hint">选中文字后点击“引用”可快速引用原文</span>
                     </div>
                 </div>
@@ -211,7 +211,7 @@ function updateAuthUI(sectionId) {
     const panel = document.getElementById('auth-panel-' + sectionId);
     const inputArea = document.getElementById('input-area-' + sectionId);
     if (currentUser) {
-        if (panel) panel.innerHTML = `<span>👤 ${currentUser.username}</span> <button onclick="logout()">退出</button>`;
+        if (panel) panel.innerHTML = `<span>H ${currentUser.username}</span> <button onclick="logout()">退出</button>`;
         if (inputArea) inputArea.style.display = 'block';
     } else {
         if (panel) panel.innerHTML = `
@@ -243,23 +243,23 @@ function showRegister(sectionId) {
 async function doLogin(sectionId) {
     const username = document.getElementById('login-username-' + sectionId).value.trim();
     const password = document.getElementById('login-password-' + sectionId).value;
-    if (!username || !password) return alert('请填写完整');
+    if (!username || !password) return alert('还想蒙混过关？！');
     try {
         await login(username, password);
         updateAuthUI(sectionId);
         loadComments(sectionId, 1);
-    } catch (e) { alert('登录失败: ' + e.message); }
+    } catch (e) { alert('还想偷渡？！: ' + e.message); }
 }
 
 async function doRegister(sectionId) {
     const username = document.getElementById('reg-username-' + sectionId).value.trim();
     const password = document.getElementById('reg-password-' + sectionId).value;
-    if (!username || !password) return alert('请填写完整');
+    if (!username || !password) return alert('还想蒙混过关？！');
     try {
         await register(username, password);
         updateAuthUI(sectionId);
         loadComments(sectionId, 1);
-    } catch (e) { alert('注册失败: ' + e.message); }
+    } catch (e) { alert('你失败了！: ' + e.message); }
 }
 
 // ---------- 评论加载与分页 ----------
@@ -270,7 +270,7 @@ async function loadComments(sectionId, page = 1) {
     const countBadge = document.getElementById('comment-count-' + sectionId);
     const paginationEl = document.getElementById('comment-pagination-' + sectionId);
     if (!listEl) return;
-    listEl.innerHTML = '加载中...';
+    listEl.innerHTML = '少女祈祷中...';
 
     try {
         const res = await fetch(`${COMMENT_API}/comments?section=${sectionId}&page=${page}&limit=10`);
@@ -286,7 +286,7 @@ async function loadComments(sectionId, page = 1) {
         }
         paginationEl.innerHTML = pagHTML;
     } catch (e) {
-        listEl.innerHTML = '评论加载失败';
+        listEl.innerHTML = '少女折寿中';
     }
 }
 
@@ -313,7 +313,7 @@ function renderComments(listEl, comments) {
 
 // ---------- 发表评论 ----------
 async function submitComment(sectionId) {
-    if (!currentUser) { alert('请先登录'); return; }
+    if (!currentUser) { alert('登录再喵～'); return; }
     const input = document.getElementById('comment-input-' + sectionId);
     if (!input) return;
     const content = input.value.trim();
@@ -332,7 +332,7 @@ async function submitComment(sectionId) {
         input.value = '';
         loadComments(sectionId, currentPage[sectionId] || 1);
     } catch (e) {
-        alert('发表失败: ' + e.message);
+        alert('欲言又止: ' + e.message);
     }
 }
 
@@ -343,7 +343,7 @@ async function likeComment(commentId, sectionId) {
         if (!res.ok) throw new Error((await res.json()).error);
         loadComments(sectionId, currentPage[sectionId] || 1);
     } catch (e) {
-        alert('点赞失败: ' + e.message);
+        alert('你不能喜欢别人: ' + e.message);
     }
 }
 
