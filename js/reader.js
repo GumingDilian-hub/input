@@ -10,7 +10,7 @@ let allSections = [], searchIndex = [], chapterHeadings = [];
 let currentUser = null;   // { username, token }
 
 // ========== Cloudflare Worker API 地址（请换成你自己的） ==========
-const COMMENT_API = 'woxiangcaoni.2167964516.workers.dev';
+const COMMENT_API = 'https://woxiangcaoni.2167964516.workers.dev';
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadAndRenderAll();
