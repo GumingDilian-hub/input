@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IWP Reader</title>
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=4">
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -65,7 +65,6 @@
     
     <script src="js/reader.js"></script>
     <script>
-        // 搜索面板切换
         function toggleSearchPanel() {
             var panel = document.getElementById('search-panel');
             if (panel.classList.contains('panel-visible')) {
@@ -75,18 +74,13 @@
             }
         }
 
-        // 版本号彩蛋
         (function() {
             var versionTag = document.getElementById('version-tag');
-            var clickCount = 0;
-            var firstClickTime = 0;
+            var clickCount = 0, firstClickTime = 0;
             versionTag.addEventListener('click', function(e) {
                 e.stopPropagation();
                 var now = Date.now();
-                if (now - firstClickTime > 5000) {
-                    clickCount = 0;
-                    firstClickTime = now;
-                }
+                if (now - firstClickTime > 5000) { clickCount = 0; firstClickTime = now; }
                 clickCount++;
                 if (clickCount === 6) {
                     window.location.href = 'https://github.com/GumingDilian-hub/input';
