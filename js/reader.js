@@ -576,7 +576,30 @@ function initAuthorPanel() {
                 let name = fm.name || '未署名', bio = fm.bio || '暂无简介', avatar = fm.avatar || '';
                 if (avatar && !avatar.startsWith('http')) avatar = 'images/000/' + avatar;
 
-                info.innerHTML = `${avatar ? `<img src="${avatar}" style="width:80px;border-radius:50%;margin-bottom:1rem;">` : ''}<h2>${escapeHtml(name)}</h2><p>${escapeHtml(bio)}</p>`;
+                // ---- 改动点1：作者名字变成链接 ----
+                const nameLink = document.createElement('a');
+                nameLink.href = `more.html?user=${encodeURIComponent(name)}`;
+                nameLink.style.color = '#88b4e6';
+                nameLink.style.textDecoration = 'none';
+                nameLink.textContent = escapeHtml(name);
+
+                const nameHeading = document.createElement('h2');
+                nameHeading.appendChild(nameLink);
+
+                const bioPara = document.createElement('p');
+                bioPara.textContent = escapeHtml(bio);
+
+                info.innerHTML = '';
+                if (avatar) {
+                    const img = document.createElement('img');
+                    img.src = avatar;
+                    img.style.width = '80px';
+                    img.style.borderRadius = '50%';
+                    img.style.marginBottom = '1rem';
+                    info.appendChild(img);
+                }
+                info.appendChild(nameHeading);
+                info.appendChild(bioPara);
                 panel.classList.add('loaded');
             }
         } catch (e) { }
@@ -779,10 +802,15 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
         contentWrap.className = 'comment-content';
 
         const header = document.createElement('div');
-        const userSpan = document.createElement('span');
-        userSpan.className = 'comment-user';
-        userSpan.textContent = node.username || '匿名';
-        header.appendChild(userSpan);
+
+        // ---- 改动点2：用户名变成链接 ----
+        const userLink = document.createElement('a');
+        userLink.href = `more.html?user=${encodeURIComponent(node.username || '')}`;
+        userLink.style.color = '#007bff';
+        userLink.style.textDecoration = 'none';
+        userLink.style.fontWeight = 'bold';
+        userLink.textContent = node.username || '匿名';
+        header.appendChild(userLink);
 
         if (node.username === CONFIG.ADMIN_USERNAME) {
             const masterTag = document.createElement('span');
