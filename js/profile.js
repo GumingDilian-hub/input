@@ -1,4 +1,4 @@
-/* ========== profile.js (编辑按钮终极修复) ========== */
+/* ========== profile.js (完整无敌版) ========== */
 /* 依赖：reader.js 或 blog.js 已提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
 
 function openProfile() {
@@ -37,7 +37,7 @@ async function renderProfileContent() {
   const user = { ...state.user, ...(fullUser || {}) };
   console.log('[个人中心] 当前用户:', user);
 
-  // 注册强推编辑
+  // 注册强推编辑界面
   if (sessionStorage.getItem('just_registered') === '1') {
     sessionStorage.removeItem('just_registered');
     showEditForm(container, user);
@@ -101,9 +101,8 @@ async function renderProfileContent() {
 
   const editBtn = document.createElement('button');
   editBtn.textContent = '编辑资料';
-  editBtn.id = 'profile-edit-btn'; // 便于调试
   editBtn.addEventListener('click', () => {
-    console.log('[编辑按钮] 被点击');
+    console.log('[编辑按钮] 点击');
     showEditForm(container, user);
   });
 
@@ -182,9 +181,9 @@ function renderLoginForm(container) {
   container.appendChild(hint);
 }
 
-// ---------- 编辑表单（彻底重写） ----------
+// ---------- 编辑表单（完整稳定版） ----------
 function showEditForm(container, user) {
-  console.log('[编辑表单] 开始构建');
+  console.log('[编辑表单] 开始构建，当前用户:', user);
 
   container.innerHTML = '';
 
@@ -193,96 +192,108 @@ function showEditForm(container, user) {
   title.textContent = '编辑资料';
   container.appendChild(title);
 
-  // 直接用 getElementById 获取输入值，不再依赖闭包对象
-  const formHtml = `
-    <div style="margin-bottom:10px;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;">头像 URL</label>
-      <input id="edit-avatar" type="text" value="${escapeHtml(user.avatar || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-    </div>
-    <div style="margin-bottom:10px;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;">学校</label>
-      <input id="edit-school" type="text" value="${escapeHtml(user.school || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-    </div>
-    <div style="margin-bottom:10px;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;">荣誉年份 (如 2025)</label>
-      <input id="edit-honor-year" type="text" value="${escapeHtml(user.honor_year || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-    </div>
-    <div style="margin-bottom:10px;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;">荣誉等级 (如 省一)</label>
-      <input id="edit-honor-rank" type="text" value="${escapeHtml(user.honor_rank || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-    </div>
-    <div style="border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;">当前密码（如需改密码必填）</label>
-      <input id="edit-old-pwd" type="password" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-      <label style="color:#ccc;display:block;margin-bottom:4px;margin-top:10px;">新密码</label>
-      <input id="edit-new-pwd" type="password" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;">
-      <button id="edit-cancel-btn" style="background:#555;">取消</button>
-      <button id="edit-save-btn" style="background:#d9534f;">保存</button>
-    </div>
-  `;
-  container.innerHTML += formHtml;
+  // 使用 createInput 辅助函数生成输入框（保证一致性）
+  const avatarInput = createInput('头像 URL', user.avatar || '');
+  const schoolInput = createInput('学校', user.school || '');
+  const honorYearInput = createInput('荣誉年份', user.honor_year || '');
+  const honorRankInput = createInput('荣誉等级', user.honor_rank || '');
 
-  // 绑定事件（用 getElementById 保证找到）
-  const cancelBtn = document.getElementById('edit-cancel-btn');
-  const saveBtn = document.getElementById('edit-save-btn');
+  const pwdDiv = document.createElement('div');
+  pwdDiv.style.cssText = 'border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;';
+  const oldPwdInput = createInput('当前密码（如需修改密码必填）', '', 'password');
+  const newPwdInput = createInput('新密码', '', 'password');
+  pwdDiv.appendChild(oldPwdInput.wrapper);
+  pwdDiv.appendChild(newPwdInput.wrapper);
 
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      console.log('[编辑表单] 取消编辑');
+  const btnGroup = document.createElement('div');
+  btnGroup.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '取消';
+  cancelBtn.style.background = '#555';
+  cancelBtn.addEventListener('click', () => {
+    console.log('[编辑表单] 取消');
+    renderProfileContent();
+  });
+
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '保存';
+  saveBtn.style.background = '#d9534f';
+  saveBtn.addEventListener('click', async () => {
+    console.log('[编辑表单] 保存按钮点击');
+
+    const avatar = avatarInput.input.value.trim();
+    const school = schoolInput.input.value.trim();
+    const honor_year = honorYearInput.input.value.trim();
+    const honor_rank = honorRankInput.input.value.trim();
+    const oldPwd = oldPwdInput.input.value;
+    const newPwd = newPwdInput.input.value;
+
+    const payload = { avatar, school, honor_year, honor_rank };
+    if (newPwd) {
+      if (!oldPwd) {
+        alert('请输入当前密码才能修改密码');
+        return;
+      }
+      payload.old_password = oldPwd;
+      payload.password = newPwd;
+    }
+
+    console.log('[编辑表单] 提交数据:', payload);
+
+    try {
+      const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.user.token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res) throw new Error('请求失败，可能是网络或 CORS 问题');
+      if (res.error) throw new Error(res.error);
+
+      state.user = { ...state.user, ...(res.user || {}) };
+      localStorage.setItem('iwp-user', JSON.stringify(state.user));
+      alert('资料更新成功！');
       renderProfileContent();
-    });
-  }
+    } catch (err) {
+      console.error('[编辑表单] 保存失败:', err);
+      alert('保存失败：' + err.message);
+    }
+  });
 
-  if (saveBtn) {
-    saveBtn.addEventListener('click', async () => {
-      console.log('[编辑表单] 保存按钮点击');
+  btnGroup.appendChild(cancelBtn);
+  btnGroup.appendChild(saveBtn);
 
-      const avatar = document.getElementById('edit-avatar')?.value.trim() || '';
-      const school = document.getElementById('edit-school')?.value.trim() || '';
-      const honor_year = document.getElementById('edit-honor-year')?.value.trim() || '';
-      const honor_rank = document.getElementById('edit-honor-rank')?.value.trim() || '';
-      const oldPwd = document.getElementById('edit-old-pwd')?.value || '';
-      const newPwd = document.getElementById('edit-new-pwd')?.value || '';
+  // 组装所有元素
+  container.appendChild(avatarInput.wrapper);
+  container.appendChild(schoolInput.wrapper);
+  container.appendChild(honorYearInput.wrapper);
+  container.appendChild(honorRankInput.wrapper);
+  container.appendChild(pwdDiv);
+  container.appendChild(btnGroup);
+}
 
-      const payload = { avatar, school, honor_year, honor_rank };
-      if (newPwd) {
-        if (!oldPwd) {
-          alert('请输入当前密码才能修改密码');
-          return;
-        }
-        payload.old_password = oldPwd;
-        payload.password = newPwd;
-      }
+// 辅助函数：创建带标签的输入框，返回 { wrapper, input }
+function createInput(labelText, value = '', type = 'text') {
+  const wrapper = document.createElement('div');
+  wrapper.style.marginBottom = '8px';
 
-      console.log('[编辑表单] 提交数据:', payload);
+  const label = document.createElement('label');
+  label.style.cssText = 'display:block;color:#ccc;margin-bottom:4px;font-size:0.9rem;';
+  label.textContent = labelText;
 
-      try {
-        const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.user.token}`
-          },
-          body: JSON.stringify(payload)
-        });
+  const input = document.createElement('input');
+  input.type = type;
+  input.value = value;
+  input.style.cssText = 'width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;';
 
-        if (!res) throw new Error('请求失败，可能是网络或 CORS 问题');
-        if (res.error) throw new Error(res.error);
+  wrapper.appendChild(label);
+  wrapper.appendChild(input);
 
-        state.user = { ...state.user, ...(res.user || {}) };
-        localStorage.setItem('iwp-user', JSON.stringify(state.user));
-        alert('资料更新成功！');
-        renderProfileContent();
-      } catch (err) {
-        console.error('[编辑表单] 保存失败:', err);
-        alert('保存失败：' + err.message);
-      }
-    });
-  } else {
-    console.error('[编辑表单] 找不到保存按钮');
-  }
+  return { wrapper, input };
 }
 
 // ---------- 事件同步 ----------
