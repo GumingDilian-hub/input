@@ -1,1239 +1,377 @@
-/* Full reconstructed js/blog.js
-   Restored missing/truncated parts and added a minimal blogApp to satisfy blog.html's calls.
-   Fixed submitPost to use real Worker API.
-*/
-
-/* ========== 配置与常量 ========== */
+/* ========== blog.js (完整修复版) ========== */
 const CONFIG = {
-    COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
-    ADMIN_USERNAME: 'loading',
-    CHAPTERS: [
-        'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
-        'notes/004/index.md', 'notes/005/index.md', 'notes/006/index.md', 'notes/007/index.md',
-        'notes/008/index.md', 'notes/009/index.md', 'notes/010/index.md', 'notes/011/index.md',
-        'notes/012/index.md', 'notes/013/index.md', 'notes/014/index.md', 'notes/015/index.md',
-        'notes/016/index.md', 'notes/017/index.md', 'notes/018/index.md', 'notes/019/index.md'
-    ],
-    AUTHOR_MD: 'notes/000/index.md',
-    DEFAULT_AVATAR: 'images/0721.png'
+  COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
+  DEFAULT_AVATAR: 'images/0721.png'
 };
 
-/* ========== 全局状态 ========== */
 let state = {
-    user: null,
-    comments: {},
-    scrollSpyActive: false
+  user: null,
+  currentPostId: null
 };
 
-/* ========== 工具函数 ========== */
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const escapeHtml = (unsafe) => {
-    if (typeof unsafe !== 'string') return '';
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  if (typeof unsafe !== 'string') return '';
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 };
 
 async function safeFetch(url, options = {}) {
-    try {
-        const res = await fetch(url, options);
-        if (!res.ok) {
-            let errText = res.statusText || `HTTP ${res.status}`;
-            try {
-                const ct = res.headers.get('content-type') || '';
-                if (ct.includes('application/json')) {
-                    const j = await res.json();
-                    errText = j.message || JSON.stringify(j);
-                } else {
-                    const t = await res.text();
-                    if (t) errText = t;
-                }
-            } catch (e) {}
-            throw new Error(errText);
-        }
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      let errText = res.statusText || `HTTP ${res.status}`;
+      try {
         const ct = res.headers.get('content-type') || '';
-        if (ct.includes('application/json')) return await res.json();
-        if (ct.includes('text/') || ct === '') return await res.text();
-        return res;
-    } catch (error) {
-        console.error(`Fetch Error [${url}]:`, error);
-        return null;
+        if (ct.includes('application/json')) {
+          const j = await res.json();
+          errText = j.message || JSON.stringify(j);
+        } else {
+          const t = await res.text();
+          if (t) errText = t;
+        }
+      } catch (e) {}
+      throw new Error(errText);
     }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return await res.json();
+    if (ct.includes('text/') || ct === '') return await res.text();
+    return res;
+  } catch (error) {
+    console.error(`Fetch Error [${url}]:`, error);
+    return null;
+  }
 }
 
-/* ========== 初始化入口 ========== */
-document.addEventListener('DOMContentLoaded', async () => {
-    const overlay = $('#loading-overlay');
+function restoreUserSession() {
+  const saved = localStorage.getItem('iwp-user');
+  if (saved) {
+    try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
+  } else {
+    state.user = null;
+  }
+}
+restoreUserSession();
 
-    await loadAllContent();
-
-    if (overlay) {
-        overlay.classList.add('hidden');
-        setTimeout(() => overlay.remove(), 500);
-    }
-
-    try {
-        initSidebar();
-        initSearch();
-        initScrollSpy();
-        initProgress();
-        initAuthorPanel();
-        initChapterSelect();
-
-        restoreUserSession();
-
-        const body = $('#article-body');
-        if (body) {
-            injectCommentSections(body);
-            setupGlobalCommentListeners();
-        }
-    } catch (e) {
-        console.error("Init Error:", e);
-    }
+window.addEventListener('storage', (e) => {
+  if (e.key === 'iwp-user') restoreUserSession();
 });
 
-/* ========== 核心内容加载 ========== */
-async function loadAllContent() {
-    const body = $('#article-body');
-    const progressText = $('#progress-text');
-    if (!body) return;
+/* ========== blogApp ========== */
+const blogApp = {
+  // ---------- 文章列表（首页） ----------
+  async fetchPosts() {
+    const container = document.getElementById('posts-container');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#999;">正在加载文章列表...</p>';
 
-    const total = CONFIG.CHAPTERS.length;
-    const fetchPromises = CONFIG.CHAPTERS.map((path) =>
-        fetch(path)
-            .then(resp => resp.ok ? resp.text() : Promise.reject(new Error('404')))
-            .then(text => processMarkdown(text, path))
-            .catch(err => {
-                console.warn(`Load failed: ${path}`, err);
-                return { meta: null, content: '', chapterNum: 'unknown' };
-            })
-    );
-
-    const settled = await Promise.allSettled(fetchPromises);
-
-    const results = settled.map((s, i) => {
-        if (s.status === 'fulfilled') return s.value;
-        return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
-    });
-
-    renderVersionInfo(results);
-
-    if (progressText) progressText.textContent = '正在渲染 DOM...';
-    body.innerHTML = '';
-
-    for (let i = 0; i < results.length; i++) {
-        const chunk = results[i].content;
-        if (!chunk) continue;
-
-        const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'section-wrapper clearfix';
-
-        try {
-            sectionDiv.innerHTML = (typeof marked !== 'undefined') ? marked.parse(chunk) : chunk;
-        } catch (e) {
-            sectionDiv.innerHTML = `<p>[解析错误]</p>`;
-        }
-
-        postProcessImages(sectionDiv, results[i].chapterNum);
-        postProcessFigure(sectionDiv);
-        sectionDiv.querySelectorAll('pre code').forEach(b => {
-            try { if (typeof hljs !== 'undefined') hljs.highlightElement(b); } catch (e) { }
-        });
-
-        body.appendChild(sectionDiv);
-
-        if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-
-        if (i % 3 === 2) await new Promise(r => requestAnimationFrame(r));
-    }
-
-    renderMath();
-    buildTOC();
-
-    if (progressText) progressText.parentElement.classList.add('hidden');
-}
-
-/* ========== Markdown 预处理 ========== */
-function processMarkdown(md, path) {
-    const { meta, content } = extractAndRemoveFrontMatter(md);
-    const chapterNum = path.split('/')[1] || '000';
-
-    let processedContent = content
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
-            src = src.trim();
-            if (!/^(https?:|\/|data:)/i.test(src)) {
-                src = src.replace(/^\.\//, '').replace(/^\.\.\//, '');
-                return `![${alt}](images/${chapterNum}/${src})`;
-            }
-            return m;
-        })
-        .replace(/:::image\s+([^\s]+)?\s*([^\s]+)\s*(.*?)\s*:::/g, (m, pos, filename, caption) => {
-            pos = pos || 'center';
-            if (!/^(https?:|\/|data:)/i.test(filename)) {
-                filename = `images/${chapterNum}/${filename}`;
-            }
-            return `<div class="iwp-figure" data-pos="${pos}"><img src="${filename}" alt="${escapeHtml(caption || '')}"><div class="figure-caption">${escapeHtml(caption || '')}</div></div>`;
-        });
-
-    return { meta, content: processedContent, chapterNum };
-}
-
-function extractAndRemoveFrontMatter(md) {
-    const lines = md.split(/\r?\n/);
-    if (lines[0].trim() !== '---') return { content: md, meta: null };
-    const end = lines.indexOf('---', 1);
-    if (end === -1) return { content: md, meta: null };
-
-    const fmLines = lines.slice(1, end);
-    const meta = {};
-    fmLines.forEach(line => {
-        const m = line.match(/^([\w-]+):\s*(.*)/);
-        if (m) {
-            let key = m[1], val = m[2].trim();
-            if (key === 'tags') {
-                if (val.startsWith('[') && val.endsWith(']')) {
-                    try {
-                        meta[key] = val.slice(1, -1).split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-                    } catch (e) {
-                        meta[key] = val;
-                    }
-                } else {
-                    meta[key] = val.split(',').map(t => t.trim()).filter(Boolean);
-                }
-            } else {
-                meta[key] = val.replace(/^['"]|['"]$/g, '');
-            }
-        }
-    });
-
-    let content = lines.slice(end + 1).join('\n').replace(/^\n+/, '');
-    return { content, meta };
-}
-
-/* ========== 图片与图表后处理 ========== */
-function postProcessImages(container, chapterNum) {
-    container.querySelectorAll('img').forEach(img => {
-        img.onerror = function () {
-            this.src = CONFIG.DEFAULT_AVATAR;
-        };
-
-        const alt = img.alt || '';
-        const match = alt.match(/\{(left|right|around|center)\s*(?:width=(\d+))?\}/);
-        if (match) {
-            const pos = match[1], width = match[2];
-            if (width) img.style.width = width + 'px';
-            img.classList.add('iwp-img-' + pos);
-            img.alt = alt.replace(match[0], '').trim();
-        } else {
-            const fig = img.closest('.iwp-figure');
-            if (fig) {
-                const pos = fig.getAttribute('data-pos') || 'center';
-                img.classList.add('iwp-img-' + pos);
-            } else {
-                img.classList.add('iwp-img-center');
-            }
-        }
-    });
-}
-
-function postProcessFigure(container) {
-    container.querySelectorAll('.iwp-figure').forEach(node => {
-        const pos = node.getAttribute('data-pos') || 'center';
-        const img = node.querySelector('img');
-        const caption = node.querySelector('.figure-caption') ? node.querySelector('.figure-caption').textContent : '';
-        const wrapper = document.createElement('div');
-        wrapper.className = `figure-container figure-${pos}`;
-        const imgEl = document.createElement('img');
-        imgEl.src = img ? img.getAttribute('src') : '';
-        imgEl.alt = caption ? escapeHtml(caption) : '';
-        imgEl.className = `iwp-img-${pos}`;
-        const cap = document.createElement('div');
-        cap.className = 'figure-caption';
-        cap.textContent = caption ? caption : '';
-        wrapper.appendChild(imgEl);
-        wrapper.appendChild(cap);
-        node.parentNode.replaceChild(wrapper, node);
-    });
-}
-
-/* ========== 渲染数学公式 ========== */
-function renderMath() {
-    const body = $('#article-body');
-    if (body && typeof renderMathInElement === 'function') {
-        renderMathInElement(body, {
-            delimiters: [
-                { left: '$$', right: '$$', display: true },
-                { left: '$', right: '$', display: false }
-            ],
-            throwOnError: false
-        });
-    }
-}
-
-/* ========== 版本信息渲染 ========== */
-function renderVersionInfo(results) {
-    let versionMeta = null;
-    for (const r of results) {
-        if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
-    }
-
-    const versionDiv = $('#version-info');
-    if (versionMeta && versionDiv) {
-        versionDiv.innerHTML =
-            `<strong>${escapeHtml(versionMeta.title || '')}</strong>` +
-            (versionMeta.date ? ` · 更新: ${escapeHtml(versionMeta.date)}` : '') +
-            (versionMeta.version ? ` · v${escapeHtml(versionMeta.version)}` : '') +
-            (versionMeta.tags ? ` · 标签: ${escapeHtml(Array.isArray(versionMeta.tags) ? versionMeta.tags.join(', ') : versionMeta.tags)}` : '');
-        versionDiv.style.display = 'block';
-    }
-}
-
-/* ========== UI 功能、TOC、搜索、ScrollSpy 等 ========== */
-function initSidebar() {
-    const resizer = $('#resizer');
-    const sidebar = $('#sidebar');
-    if (!resizer || !sidebar) return;
-
-    let isResizing = false;
-    resizer.addEventListener('mousedown', () => { isResizing = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; });
-    document.addEventListener('mousemove', e => {
-        if (!isResizing) return;
-        const w = e.clientX;
-        if (w > 180 && w < 600) sidebar.style.width = w + 'px';
-    });
-    document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
-
-    window.expandAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display = '');
-        $$('.toc-toggle').forEach(t => t.textContent = '▼');
-        $$('.toc-item[data-parent]').forEach(i => i.style.display = '');
-    };
-    window.collapseAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display = 'none');
-        $$('.toc-toggle').forEach(t => t.textContent = '▶');
-        $$('.toc-item[data-parent]').forEach(i => i.style.display = 'none');
-    };
-}
-
-function buildTOC() {
-    const toc = $('#toc-tree');
-    if (!toc) return;
-    toc.innerHTML = '';
-    const headings = $$('#article-body h1, #article-body h2, #article-body h3');
-    let lastH1 = null, lastH2 = null;
-    let headingIndex = 0;
-
-    headings.forEach(h => {
-        if (!h.id) h.id = 'h-' + (headingIndex++);
-        const level = parseInt(h.tagName.charAt(1));
-        const text = h.textContent.trim();
-        const item = document.createElement('div');
-        item.className = `toc-item toc-h${level}`;
-        item.setAttribute('data-target', h.id);
-
-        if (level === 1) { lastH1 = h.id; lastH2 = null; }
-        else if (level === 2) { lastH2 = h.id; item.setAttribute('data-parent', lastH1); }
-        else if (level === 3) { item.setAttribute('data-parent', lastH2 || lastH1); }
-
-        if (level <= 2) {
-            const toggle = document.createElement('span');
-            toggle.className = 'toc-toggle'; toggle.textContent = '▼';
-            toggle.addEventListener('click', e => { e.stopPropagation(); toggleSectionVisibility(h.id, toggle); });
-            item.appendChild(toggle);
-        } else {
-            const spacer = document.createElement('span');
-            spacer.style.display = 'inline-block'; spacer.style.width = '1rem';
-            item.appendChild(spacer);
-        }
-        const span = document.createElement('span'); span.textContent = text;
-        item.appendChild(span);
-        item.addEventListener('click', () => {
-            try { h.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
-        });
-        toc.appendChild(item);
-    });
-}
-
-function toggleSectionVisibility(headingId, toggleEl) {
-    const target = document.getElementById(headingId);
-    if (!target) return;
-    let wrapper = target.closest('.section-wrapper');
-    if (!wrapper) {
-        let node = target.nextElementSibling;
-        const nodes = [];
-        while (node && !/H1|H2|H3/.test(node.tagName)) {
-            nodes.push(node);
-            node = node.nextElementSibling;
-        }
-        const visible = nodes.length > 0 && nodes[0].style.display !== 'none';
-        nodes.forEach(n => n.style.display = visible ? 'none' : '');
-        if (toggleEl) toggleEl.textContent = visible ? '▶' : '▼';
-        return;
-    }
-    const visible = wrapper.style.display !== 'none';
-    if (visible) {
-        wrapper.style.display = 'none'; if (toggleEl) toggleEl.textContent = '▶';
-        hideTOCChildren(headingId);
-    } else {
-        wrapper.style.display = ''; if (toggleEl) toggleEl.textContent = '▼';
-        showTOCChildren(headingId);
-    }
-}
-function hideTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) c.style.display = 'none'; }); }
-function showTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) { if (isParentVisible(c)) c.style.display = ''; }}); }
-function isParentVisible(child) {
-    const pid = child.getAttribute('data-parent');
-    if (!pid) return true;
-    const p = document.getElementById(pid);
-    if (!p) return true;
-    const pw = p.closest('.section-wrapper');
-    return !(pw && pw.style.display === 'none');
-}
-
-function initSearch() {
-    const input = $('#search-input');
-    const results = $('#search-results');
-    if (!input || !results) return;
-
-    let debounceTimer;
-    let searchIndex = [];
-
-    function buildIndex() {
-        searchIndex = [];
-        $$('#article-body h3').forEach((h3, i) => {
-            if (!h3.id) h3.id = 'h3-' + i;
-            const title = h3.textContent.trim();
-            let ctx = '', node = h3.nextElementSibling;
-            while (node && !['H1', 'H2', 'H3'].includes(node.tagName)) {
-                if (node.textContent.trim()) ctx += node.textContent.trim() + ' ';
-                node = node.nextElementSibling;
-                if (ctx.length > 80) break;
-            }
-            searchIndex.push({ title, titleLower: title.toLowerCase(), context: ctx.slice(0, 80).trim(), id: h3.id });
-        });
-    }
-
-    setTimeout(buildIndex, 1000);
-
-    input.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            const q = input.value.trim().toLowerCase();
-            results.innerHTML = '';
-            if (!q) return;
-
-            searchIndex.filter(i => i.titleLower.includes(q) || i.context.toLowerCase().includes(q)).forEach(i => {
-                const div = document.createElement('div');
-                div.className = 'search-result-item';
-                const title = document.createElement('div'); title.className = 'title'; title.textContent = i.title;
-                const ctx = document.createElement('div'); ctx.className = 'context'; ctx.textContent = i.context;
-                div.appendChild(title); div.appendChild(ctx);
-                div.addEventListener('click', () => {
-                    const el = document.getElementById(i.id);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        toggleSearchPanel();
-                    }
-                });
-                results.appendChild(div);
-            });
-        }, 300);
-    });
-}
-
-function toggleSearchPanel() {
-    const panel = $('#search-panel');
-    if (panel) {
-        panel.classList.toggle('panel-visible');
-    }
-}
-
-function initScrollSpy() {
-    const tocItems = $$('.toc-item');
-    const autoCheckbox = $('#auto-scroll-checkbox');
-    const rootEl = $('#content');
-
-    const idToToc = new Map();
-    tocItems.forEach(item => {
-        const targetId = item.getAttribute('data-target');
-        if (targetId) idToToc.set(targetId, item);
-    });
-
-    function highlightChain(targetId) {
-        tocItems.forEach(i => i.classList.remove('active'));
-        let current = $(`.toc-item[data-target="${targetId}"]`);
-        while (current) {
-            current.classList.add('active');
-            const parentId = current.getAttribute('data-parent');
-            if (parentId) {
-                current = $(`.toc-item[data-target="${parentId}"]`);
-            } else break;
-        }
-    }
-
-    function scrollTocTo(targetId) {
-        if (!autoCheckbox || !autoCheckbox.checked) return;
-        const item = $(`.toc-item[data-target="${targetId}"]`);
-        if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-
-    const observer = new IntersectionObserver((entries) => {
-        let topMostEntry = null;
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                if (!topMostEntry || entry.boundingClientRect.top < topMostEntry.boundingClientRect.top) {
-                    topMostEntry = entry;
-                }
-            }
-        });
-        if (topMostEntry) {
-            const id = topMostEntry.target.id;
-            highlightChain(id);
-            scrollTocTo(id);
-        }
-    }, {
-        root: rootEl,
-        rootMargin: '-10% 0px -70% 0px',
-        threshold: 0
-    });
-
-    $$('#article-body h1, #article-body h2, #article-body h3').forEach(h => {
-        try { observer.observe(h); } catch (e) { }
-    });
-}
-
-function initProgress() {
-    const content = $('#content');
-    if (!content) return;
-
-    const saved = localStorage.getItem('iwp-progress');
-    if (saved) content.scrollTop = parseInt(saved) || 0;
-
-    let timer;
-    content.addEventListener('scroll', () => {
-        clearTimeout(timer);
-        timer = setTimeout(() => localStorage.setItem('iwp-progress', content.scrollTop), 300);
-    });
-}
-
-function initAuthorPanel() {
-    const btn = $('#btn-author');
-    const panel = $('#author-panel');
-    const close = $('#close-author');
-    if (!btn || !panel || !close) return;
-
-    btn.addEventListener('click', async () => {
-        panel.classList.add('panel-visible');
-        const info = $('#author-info');
-        if (panel.classList.contains('loaded') || !info) return;
-
-        try {
-            const resp = await fetch(CONFIG.AUTHOR_MD);
-            if (resp.ok) {
-                const md = await resp.text();
-                const fm = extractAndRemoveFrontMatter(md).meta || {};
-                let name = fm.name || '未署名', bio = fm.bio || '暂无简介', avatar = fm.avatar || '';
-                if (avatar && !avatar.startsWith('http')) avatar = 'images/000/' + avatar;
-
-                const nameLink = document.createElement('a');
-                nameLink.href = `more.html?user=${encodeURIComponent(name)}`;
-                nameLink.style.color = '#88b4e6';
-                nameLink.style.textDecoration = 'none';
-                nameLink.textContent = escapeHtml(name);
-
-                const nameHeading = document.createElement('h2');
-                nameHeading.appendChild(nameLink);
-
-                const bioPara = document.createElement('p');
-                bioPara.textContent = escapeHtml(bio);
-
-                info.innerHTML = '';
-                if (avatar) {
-                    const img = document.createElement('img');
-                    img.src = avatar;
-                    img.style.width = '80px';
-                    img.style.borderRadius = '50%';
-                    img.style.marginBottom = '1rem';
-                    info.appendChild(img);
-                }
-                info.appendChild(nameHeading);
-                info.appendChild(bioPara);
-                panel.classList.add('loaded');
-            }
-        } catch (e) { }
-    });
-
-    close.addEventListener('click', () => panel.classList.remove('panel-visible'));
-}
-
-function initChapterSelect() {
-    const select = $('#chapter-select');
-    if (!select) return;
-    $$('#article-body h1').forEach(h1 => {
-        if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2, 8);
-        const opt = document.createElement('option');
-        opt.value = h1.id;
-        opt.textContent = h1.textContent.trim();
-        select.appendChild(opt);
-    });
-    select.addEventListener('change', () => {
-        const el = document.getElementById(select.value);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-}
-
-/* ========== 评论区系统 ========== */
-function injectCommentSections(body) {
-    const h2s = body.querySelectorAll('h2');
-    h2s.forEach((h2, index) => {
-        if (!h2.id) h2.id = 'h2-' + index;
-        const sectionId = h2.id;
-
-        const commentSection = document.createElement('div');
-        commentSection.className = 'comment-section';
-        commentSection.setAttribute('data-section-id', sectionId);
-
-        const toggle = document.createElement('div');
-        toggle.className = 'comment-toggle';
-        toggle.textContent = '来喵两句～（点击展开评论区） ';
-        const countBadge = document.createElement('span');
-        countBadge.className = 'comment-count-badge';
-        countBadge.id = 'comment-count-' + sectionId;
-        toggle.appendChild(countBadge);
-        toggle.addEventListener('click', () => toggleCommentSection(sectionId));
-
-        const bodyDiv = document.createElement('div');
-        bodyDiv.className = 'comment-body';
-        bodyDiv.id = 'comment-body-' + sectionId;
-        bodyDiv.style.display = 'none';
-
-        const list = document.createElement('div');
-        list.className = 'comment-list';
-        list.id = 'comment-list-' + sectionId;
-
-        const form = document.createElement('div');
-        form.className = 'comment-form';
-        form.id = 'comment-form-' + sectionId;
-
-        const authPanel = document.createElement('div');
-        authPanel.className = 'auth-panel';
-        authPanel.id = 'auth-panel-' + sectionId;
-
-        const inputArea = document.createElement('div');
-        inputArea.className = 'input-area';
-        inputArea.id = 'input-area-' + sectionId;
-        inputArea.style.display = 'none';
-
-        const textarea = document.createElement('textarea');
-        textarea.id = `comment-input-${sectionId}`;
-        textarea.placeholder = '良言一句我就热，恶语伤人我就冷...';
-        textarea.rows = 3;
-
-        const submitBtn = document.createElement('button');
-        submitBtn.type = 'button';
-        submitBtn.textContent = '说话！';
-        submitBtn.addEventListener('click', () => submitComment(sectionId));
-
-        inputArea.appendChild(textarea);
-        inputArea.appendChild(submitBtn);
-
-        form.appendChild(authPanel);
-        form.appendChild(inputArea);
-
-        bodyDiv.appendChild(list);
-        bodyDiv.appendChild(form);
-
-        commentSection.appendChild(toggle);
-        commentSection.appendChild(bodyDiv);
-
-        h2.parentNode.insertBefore(commentSection, h2.nextSibling);
-
-        updateAuthUI(sectionId);
-    });
-}
-
-function toggleCommentSection(sectionId) {
-    const body = document.getElementById('comment-body-' + sectionId);
-    if (!body) return;
-    if (body.style.display === 'none' || body.style.display === '') {
-        body.style.display = 'block';
-        if (!state.comments[sectionId]) {
-            fetchCommentsForSection(sectionId);
-        } else {
-            renderCommentsForSection(sectionId);
-        }
-    } else {
-        body.style.display = 'none';
-    }
-}
-
-async function fetchCommentsForSection(sectionId) {
-    const listEl = document.getElementById('comment-list-' + sectionId);
-    const countBadge = document.getElementById('comment-count-' + sectionId);
-    if (!listEl) return;
-    listEl.innerHTML = '少女祈祷中...';
-
-    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(sectionId)}&limit=100`);
-
-    if (data) {
-        const flat = Array.isArray(data) ? data : (data.comments || []);
-        state.comments[sectionId] = flat;
-        if (countBadge) countBadge.textContent = `(${(data.total || flat.length || 0)})`;
-        renderCommentsForSection(sectionId);
-        updateAuthUI(sectionId);
-    } else {
-        listEl.innerHTML = '加载失败，请稍后再试';
-    }
-}
-
-function buildCommentTree(flatComments) {
-    const map = {};
-    const roots = [];
-
-    flatComments.forEach(c => {
-        c.children = [];
-        map[c.id] = c;
-    });
-
-    flatComments.forEach(c => {
-        if (c.parent_id && map[c.parent_id]) {
-            map[c.parent_id].children.push(c);
-        } else {
-            if (c.parent_id && !map[c.parent_id]) c.orphan = true;
-            roots.push(c);
-        }
-    });
-    return roots;
-}
-
-function renderCommentsForSection(sectionId) {
-    const listEl = document.getElementById('comment-list-' + sectionId);
-    if (!listEl) return;
-
-    const flat = state.comments[sectionId] || [];
-    const tree = buildCommentTree(flat);
-    listEl.innerHTML = '';
-
-    if (flat.length === 0) {
-        listEl.innerHTML = '<p style="color:#999; font-size:0.9rem;">暂无评论，快来抢沙发～</p>';
-        return;
-    }
-
-    renderCommentNodeRecursive(listEl, tree, sectionId);
-}
-
-function renderCommentNodeRecursive(container, nodes, sectionId) {
-    nodes.forEach(node => {
-        const wrapper = document.createElement('div');
-        const isChild = !!node.parent_id;
-
-        wrapper.className = isChild ? 'comment-node-child' : 'comment-node-root';
-        wrapper.style.marginLeft = isChild ? '24px' : '';
-        wrapper.style.paddingLeft = isChild ? '12px' : '';
-        wrapper.style.borderLeft = isChild ? '2px solid #eee' : '';
-
-        const item = document.createElement('div');
-        item.className = 'comment-item';
-
-        const avatarWrap = document.createElement('div');
-        avatarWrap.className = 'comment-avatar';
-        const avatarImg = document.createElement('img');
-        avatarImg.src = node.avatar || CONFIG.DEFAULT_AVATAR;
-        avatarImg.width = 32; avatarImg.height = 32;
-        avatarImg.onerror = function () { this.src = CONFIG.DEFAULT_AVATAR; };
-        avatarWrap.appendChild(avatarImg);
-
-        const contentWrap = document.createElement('div');
-        contentWrap.className = 'comment-content';
-
-        const header = document.createElement('div');
-
-        const userLink = document.createElement('a');
-        userLink.href = `more.html?user=${encodeURIComponent(node.username || '')}`;
-        userLink.style.color = '#007bff';
-        userLink.style.textDecoration = 'none';
-        userLink.style.fontWeight = 'bold';
-        userLink.textContent = node.username || '匿名';
-        header.appendChild(userLink);
-
-        if (node.username === CONFIG.ADMIN_USERNAME) {
-            const masterTag = document.createElement('span');
-            masterTag.style.cssText = "background:#d9534f; color:white; font-size:10px; padding:2px 6px; border-radius:3px; margin-left:6px; vertical-align:middle;";
-            masterTag.textContent = '始作俑者';
-            header.appendChild(masterTag);
-        }
-
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'comment-time';
-        timeSpan.style.marginLeft = '8px';
-        timeSpan.textContent = node.created_at ? new Date(node.created_at).toLocaleString() : '';
-        header.appendChild(timeSpan);
-
-        const para = document.createElement('p');
-        para.style.margin = '5px 0 0';
-        para.style.color = '#444';
-        para.style.lineHeight = '1.5';
-        para.textContent = node.content || '';
-
-        const actions = document.createElement('div');
-        actions.className = 'comment-actions';
-        actions.style.marginTop = '5px';
-
-        const likeBtn = document.createElement('button');
-        likeBtn.type = 'button';
-        likeBtn.style.background = 'none';
-        likeBtn.style.border = 'none';
-        likeBtn.style.cursor = 'pointer';
-        likeBtn.style.fontSize = '0.85rem';
-        likeBtn.textContent = `❤️ ${node.likes || 0}`;
-        likeBtn.addEventListener('click', () => likeComment(node.id, sectionId));
-
-        const quoteBtn = document.createElement('button');
-        quoteBtn.type = 'button';
-        quoteBtn.style.background = 'none';
-        quoteBtn.style.border = 'none';
-        quoteBtn.style.cursor = 'pointer';
-        quoteBtn.style.fontSize = '0.85rem';
-        quoteBtn.textContent = '引用';
-        quoteBtn.addEventListener('click', () => {
-            const input = document.getElementById(`comment-input-${sectionId}`);
-            if (input) {
-                input.value += `> ${node.content}\n`;
-                input.focus();
-            }
-        });
-
-        const replyBtn = document.createElement('button');
-        replyBtn.type = 'button';
-        replyBtn.style.background = 'none';
-        replyBtn.style.border = 'none';
-        replyBtn.style.cursor = 'pointer';
-        replyBtn.style.fontSize = '0.85rem';
-        replyBtn.textContent = '回复';
-        replyBtn.addEventListener('click', () => showReplyBox(node.id, sectionId));
-
-        actions.appendChild(likeBtn);
-        actions.appendChild(quoteBtn);
-        actions.appendChild(replyBtn);
-
-        contentWrap.appendChild(header);
-        contentWrap.appendChild(para);
-        contentWrap.appendChild(actions);
-
-        item.appendChild(avatarWrap);
-        item.appendChild(contentWrap);
-
-        wrapper.appendChild(item);
-
-        const replyBox = document.createElement('div');
-        replyBox.id = `reply-box-${node.id}`;
-        replyBox.style.display = 'none';
-        replyBox.style.margin = '8px 0 8px 42px';
-        wrapper.appendChild(replyBox);
-
-        container.appendChild(wrapper);
-
-        if (node.children && node.children.length > 0) {
-            const childrenContainer = document.createElement('div');
-            container.appendChild(childrenContainer);
-            renderCommentNodeRecursive(childrenContainer, node.children, sectionId);
-        }
-    });
-}
-
-/* ========== 登录、注册、回复、点赞 ========== */
-function restoreUserSession() {
     try {
-        if (typeof getProfileUser === 'function') {
-            const pu = getProfileUser();
-            if (pu) {
-                state.user = pu;
-            } else {
-                const saved = localStorage.getItem('iwp-user');
-                if (saved) {
-                    try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
-                } else {
-                    state.user = null;
-                }
-            }
-        } else if (typeof window.profileUser !== 'undefined' && window.profileUser) {
-            state.user = window.profileUser;
-        } else {
-            const saved = localStorage.getItem('iwp-user');
-            if (saved) {
-                try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
-            } else {
-                state.user = null;
-            }
-        }
+      const res = await fetch(`${CONFIG.COMMENT_API}/posts`);
+      if (!res.ok) throw new Error('加载失败');
+      const data = await res.json();
+      const posts = data.posts || [];
+
+      container.innerHTML = '';
+      if (posts.length === 0) {
+        container.innerHTML = '<p style="color:#999;">没有找到文章。</p>';
+        return;
+      }
+
+      posts.forEach(p => {
+        const heat = (p.views || 0) + (p.likes || 0) * 5 + (p.comments_count || 0) * 10;
+        const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString() : '未知日期';
+        const author = p.author || '匿名';
+
+        const el = document.createElement('div');
+        el.className = 'post-item';
+        el.style.cssText = 'padding:0.8rem 1rem;border-bottom:1px solid #333;cursor:pointer;transition:background 0.2s;';
+        el.addEventListener('mouseenter', () => el.style.background = '#2a2a2a');
+        el.addEventListener('mouseleave', () => el.style.background = '');
+        el.addEventListener('click', () => this.openPost(p.id));
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:1.1rem;font-weight:bold;color:#88b4e6;margin-bottom:0.3rem;';
+        title.textContent = p.title;
+
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:0.85rem;color:#999;display:flex;gap:1rem;flex-wrap:wrap;';
+        meta.innerHTML = `
+          <span>[作者] ${escapeHtml(author)}</span>
+          <span>[日期] ${dateStr}</span>
+          <span>[热度] ${heat}</span>
+          <span>[浏览] ${p.views || 0}</span>
+          <span>[点赞] ${p.likes || 0}</span>
+          <span>[评论] ${p.comments_count || 0}</span>
+        `;
+
+        el.appendChild(title);
+        el.appendChild(meta);
+        container.appendChild(el);
+      });
     } catch (e) {
-        console.error('restoreUserSession error', e);
-        state.user = null;
+      container.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
     }
-    $$('.comment-section').forEach(sec => {
-        const sectionId = sec.getAttribute('data-section-id');
-        updateAuthUI(sectionId);
+  },
+
+  // ---------- 打开文章 ----------
+  async openPost(id) {
+    const listView = document.getElementById('blog-list-view');
+    const readView = document.getElementById('blog-read-view');
+    const article = document.getElementById('article-container');
+    const commentsArea = document.getElementById('blog-comments-area');
+    if (!listView || !readView || !article) return;
+
+    listView.style.display = 'none';
+    readView.style.display = '';
+    article.innerHTML = '<p style="color:#999;">正在加载文章...</p>';
+
+    try {
+      const res = await fetch(`${CONFIG.COMMENT_API}/posts/${id}`);
+      if (!res.ok) throw new Error('文章不存在');
+      const data = await res.json();
+      const post = data.post;
+      state.currentPostId = id;
+
+      const html = (typeof marked !== 'undefined') ? marked.parse(post.content_md) : post.content_md;
+      article.innerHTML = html;
+
+      // 统计信息
+      document.getElementById('post-stats').textContent =
+        `浏览: ${post.views} · 点赞: ${post.likes || 0} · 评论: ${post.comments_count || 0} · 热度: ${(post.views||0) + (post.likes||0)*5 + (post.comments_count||0)*10}`;
+
+      // 点赞按钮（局部更新，不刷新页面）
+      const likeBtn = document.getElementById('btn-like-post');
+      likeBtn.onclick = async () => {
+        if (!state.user) { alert('请先登录'); return; }
+        const likeRes = await safeFetch(`${CONFIG.COMMENT_API}/posts/${id}/like`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${state.user.token}` }
+        });
+        if (likeRes) {
+          // 直接更新本地统计，不重新拉取整个页面
+          const newLikes = likeRes.action === 'liked' ? (post.likes || 0) + 1 : Math.max((post.likes || 0) - 1, 0);
+          post.likes = newLikes;
+          document.getElementById('post-stats').textContent =
+            `浏览: ${post.views} · 点赞: ${post.likes} · 评论: ${post.comments_count || 0} · 热度: ${(post.views||0) + (post.likes||0)*5 + (post.comments_count||0)*10}`;
+          likeBtn.textContent = likeRes.action === 'liked' ? '已点赞' : '点赞';
+        }
+      };
+      // 初始状态：由于 API 没有返回当前用户是否已点赞，保持“点赞”文字，点击后根据返回切换
+      likeBtn.textContent = '点赞';
+
+      // 下一篇
+      const nextBtn = document.getElementById('btn-next-post');
+      if (data.next_id) {
+        nextBtn.style.display = '';
+        nextBtn.onclick = () => this.openPost(data.next_id);
+      } else {
+        nextBtn.style.display = 'none';
+      }
+
+      // 显示评论区并加载评论
+      if (commentsArea) {
+        commentsArea.style.display = '';
+        this.loadComments();
+      }
+    } catch (e) {
+      article.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
+    }
+  },
+
+  // ---------- 返回列表 ----------
+  backToList() {
+    document.getElementById('blog-list-view').style.display = '';
+    document.getElementById('blog-read-view').style.display = 'none';
+    const commentsArea = document.getElementById('blog-comments-area');
+    if (commentsArea) commentsArea.style.display = 'none';
+  },
+
+  // ---------- 编辑器 ----------
+  openEditor() {
+    document.getElementById('editor-panel').style.display = 'block';
+  },
+  closeEditor() {
+    document.getElementById('editor-panel').style.display = 'none';
+  },
+
+  // ---------- 发文 ----------
+  async submitPost() {
+    if (!state.user || !state.user.token) {
+      alert('请先登录再发布文章');
+      return;
+    }
+    const title = document.getElementById('editor-title')?.value.trim();
+    const content_md = document.getElementById('editor-content')?.value.trim();
+    if (!title || !content_md) {
+      alert('标题和内容不能为空');
+      return;
+    }
+    try {
+      const res = await fetch(`${CONFIG.COMMENT_API}/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.user.token}`
+        },
+        body: JSON.stringify({ title, content_md })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      alert('文章发布成功！');
+      this.closeEditor();
+      this.fetchPosts();
+    } catch (err) {
+      console.error('发布失败:', err);
+      alert('发布失败：' + err.message);
+    }
+  },
+
+  // ---------- 评论 ----------
+  async loadComments() {
+    const section = 'blog-' + state.currentPostId;
+    const list = document.getElementById('blog-comment-list');
+    const countSpan = document.getElementById('blog-comment-count');
+    if (!list) return;
+    list.innerHTML = '加载中...';
+
+    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(section)}&limit=50`);
+    if (!data) {
+      list.innerHTML = '加载失败';
+      return;
+    }
+    const comments = data.comments || [];
+    list.innerHTML = comments.length === 0 ? '<p style="color:#999;">暂无评论，快来抢沙发</p>' : '';
+
+    comments.forEach(c => {
+      const div = document.createElement('div');
+      div.style.cssText = 'border-bottom:1px solid #333;padding:0.5rem 0;';
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <img src="${escapeHtml(c.avatar || CONFIG.DEFAULT_AVATAR)}" style="width:24px;height:24px;border-radius:50%;">
+          <strong style="color:#eee;">${escapeHtml(c.username || '匿名')}</strong>
+          <span style="color:#888;font-size:0.8rem;">${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
+        </div>
+        <p style="margin:0.3rem 0 0 0;color:#ccc;">${escapeHtml(c.content)}</p>
+      `;
+      list.appendChild(div);
     });
-}
 
-function updateAuthUI(sectionId) {
-    const panel = document.getElementById('auth-panel-' + sectionId);
-    const inputArea = document.getElementById('input-area-' + sectionId);
-    if (!panel) return;
+    if (countSpan) countSpan.textContent = `(${comments.length})`;
 
-    panel.innerHTML = '';
-
-    if (state.user) {
-        const span = document.createElement('span'); span.textContent = `Hi ${state.user.username}`;
-        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '退出';
-        btn.addEventListener('click', () => doLogout());
-        panel.appendChild(span); panel.appendChild(document.createTextNode(' ')); panel.appendChild(btn);
+    // 评论表单的登录状态处理
+    const authPanel = document.getElementById('blog-auth-panel');
+    const inputArea = document.getElementById('blog-input-area');
+    if (authPanel) {
+      if (state.user) {
+        authPanel.innerHTML = `<span style="color:#eee;">Hi ${escapeHtml(state.user.username)}</span> <button onclick="blogApp.logout()">退出</button>`;
         if (inputArea) inputArea.style.display = 'block';
-    } else {
-        const loginBtn = document.createElement('button'); loginBtn.type = 'button'; loginBtn.textContent = '登录';
-        const regBtn = document.createElement('button'); regBtn.type = 'button'; regBtn.textContent = '注册';
-        loginBtn.addEventListener('click', () => showLoginUI(sectionId));
-        regBtn.addEventListener('click', () => showRegisterUI(sectionId));
-        panel.appendChild(loginBtn); panel.appendChild(regBtn);
+      } else {
+        authPanel.innerHTML = `<button onclick="blogApp.showLogin()">登录</button> <button onclick="blogApp.showRegister()">注册</button>`;
         if (inputArea) inputArea.style.display = 'none';
+      }
     }
-}
+  },
 
-function showLoginUI(sectionId) {
-    const panel = document.getElementById('auth-panel-' + sectionId);
-    if (!panel) return;
-    panel.innerHTML = '';
+  async submitComment() {
+    if (!state.user) { alert('请先登录'); return; }
+    const input = document.getElementById('blog-comment-input');
+    const content = input?.value.trim();
+    if (!content) return;
+    const section = 'blog-' + state.currentPostId;
+    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.user.token}`
+      },
+      body: JSON.stringify({ section, content })
+    });
+    if (res) {
+      input.value = '';
+      this.loadComments();
+    } else {
+      alert('发送失败');
+    }
+  },
 
-    const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `login-user-${sectionId}`;
-    const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `login-pass-${sectionId}`;
-    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go';
-    goBtn.addEventListener('click', () => doLogin(sectionId));
-    panel.appendChild(userInput); panel.appendChild(passInput); panel.appendChild(goBtn);
-}
-
-function showRegisterUI(sectionId) {
-    const panel = document.getElementById('auth-panel-' + sectionId);
-    if (!panel) return;
-    panel.innerHTML = '';
-
-    const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `reg-user-${sectionId}`;
-    const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `reg-pass-${sectionId}`;
-    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go';
-    goBtn.addEventListener('click', () => doRegister(sectionId));
-    panel.appendChild(userInput); panel.appendChild(passInput); panel.appendChild(goBtn);
-}
-
-async function doLogin(sectionId) {
-    const u = document.getElementById(`login-user-${sectionId}`)?.value.trim();
-    const p = document.getElementById(`login-pass-${sectionId}`)?.value;
+  // 快速登录/注册（弹窗方式或用评论区已有的）
+  showLogin() {
+    const authPanel = document.getElementById('blog-auth-panel');
+    if (!authPanel) return;
+    authPanel.innerHTML = `
+      <input id="blog-login-user" type="text" placeholder="用户名" style="width:100px;">
+      <input id="blog-login-pass" type="password" placeholder="密码" style="width:100px;">
+      <button onclick="blogApp.doLogin()">Go</button>
+    `;
+  },
+  showRegister() {
+    const authPanel = document.getElementById('blog-auth-panel');
+    if (!authPanel) return;
+    authPanel.innerHTML = `
+      <input id="blog-reg-user" type="text" placeholder="用户名" style="width:100px;">
+      <input id="blog-reg-pass" type="password" placeholder="密码" style="width:100px;">
+      <button onclick="blogApp.doRegister()">Go</button>
+    `;
+  },
+  async doLogin() {
+    const u = document.getElementById('blog-login-user')?.value.trim();
+    const p = document.getElementById('blog-login-pass')?.value;
     if (!u || !p) return alert('请填写完整');
-
     const data = await safeFetch(`${CONFIG.COMMENT_API}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
     });
-
     if (data && data.token) {
-        state.user = { username: u, token: data.token };
-        localStorage.setItem('iwp-user', JSON.stringify(state.user));
-        try { window.profileUser = state.user; } catch (e) {}
-        updateAuthUI(sectionId);
-        fetchCommentsForSection(sectionId);
-        document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      state.user = { username: u, token: data.token };
+      localStorage.setItem('iwp-user', JSON.stringify(state.user));
+      document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      this.loadComments();
     } else {
-        alert('登录失败');
+      alert('登录失败');
     }
-}
-
-async function doRegister(sectionId) {
-    const u = document.getElementById(`reg-user-${sectionId}`)?.value.trim();
-    const p = document.getElementById(`reg-pass-${sectionId}`)?.value;
+  },
+  async doRegister() {
+    const u = document.getElementById('blog-reg-user')?.value.trim();
+    const p = document.getElementById('blog-reg-pass')?.value;
     if (!u || !p) return alert('请填写完整');
-
     const data = await safeFetch(`${CONFIG.COMMENT_API}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
     });
-
     if (data && data.token) {
-        state.user = { username: u, token: data.token };
-        localStorage.setItem('iwp-user', JSON.stringify(state.user));
-        try { window.profileUser = state.user; } catch (e) {}
-        updateAuthUI(sectionId);
-        fetchCommentsForSection(sectionId);
-        document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      state.user = { username: u, token: data.token };
+      localStorage.setItem('iwp-user', JSON.stringify(state.user));
+      document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      this.loadComments();
     } else {
-        alert('注册失败，可能用户名已存在');
+      alert('注册失败');
     }
-}
-
-function doLogout() {
+  },
+  logout() {
     state.user = null;
     localStorage.removeItem('iwp-user');
-    try { window.profileUser = null; } catch (e) {}
-    $$('.auth-panel').forEach(p => {
-        const sec = p.closest('.comment-section');
-        if (sec) updateAuthUI(sec.getAttribute('data-section-id'));
-    });
     document.dispatchEvent(new CustomEvent('profile-logout'));
-}
+    this.loadComments();
+  }
+};
 
-/* ========== 评论发送/回复/点赞 ========== */
-async function submitComment(sectionId) {
-    if (!state.user) return alert('请先登录');
-    const input = document.getElementById(`comment-input-${sectionId}`);
-    const content = input?.value.trim();
-    if (!content) return;
-
-    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}` },
-        body: JSON.stringify({ section: sectionId, content })
-    });
-
-    if (res) {
-        input.value = '';
-        fetchCommentsForSection(sectionId);
-    } else {
-        alert('发送失败');
-    }
-}
-
-function showReplyBox(parentId, sectionId) {
-    const box = document.getElementById(`reply-box-${parentId}`);
-    if (!box) return;
-    if (box.style.display === 'none' || box.style.display === '') {
-        box.style.display = 'block';
-        box.innerHTML = '';
-        const textarea = document.createElement('textarea');
-        textarea.id = `reply-input-${parentId}`;
-        textarea.rows = 2;
-        textarea.style.width = '100%';
-        textarea.style.border = '1px solid #ddd';
-        textarea.style.borderRadius = '4px';
-        textarea.style.padding = '5px';
-        textarea.placeholder = '回复...';
-
-        const bar = document.createElement('div');
-        bar.style.marginTop = '5px';
-
-        const sendBtn = document.createElement('button');
-        sendBtn.type = 'button';
-        sendBtn.style.padding = '4px 10px';
-        sendBtn.style.background = '#333';
-        sendBtn.style.color = '#fff';
-        sendBtn.style.border = 'none';
-        sendBtn.style.borderRadius = '3px';
-        sendBtn.style.cursor = 'pointer';
-        sendBtn.textContent = '发送';
-        sendBtn.addEventListener('click', () => doReply(parentId, sectionId));
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.style.padding = '4px 10px';
-        cancelBtn.style.border = 'none';
-        cancelBtn.style.background = 'none';
-        cancelBtn.style.cursor = 'pointer';
-        cancelBtn.textContent = '取消';
-        cancelBtn.addEventListener('click', () => { box.style.display = 'none'; });
-
-        bar.appendChild(sendBtn);
-        bar.appendChild(cancelBtn);
-
-        box.appendChild(textarea);
-        box.appendChild(bar);
-    } else {
-        box.style.display = 'none';
-    }
-}
-
-async function doReply(parentId, sectionId) {
-    if (!state.user) return alert('请先登录');
-    const input = document.getElementById(`reply-input-${parentId}`);
-    const content = input?.value.trim();
-    if (!content) return;
-
-    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}` },
-        body: JSON.stringify({ section: sectionId, content, parent_id: parentId })
-    });
-
-    if (res) {
-        fetchCommentsForSection(sectionId);
-    } else {
-        alert('发送失败');
-    }
-}
-
-async function likeComment(commentId, sectionId) {
-    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments/${encodeURIComponent(commentId)}/like`, { method: 'POST' });
-    if (res) {
-        fetchCommentsForSection(sectionId);
-    }
-}
-
-/* ========== 绑定与同步 ========== */
-function setupGlobalCommentListeners() {
-    window.toggleCommentSection = toggleCommentSection;
-    window.submitComment = submitComment;
-    window.likeComment = likeComment;
-    window.quoteComment = (text, sectionId) => {
-        const input = document.getElementById(`comment-input-${sectionId}`);
-        if (input) {
-            input.value += `> ${text}\n`;
-            input.focus();
-        }
-    };
-    window.showReplyBox = showReplyBox;
-    window.doReply = doReply;
-    window.showLoginUI = showLoginUI;
-    window.showRegisterUI = showRegisterUI;
-    window.doLogin = doLogin;
-    window.doRegister = doRegister;
-    window.doLogout = doLogout;
-}
-
-document.addEventListener('profile-login', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
-document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
-window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
-
-/* ========== blogApp（真实 API 版本） ========== */
-const blogApp = (function () {
-    async function fetchPosts() {
-        const container = document.getElementById('posts-container');
-        if (!container) return;
-        container.innerHTML = '<p style="color:#999;">正在加载文章列表...</p>';
-
-        try {
-            const res = await fetch(`${CONFIG.COMMENT_API}/posts`);
-            if (!res.ok) throw new Error('加载失败');
-            const data = await res.json();
-            const posts = data.posts || [];
-
-            container.innerHTML = '';
-            if (posts.length === 0) {
-                container.innerHTML = '<p style="color:#999;">没有找到文章。</p>';
-                return;
-            }
-
-            posts.forEach(p => {
-                const el = document.createElement('div');
-                el.className = 'post-item';
-                el.style.padding = '0.6rem 0.8rem';
-                el.style.borderBottom = '1px solid #333';
-                const a = document.createElement('a');
-                a.href = 'javascript:void(0)';
-                a.textContent = p.title;
-                a.style.color = '#88b4e6';
-                a.addEventListener('click', async () => {
-                    await openPostById(p.id);
-                });
-                el.appendChild(a);
-                if (p.excerpt) {
-                    const ex = document.createElement('div'); ex.textContent = p.excerpt; ex.style.color = '#888'; ex.style.fontSize = '0.9rem'; el.appendChild(ex);
-                }
-                container.appendChild(el);
-            });
-        } catch (e) {
-            container.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
-        }
-    }
-
-    async function openPostById(id) {
-        const listView = document.getElementById('blog-list-view');
-        const readView = document.getElementById('blog-read-view');
-        const article = document.getElementById('article-container');
-        if (!article || !listView || !readView) return;
-        listView.style.display = 'none';
-        readView.style.display = '';
-        article.innerHTML = '<p style="color:#999;">正在加载文章...</p>';
-        try {
-            const res = await fetch(`${CONFIG.COMMENT_API}/posts/${id}`);
-            if (!res.ok) throw new Error('文章不存在');
-            const data = await res.json();
-            const post = data.post;
-            article.innerHTML = (typeof marked !== 'undefined') ? marked.parse(post.content_md) : post.content_md;
-            const container = article;
-            postProcessImages(container, '');
-            postProcessFigure(container);
-            container.querySelectorAll('pre code').forEach(b => { try { if (typeof hljs !== 'undefined') hljs.highlightElement(b); } catch(e){} });
-            renderMath();
-            // 更新点赞信息
-            document.getElementById('post-stats').textContent = `浏览: ${post.views} · 评论: ${post.comments_count} · 热度: ${(post.views||0) + (post.likes||0)*5 + (post.comments_count||0)*10}`;
-            document.getElementById('btn-like-post').onclick = async () => {
-                if (!state.user) { alert('请先登录'); return; }
-                await fetch(`${CONFIG.COMMENT_API}/posts/${id}/like`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${state.user.token}` }
-                });
-                openPostById(id); // 刷新
-            };
-            // 下一篇
-            document.getElementById('btn-next-post').style.display = data.next_id ? '' : 'none';
-            document.getElementById('btn-next-post').onclick = () => data.next_id && openPostById(data.next_id);
-        } catch (e) {
-            article.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
-        }
-    }
-
-    function backToList() {
-        const listView = document.getElementById('blog-list-view');
-        const readView = document.getElementById('blog-read-view');
-        if (listView && readView) { listView.style.display = ''; readView.style.display = 'none'; }
-    }
-
-    function openEditor() {
-        const panel = document.getElementById('editor-panel');
-        if (panel) panel.style.display = 'block';
-    }
-    function closeEditor() {
-        const panel = document.getElementById('editor-panel');
-        if (panel) panel.style.display = 'none';
-    }
-
-    // ✅ 真实 API 发文
-    async function submitPost() {
-        if (!state || !state.user || !state.user.token) {
-            alert('请先登录再发布文章');
-            return;
-        }
-        const title = document.getElementById('editor-title')?.value.trim();
-        const content_md = document.getElementById('editor-content')?.value.trim();
-        if (!title || !content_md) {
-            alert('标题和内容不能为空');
-            return;
-        }
-        try {
-            const response = await fetch(`${CONFIG.COMMENT_API}/posts`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${state.user.token}`
-                },
-                body: JSON.stringify({ title, content_md })
-            });
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || `HTTP ${response.status}`);
-            }
-            alert('文章发布成功！');
-            closeEditor();
-            fetchPosts(); // 刷新列表
-        } catch (err) {
-            console.error('发布失败:', err);
-            alert('发布失败：' + err.message);
-        }
-    }
-
-    return { fetchPosts, openEditor, closeEditor, submitPost, backToList };
-})();
+// 初始化
+window.addEventListener('DOMContentLoaded', () => {
+  const searchBtn = document.querySelector('#blog-search + button');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => blogApp.fetchPosts());
+  }
+  blogApp.fetchPosts();
+});
 
 window.blogApp = blogApp;
