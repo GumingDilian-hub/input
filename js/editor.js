@@ -15,9 +15,9 @@ const editor = {
         const ta = document.getElementById('editor-content');
         if (!ta) return;
         const table = [
-            '| 表头1 | 表头2 |',
+            '| 请输入文本 | 请输入文本 |',
             '| --- | --- |',
-            '| 内容1 | 内容2 |',
+            '| 请输入文本 | 请输入文本 |',
             ''
         ].join('\n');
         ta.value += '\n' + table;
