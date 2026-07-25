@@ -927,3 +927,64 @@ function showRegisterUI(sectionId) {
     const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `reg-user-${sectionId}`;
     const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `reg-pass-${sectionId}`;
     const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go*
+// ----- profile panel open/close helpers -----
+// Add these global functions so onclick="openProfile()" in HTML works.
+
+function openProfile() {
+    const panel = document.getElementById('profile-panel');
+    const content = document.getElementById('profile-content');
+    if (!panel || !content) return;
+    panel.style.display = 'block';
+
+    // If already populated for this session, keep it (avoid re-render)
+    // but ensure it reflects current state.user
+    content.innerHTML = '';
+
+    if (state && state.user) {
+        // Show simple profile summary + logout
+        const avatar = escapeHtml(state.user.avatar || CONFIG.DEFAULT_AVATAR);
+        const username = escapeHtml(state.user.username || '匿名');
+        content.innerHTML = `
+            <div style="text-align:center; padding:1rem;">
+              <img src="${avatar}" alt="avatar" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin-bottom:0.8rem;" onerror="this.src='${CONFIG.DEFAULT_AVATAR}'">
+              <h3 style="margin:0 0 0.4rem 0; color:#fff;">${username}</h3>
+              <p style="color:#aaa; margin:0 0 1rem 0;">已登录</p>
+              <div><button id="profile-logout-btn">退出</button></div>
+            </div>
+        `;
+        const outBtn = document.getElementById('profile-logout-btn');
+        if (outBtn) outBtn.addEventListener('click', () => {
+            doLogout();
+            // refresh panel to login view
+            openProfile();
+        });
+    } else {
+        // Show a lightweight login/register form that calls existing doLogin/doRegister
+        // Inputs are given ids expected by doLogin/doRegister when sectionId = 'profile'
+        content.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input id="login-user-profile" type="text" placeholder="用户名" style="width:100%; padding:8px;"/>
+            <input id="login-pass-profile" type="password" placeholder="密码" style="width:100%; padding:8px;"/>
+            <div style="display:flex; gap:8px;">
+              <button id="profile-do-login">登录</button>
+              <button id="profile-do-register">注册</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('profile-do-login')?.addEventListener('click', () => {
+            // reuse doLogin which expects elements with ids `login-user-${sectionId}` and `login-pass-${sectionId}`
+            // our inputs are named login-user-profile / login-pass-profile so pass 'profile'
+            doLogin('profile');
+        });
+        document.getElementById('profile-do-register')?.addEventListener('click', () => {
+            doRegister('profile');
+        });
+    }
+}
+
+function closeProfile() {
+    const panel = document.getElementById('profile-panel');
+    if (!panel) return;
+    panel.style.display = 'none';
+}
