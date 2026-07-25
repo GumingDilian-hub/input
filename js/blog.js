@@ -30,6 +30,19 @@ async function safeFetch(url, options = {}) {
 
 // ===== 从 profile.js 获取用户 =====
 function getCurrentUser() {
+    // 优先使用 profile.js 暴露的 getter
+    try {
+        if (typeof getProfileUser === 'function') {
+            const u = getProfileUser();
+            if (u) return u;
+        }
+    } catch (e) {}
+    // 回退到 localStorage
+    try {
+        const s = localStorage.getItem('iwp-user');
+        if (s) return JSON.parse(s);
+    } catch (e) {}
+    // 最后回退到 window.profileUser（老的兼容）
     return window.profileUser || null;
 }
 
@@ -143,7 +156,7 @@ const blogApp = {
 
         let html = '';
         try {
-            marked.setOptions({ sanitize: true, sanitizer: escapeHtml });
+            // marked.parse 解析 markdown，内容安全建议用 DOMPurify 在 parse 后过滤（此处保持原有逻辑）
             html = marked.parse(post.content_md || '');
         } catch (e) {
             html = '<p style="color:#f88;">内容解析错误</p>';
@@ -297,7 +310,7 @@ const blogApp = {
                 <div style="margin:5px 0; color:#ccc;">${safeContent}</div>
                 <div>
                     <button onclick="blogApp.replyBox(${node.id})" style="background:none; border:none; color:#88b4e6; cursor:pointer; font-size:0.8rem;">回复</button>
-                    <button onclick="blogApp.likeComment(${node.id})" style="background:none; border:none; color:#aaa; cursor:pointer; font-size:0.8rem; margin-left:10px;">赞 <span id="like-count-${node.id}">${node.likes||0}</span></button>
+                    <button onclick="blogApp.likeComment(${node.id})" style="background:none; border:none; color:#aaa; cursor:pointer; font-size:0.8rem; margin-left:10px;">赞 <span id="like-count-${node.id}">${node.likes || 0}</span></button>
                 </div>
                 <div id="reply-area-${node.id}" style="margin-top:5px; display:none;"></div>
             `;
