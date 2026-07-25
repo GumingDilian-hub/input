@@ -430,3 +430,32 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     color: #888;
     margin-left: 0.5rem;
 }
+/* ========== Blog & Editor 专属追加样式 ========== */
+
+/* 编辑器按钮 */
+.editor-tool-btn {
+    background: #444;
+    border: none;
+    color: #ddd;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: serif;
+}
+.editor-tool-btn:hover { background: #555; }
+
+/* 面板类 (复用原有 panel 结构) */
+.panel-visible { right: 0 !important; }
+
+/* 侧边栏文章列表项 (复用 TOC 样式但作为列表) */
+#toc-tree div.post-item {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    color: #bbb;
+    border-bottom: 1px solid #333;
+}
+#toc-tree div.post-item:hover { background: #383838; color: #fff; }
+
+/* 详情页头像等样式 */
+.profile-header { text-align: center; padding: 2rem; }
+.honor-tag { background: #ffc107; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin: 0 2px; }
