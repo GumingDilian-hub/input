@@ -1,4 +1,4 @@
-/* ========== blog.js (完整修复版) ========== */
+/* ========== blog.js (完整版：文章、评论树、点赞) ========== */
 const CONFIG = {
   COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
   DEFAULT_AVATAR: 'images/0721.png'
@@ -145,7 +145,7 @@ const blogApp = {
       document.getElementById('post-stats').textContent =
         `浏览: ${post.views} · 点赞: ${post.likes || 0} · 评论: ${post.comments_count || 0} · 热度: ${(post.views||0) + (post.likes||0)*5 + (post.comments_count||0)*10}`;
 
-      // 点赞按钮（局部更新，不刷新页面）
+      // 点赞按钮（局部更新）
       const likeBtn = document.getElementById('btn-like-post');
       likeBtn.onclick = async () => {
         if (!state.user) { alert('请先登录'); return; }
@@ -154,7 +154,6 @@ const blogApp = {
           headers: { 'Authorization': `Bearer ${state.user.token}` }
         });
         if (likeRes) {
-          // 直接更新本地统计，不重新拉取整个页面
           const newLikes = likeRes.action === 'liked' ? (post.likes || 0) + 1 : Math.max((post.likes || 0) - 1, 0);
           post.likes = newLikes;
           document.getElementById('post-stats').textContent =
@@ -162,7 +161,6 @@ const blogApp = {
           likeBtn.textContent = likeRes.action === 'liked' ? '已点赞' : '点赞';
         }
       };
-      // 初始状态：由于 API 没有返回当前用户是否已点赞，保持“点赞”文字，点击后根据返回切换
       likeBtn.textContent = '点赞';
 
       // 下一篇
@@ -174,7 +172,7 @@ const blogApp = {
         nextBtn.style.display = 'none';
       }
 
-      // 显示评论区并加载评论
+      // 显示评论区
       if (commentsArea) {
         commentsArea.style.display = '';
         this.loadComments();
@@ -234,7 +232,7 @@ const blogApp = {
     }
   },
 
-  // ---------- 评论 ----------
+  // ========== 评论系统（树状回复+点赞） ==========
   async loadComments() {
     const section = 'blog-' + state.currentPostId;
     const list = document.getElementById('blog-comment-list');
@@ -242,31 +240,24 @@ const blogApp = {
     if (!list) return;
     list.innerHTML = '加载中...';
 
-    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(section)}&limit=50`);
+    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(section)}&limit=100`);
     if (!data) {
       list.innerHTML = '加载失败';
       return;
     }
-    const comments = data.comments || [];
-    list.innerHTML = comments.length === 0 ? '<p style="color:#999;">暂无评论，快来抢沙发</p>' : '';
 
-    comments.forEach(c => {
-      const div = document.createElement('div');
-      div.style.cssText = 'border-bottom:1px solid #333;padding:0.5rem 0;';
-      div.innerHTML = `
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <img src="${escapeHtml(c.avatar || CONFIG.DEFAULT_AVATAR)}" style="width:24px;height:24px;border-radius:50%;">
-          <strong style="color:#eee;">${escapeHtml(c.username || '匿名')}</strong>
-          <span style="color:#888;font-size:0.8rem;">${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
-        </div>
-        <p style="margin:0.3rem 0 0 0;color:#ccc;">${escapeHtml(c.content)}</p>
-      `;
-      list.appendChild(div);
-    });
+    const flat = data.comments || [];
+    const tree = this._buildTree(flat);
+    list.innerHTML = '';
+    if (flat.length === 0) {
+      list.innerHTML = '<p style="color:#999;">暂无评论，快来抢沙发</p>';
+    } else {
+      this._renderTree(list, tree, section);
+    }
 
-    if (countSpan) countSpan.textContent = `(${comments.length})`;
+    if (countSpan) countSpan.textContent = `(${flat.length})`;
 
-    // 评论表单的登录状态处理
+    // 更新评论表单登录状态
     const authPanel = document.getElementById('blog-auth-panel');
     const inputArea = document.getElementById('blog-input-area');
     if (authPanel) {
@@ -280,6 +271,130 @@ const blogApp = {
     }
   },
 
+  // 构建评论树
+  _buildTree(flatList) {
+    const map = {};
+    const roots = [];
+    flatList.forEach(c => { c.children = []; map[c.id] = c; });
+    flatList.forEach(c => {
+      if (c.parent_id && map[c.parent_id]) {
+        map[c.parent_id].children.push(c);
+      } else {
+        roots.push(c);
+      }
+    });
+    return roots;
+  },
+
+  // 递归渲染树（含回复框）
+  _renderTree(container, nodes, section) {
+    nodes.forEach(node => {
+      const wrapper = document.createElement('div');
+      const isChild = !!node.parent_id;
+      wrapper.style.marginLeft = isChild ? '24px' : '';
+      wrapper.style.paddingLeft = isChild ? '12px' : '';
+      wrapper.style.borderLeft = isChild ? '2px solid #444' : '';
+
+      const item = document.createElement('div');
+      item.style.cssText = 'border-bottom:1px solid #333;padding:0.5rem 0;';
+
+      // 头像+用户名+时间
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
+      header.innerHTML = `
+        <img src="${escapeHtml(node.avatar || CONFIG.DEFAULT_AVATAR)}" style="width:24px;height:24px;border-radius:50%;">
+        <strong style="color:#eee;">${escapeHtml(node.username || '匿名')}</strong>
+        <span style="color:#888;font-size:0.8rem;">${node.created_at ? new Date(node.created_at).toLocaleString() : ''}</span>
+      `;
+
+      const content = document.createElement('p');
+      content.style.cssText = 'margin:0.3rem 0 0;color:#ccc;';
+      content.textContent = node.content || '';
+
+      // 操作按钮
+      const actions = document.createElement('div');
+      actions.style.cssText = 'margin-top:0.3rem;display:flex;gap:0.5rem;';
+
+      const replyBtn = document.createElement('button');
+      replyBtn.textContent = '回复';
+      replyBtn.style.cssText = 'background:none;border:none;color:#88b4e6;cursor:pointer;font-size:0.85rem;';
+      replyBtn.onclick = () => this._showReplyBox(node.id, section);
+
+      const likeBtn = document.createElement('button');
+      likeBtn.textContent = `点赞 ${node.likes || 0}`;
+      likeBtn.style.cssText = 'background:none;border:none;color:#88b4e6;cursor:pointer;font-size:0.85rem;';
+      likeBtn.onclick = async () => {
+        await safeFetch(`${CONFIG.COMMENT_API}/comments/${node.id}/like`, { method: 'POST' });
+        this.loadComments(); // 刷新评论区以更新赞数
+      };
+
+      actions.appendChild(replyBtn);
+      actions.appendChild(likeBtn);
+
+      item.appendChild(header);
+      item.appendChild(content);
+      item.appendChild(actions);
+
+      // 回复框（初始隐藏）
+      const replyBox = document.createElement('div');
+      replyBox.id = `reply-box-${node.id}`;
+      replyBox.style.cssText = 'display:none;margin:0.5rem 0 0 2rem;';
+      item.appendChild(replyBox);
+
+      wrapper.appendChild(item);
+      container.appendChild(wrapper);
+
+      // 递归渲染子评论
+      if (node.children && node.children.length > 0) {
+        const childrenContainer = document.createElement('div');
+        wrapper.appendChild(childrenContainer);
+        this._renderTree(childrenContainer, node.children, section);
+      }
+    });
+  },
+
+  // 显示回复输入框
+  _showReplyBox(parentId, section) {
+    const box = document.getElementById(`reply-box-${parentId}`);
+    if (!box) return;
+    if (box.style.display === 'none' || box.style.display === '') {
+      box.style.display = 'block';
+      box.innerHTML = `
+        <textarea id="reply-input-${parentId}" rows="2" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:5px;border-radius:4px;" placeholder="写下你的回复..."></textarea>
+        <div style="margin-top:5px;display:flex;gap:5px;">
+          <button onclick="blogApp._doReply(${parentId}, '${section}')" style="background:#333;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;">发送</button>
+          <button onclick="document.getElementById('reply-box-${parentId}').style.display='none'" style="background:none;border:none;color:#888;cursor:pointer;">取消</button>
+        </div>
+      `;
+    } else {
+      box.style.display = 'none';
+    }
+  },
+
+  // 提交回复
+  async _doReply(parentId, section) {
+    if (!state.user) { alert('请先登录'); return; }
+    const input = document.getElementById(`reply-input-${parentId}`);
+    const content = input?.value.trim();
+    if (!content) return;
+
+    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.user.token}`
+      },
+      body: JSON.stringify({ section, content, parent_id: parentId })
+    });
+
+    if (res) {
+      this.loadComments(); // 刷新整个评论区
+    } else {
+      alert('发送失败');
+    }
+  },
+
+  // 顶级评论提交（沿用原方法）
   async submitComment() {
     if (!state.user) { alert('请先登录'); return; }
     const input = document.getElementById('blog-comment-input');
@@ -302,7 +417,7 @@ const blogApp = {
     }
   },
 
-  // 快速登录/注册（弹窗方式或用评论区已有的）
+  // 快捷登录/注册
   showLogin() {
     const authPanel = document.getElementById('blog-auth-panel');
     if (!authPanel) return;
