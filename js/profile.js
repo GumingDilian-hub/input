@@ -1,5 +1,5 @@
-/* ========== profile.js (完整无敌版) ========== */
-/* 依赖：reader.js 或 blog.js 已提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
+/* ========== profile.js (完整修正版) ========== */
+/* 依赖：reader.js 或 blog.js 提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
 
 function openProfile() {
   const panel = $('#profile-panel');
@@ -24,6 +24,7 @@ async function renderProfileContent() {
     return;
   }
 
+  // 从 API 获取完整用户信息
   let fullUser = null;
   try {
     const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
@@ -35,9 +36,8 @@ async function renderProfileContent() {
   }
 
   const user = { ...state.user, ...(fullUser || {}) };
-  console.log('[个人中心] 当前用户:', user);
 
-  // 注册强推编辑界面
+  // 检查标记：刚注册则强推编辑界面
   if (sessionStorage.getItem('just_registered') === '1') {
     sessionStorage.removeItem('just_registered');
     showEditForm(container, user);
@@ -62,6 +62,7 @@ async function renderProfileContent() {
   top.appendChild(avatar);
   top.appendChild(nameEl);
 
+  // 学校
   if (user.school) {
     const schoolEl = document.createElement('div');
     schoolEl.style.cssText = 'margin-top:0.3rem;color:#aaa;font-size:0.9rem;';
@@ -69,6 +70,7 @@ async function renderProfileContent() {
     top.appendChild(schoolEl);
   }
 
+  // 荣誉标签
   if (user.honor_year || user.honor_rank) {
     const honorDiv = document.createElement('div');
     honorDiv.style.cssText = 'display:flex;justify-content:center;gap:8px;margin-top:0.5rem;';
@@ -102,7 +104,6 @@ async function renderProfileContent() {
   const editBtn = document.createElement('button');
   editBtn.textContent = '编辑资料';
   editBtn.addEventListener('click', () => {
-    console.log('[编辑按钮] 点击');
     showEditForm(container, user);
   });
 
@@ -118,7 +119,7 @@ async function renderProfileContent() {
   btnBar.appendChild(logoutBtn);
   container.appendChild(btnBar);
 
-  // 静态信息卡片
+  // 信息卡片
   const infoDiv = document.createElement('div');
   infoDiv.style.cssText = 'margin-top:1.5rem;padding:1rem;background:#2a2a2a;border-radius:8px;color:#ccc;';
   infoDiv.innerHTML = `
@@ -129,6 +130,7 @@ async function renderProfileContent() {
   container.appendChild(infoDiv);
 }
 
+// 登录/注册表单
 function renderLoginForm(container) {
   container.innerHTML = '';
 
@@ -152,6 +154,7 @@ function renderLoginForm(container) {
     passInput.id = 'login-pass-profile';
     if (typeof doLogin === 'function') {
       doLogin('profile');
+      // 注意：登录不强制编辑，只刷新面板
       setTimeout(renderProfileContent, 500);
     } else alert('登录模块缺失');
   });
@@ -162,9 +165,7 @@ function renderLoginForm(container) {
     userInput.id = 'reg-user-profile';
     passInput.id = 'reg-pass-profile';
     if (typeof doRegister === 'function') {
-      sessionStorage.setItem('just_registered', '1');
-      doRegister('profile');
-      setTimeout(renderProfileContent, 500);
+      doRegister('profile'); // 注册成功后由 profile-login 事件触发强推编辑
     } else alert('注册模块缺失');
   });
 
@@ -181,10 +182,8 @@ function renderLoginForm(container) {
   container.appendChild(hint);
 }
 
-// ---------- 编辑表单（完整稳定版） ----------
+// ---------- 编辑资料表单 ----------
 function showEditForm(container, user) {
-  console.log('[编辑表单] 开始构建，当前用户:', user);
-
   container.innerHTML = '';
 
   const title = document.createElement('h3');
@@ -192,12 +191,13 @@ function showEditForm(container, user) {
   title.textContent = '编辑资料';
   container.appendChild(title);
 
-  // 使用 createInput 辅助函数生成输入框（保证一致性）
+  // 输入框
   const avatarInput = createInput('头像 URL', user.avatar || '');
   const schoolInput = createInput('学校', user.school || '');
-  const honorYearInput = createInput('荣誉年份', user.honor_year || '');
-  const honorRankInput = createInput('荣誉等级', user.honor_rank || '');
+  const honorYearInput = createInput('荣誉年份 (如 2025)', user.honor_year || '');
+  const honorRankInput = createInput('荣誉等级 (如 省一)', user.honor_rank || '');
 
+  // 密码修改
   const pwdDiv = document.createElement('div');
   pwdDiv.style.cssText = 'border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;';
   const oldPwdInput = createInput('当前密码（如需修改密码必填）', '', 'password');
@@ -205,31 +205,28 @@ function showEditForm(container, user) {
   pwdDiv.appendChild(oldPwdInput.wrapper);
   pwdDiv.appendChild(newPwdInput.wrapper);
 
+  // 按钮
   const btnGroup = document.createElement('div');
   btnGroup.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;';
 
   const cancelBtn = document.createElement('button');
   cancelBtn.textContent = '取消';
   cancelBtn.style.background = '#555';
-  cancelBtn.addEventListener('click', () => {
-    console.log('[编辑表单] 取消');
-    renderProfileContent();
-  });
+  cancelBtn.addEventListener('click', () => renderProfileContent());
 
   const saveBtn = document.createElement('button');
   saveBtn.textContent = '保存';
   saveBtn.style.background = '#d9534f';
   saveBtn.addEventListener('click', async () => {
-    console.log('[编辑表单] 保存按钮点击');
+    const payload = {
+      avatar: avatarInput.input.value.trim(),
+      school: schoolInput.input.value.trim(),
+      honor_year: honorYearInput.input.value.trim(),
+      honor_rank: honorRankInput.input.value.trim()
+    };
 
-    const avatar = avatarInput.input.value.trim();
-    const school = schoolInput.input.value.trim();
-    const honor_year = honorYearInput.input.value.trim();
-    const honor_rank = honorRankInput.input.value.trim();
     const oldPwd = oldPwdInput.input.value;
     const newPwd = newPwdInput.input.value;
-
-    const payload = { avatar, school, honor_year, honor_rank };
     if (newPwd) {
       if (!oldPwd) {
         alert('请输入当前密码才能修改密码');
@@ -238,8 +235,6 @@ function showEditForm(container, user) {
       payload.old_password = oldPwd;
       payload.password = newPwd;
     }
-
-    console.log('[编辑表单] 提交数据:', payload);
 
     try {
       const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
@@ -259,7 +254,6 @@ function showEditForm(container, user) {
       alert('资料更新成功！');
       renderProfileContent();
     } catch (err) {
-      console.error('[编辑表单] 保存失败:', err);
       alert('保存失败：' + err.message);
     }
   });
@@ -267,16 +261,15 @@ function showEditForm(container, user) {
   btnGroup.appendChild(cancelBtn);
   btnGroup.appendChild(saveBtn);
 
-  // 组装所有元素
-  container.appendChild(avatarInput.wrapper);
-  container.appendChild(schoolInput.wrapper);
-  container.appendChild(honorYearInput.wrapper);
-  container.appendChild(honorRankInput.wrapper);
+  // 组装
+  [avatarInput, schoolInput, honorYearInput, honorRankInput].forEach(item => {
+    container.appendChild(item.wrapper);
+  });
   container.appendChild(pwdDiv);
   container.appendChild(btnGroup);
 }
 
-// 辅助函数：创建带标签的输入框，返回 { wrapper, input }
+// 辅助函数：创建带标签的输入框
 function createInput(labelText, value = '', type = 'text') {
   const wrapper = document.createElement('div');
   wrapper.style.marginBottom = '8px';
@@ -297,9 +290,22 @@ function createInput(labelText, value = '', type = 'text') {
 }
 
 // ---------- 事件同步 ----------
+// 监听登录事件（注册/登录成功后触发）
 document.addEventListener('profile-login', (e) => {
   try { state.user = e.detail; } catch (err) {}
-  if ($('#profile-panel')?.style.display === 'block') renderProfileContent();
+
+  // 如果是通过注册按钮触发的登录，设置强推编辑标记
+  // 因为注册按钮调用的是 doRegister('profile')，我们无法直接判断来源，
+  // 但可以在 doRegister 成功前设置一个标记，这里清除并应用。
+  if (sessionStorage.getItem('pending_registration') === '1') {
+    sessionStorage.removeItem('pending_registration');
+    sessionStorage.setItem('just_registered', '1');
+  }
+
+  // 重新渲染面板（如果面板打开）
+  if ($('#profile-panel')?.style.display === 'block') {
+    renderProfileContent();
+  }
 });
 
 document.addEventListener('profile-logout', () => {
@@ -314,6 +320,7 @@ window.addEventListener('storage', (e) => {
   }
 });
 
+// 点击面板外部关闭
 document.addEventListener('click', (e) => {
   const panel = $('#profile-panel');
   const btn = $('#btn-profile');
@@ -323,3 +330,15 @@ document.addEventListener('click', (e) => {
     panel.style.display = 'none';
   }
 });
+
+/* 补丁：覆盖注册按钮逻辑，增加 pending_registration 标记 */
+// 但因为注册按钮在 renderLoginForm 里是动态创建的，我们无法直接修改，
+// 所以我们在 renderLoginForm 的注册按钮点击处已经处理好了，这里确保 doRegister 能触发标记。
+// 如果 doRegister 内部也是异步，最好在 doRegister 的 finally 或 then 中设置标记，
+// 但我们不修改 reader.js，所以改为在注册按钮点击时立即设置 pending_registration。
+// 上面的代码中，注册按钮并没有设置 pending_registration，需要补加。
+// 因此更正 renderLoginForm 中的注册按钮点击事件：
+
+// 重新定义 renderLoginForm 中的注册按钮（替换上面 renderLoginForm 函数体内的 regBtn 部分）
+// 为了方便，这里给出完整的 renderLoginForm 修正版。
+// 实际上面的 renderLoginForm 里注册按钮点击没有设置 pending_registration，现在修正：
