@@ -1,9 +1,6 @@
-/* ========== profile.js (无Emoji · 注册强推编辑版) ========== */
-/* 依赖：全局已有 CONFIG, state, $, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
+/* ========== profile.js (编辑按钮终极修复) ========== */
+/* 依赖：reader.js 或 blog.js 已提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
 
-const $ = (sel) => document.querySelector(sel);
-
-// ---------- 面板开关 ----------
 function openProfile() {
   const panel = $('#profile-panel');
   if (!panel) return;
@@ -17,7 +14,6 @@ function closeProfile() {
   panel.style.display = 'none';
 }
 
-// ---------- 主渲染 ----------
 async function renderProfileContent() {
   const container = $('#profile-content');
   if (!container) return;
@@ -28,7 +24,6 @@ async function renderProfileContent() {
     return;
   }
 
-  // 拉取完整用户信息
   let fullUser = null;
   try {
     const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
@@ -36,13 +31,13 @@ async function renderProfileContent() {
     });
     if (res && res.user) fullUser = res.user;
   } catch (e) {
-    console.warn('拉取用户信息失败', e);
+    console.warn('获取用户信息失败', e);
   }
 
   const user = { ...state.user, ...(fullUser || {}) };
-  console.log('当前用户完整信息:', user);
+  console.log('[个人中心] 当前用户:', user);
 
-  // 检查是否刚注册，若是则强推编辑界面
+  // 注册强推编辑
   if (sessionStorage.getItem('just_registered') === '1') {
     sessionStorage.removeItem('just_registered');
     showEditForm(container, user);
@@ -51,7 +46,7 @@ async function renderProfileContent() {
 
   container.innerHTML = '';
 
-  // --- 头像 + 名字 ---
+  // --- 头像与基本信息 ---
   const top = document.createElement('div');
   top.style.textAlign = 'center';
 
@@ -67,7 +62,6 @@ async function renderProfileContent() {
   top.appendChild(avatar);
   top.appendChild(nameEl);
 
-  // --- 学校 ---
   if (user.school) {
     const schoolEl = document.createElement('div');
     schoolEl.style.cssText = 'margin-top:0.3rem;color:#aaa;font-size:0.9rem;';
@@ -75,7 +69,6 @@ async function renderProfileContent() {
     top.appendChild(schoolEl);
   }
 
-  // --- 荣誉标签 ---
   if (user.honor_year || user.honor_rank) {
     const honorDiv = document.createElement('div');
     honorDiv.style.cssText = 'display:flex;justify-content:center;gap:8px;margin-top:0.5rem;';
@@ -108,8 +101,9 @@ async function renderProfileContent() {
 
   const editBtn = document.createElement('button');
   editBtn.textContent = '编辑资料';
+  editBtn.id = 'profile-edit-btn'; // 便于调试
   editBtn.addEventListener('click', () => {
-    console.log('点击编辑资料，当前user:', user);
+    console.log('[编辑按钮] 被点击');
     showEditForm(container, user);
   });
 
@@ -125,7 +119,7 @@ async function renderProfileContent() {
   btnBar.appendChild(logoutBtn);
   container.appendChild(btnBar);
 
-  // --- 静态信息卡片 ---
+  // 静态信息卡片
   const infoDiv = document.createElement('div');
   infoDiv.style.cssText = 'margin-top:1.5rem;padding:1rem;background:#2a2a2a;border-radius:8px;color:#ccc;';
   infoDiv.innerHTML = `
@@ -136,7 +130,6 @@ async function renderProfileContent() {
   container.appendChild(infoDiv);
 }
 
-// ---------- 登录/注册表单 ----------
 function renderLoginForm(container) {
   container.innerHTML = '';
 
@@ -170,7 +163,6 @@ function renderLoginForm(container) {
     userInput.id = 'reg-user-profile';
     passInput.id = 'reg-pass-profile';
     if (typeof doRegister === 'function') {
-      // 标记即将注册，成功后强推编辑界面
       sessionStorage.setItem('just_registered', '1');
       doRegister('profile');
       setTimeout(renderProfileContent, 500);
@@ -186,12 +178,14 @@ function renderLoginForm(container) {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'margin-top:1rem;color:#888;font-size:0.9rem;';
-  hint.textContent = '登录后即可编辑荣誉、学校等信息。';
+  hint.textContent = '登录后可编辑荣誉、学校等信息。';
   container.appendChild(hint);
 }
 
-// ---------- 编辑资料表单 ----------
+// ---------- 编辑表单（彻底重写） ----------
 function showEditForm(container, user) {
+  console.log('[编辑表单] 开始构建');
+
   container.innerHTML = '';
 
   const title = document.createElement('h3');
@@ -199,106 +193,96 @@ function showEditForm(container, user) {
   title.textContent = '编辑资料';
   container.appendChild(title);
 
-  // 创建输入项
-  const avatarInput = createInput('头像 URL', user.avatar || '');
-  const schoolInput = createInput('学校', user.school || '');
-  const honorYearInput = createInput('荣誉年份 (如 2025)', user.honor_year || '');
-  const honorRankInput = createInput('荣誉等级 (如 省一)', user.honor_rank || '');
+  // 直接用 getElementById 获取输入值，不再依赖闭包对象
+  const formHtml = `
+    <div style="margin-bottom:10px;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;">头像 URL</label>
+      <input id="edit-avatar" type="text" value="${escapeHtml(user.avatar || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;">学校</label>
+      <input id="edit-school" type="text" value="${escapeHtml(user.school || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;">荣誉年份 (如 2025)</label>
+      <input id="edit-honor-year" type="text" value="${escapeHtml(user.honor_year || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;">荣誉等级 (如 省一)</label>
+      <input id="edit-honor-rank" type="text" value="${escapeHtml(user.honor_rank || '')}" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+    </div>
+    <div style="border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;">当前密码（如需改密码必填）</label>
+      <input id="edit-old-pwd" type="password" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+      <label style="color:#ccc;display:block;margin-bottom:4px;margin-top:10px;">新密码</label>
+      <input id="edit-new-pwd" type="password" style="width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;">
+      <button id="edit-cancel-btn" style="background:#555;">取消</button>
+      <button id="edit-save-btn" style="background:#d9534f;">保存</button>
+    </div>
+  `;
+  container.innerHTML += formHtml;
 
-  // 密码修改区域
-  const pwdDiv = document.createElement('div');
-  pwdDiv.style.cssText = 'border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;';
-  const oldPwd = createInput('当前密码（如需改密码必填）', '', 'password');
-  const newPwd = createInput('新密码', '', 'password');
-  pwdDiv.appendChild(oldPwd.wrapper);
-  pwdDiv.appendChild(newPwd.wrapper);
+  // 绑定事件（用 getElementById 保证找到）
+  const cancelBtn = document.getElementById('edit-cancel-btn');
+  const saveBtn = document.getElementById('edit-save-btn');
 
-  // 按钮区
-  const btnGroup = document.createElement('div');
-  btnGroup.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = '取消';
-  cancelBtn.style.background = '#555';
-  cancelBtn.addEventListener('click', () => renderProfileContent());
-
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '保存';
-  saveBtn.style.background = '#d9534f';
-  saveBtn.addEventListener('click', async () => {
-    const payload = {
-      avatar: avatarInput.input.value.trim(),
-      school: schoolInput.input.value.trim(),
-      honor_year: honorYearInput.input.value.trim(),
-      honor_rank: honorRankInput.input.value.trim(),
-    };
-
-    const oldPwdVal = oldPwd.input.value.trim();
-    const newPwdVal = newPwd.input.value.trim();
-    if (newPwdVal) {
-      if (!oldPwdVal) {
-        alert('请输入当前密码才能修改密码');
-        return;
-      }
-      payload.old_password = oldPwdVal;
-      payload.password = newPwdVal;
-    }
-
-    console.log('准备发送更新请求:', payload);
-
-    try {
-      const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${state.user.token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res) throw new Error('请求失败，可能是CORS或网络问题');
-      if (res.error) throw new Error(res.error);
-
-      console.log('更新成功，服务器返回:', res);
-      state.user = { ...state.user, ...(res.user || {}) };
-      localStorage.setItem('iwp-user', JSON.stringify(state.user));
-      alert('资料更新成功！');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      console.log('[编辑表单] 取消编辑');
       renderProfileContent();
-    } catch (err) {
-      console.error('更新失败:', err);
-      alert('更新失败：' + err.message);
-    }
-  });
+    });
+  }
 
-  btnGroup.appendChild(cancelBtn);
-  btnGroup.appendChild(saveBtn);
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      console.log('[编辑表单] 保存按钮点击');
 
-  // 组装所有元素
-  [avatarInput, schoolInput, honorYearInput, honorRankInput].forEach(item => {
-    container.appendChild(item.wrapper);
-  });
-  container.appendChild(pwdDiv);
-  container.appendChild(btnGroup);
-}
+      const avatar = document.getElementById('edit-avatar')?.value.trim() || '';
+      const school = document.getElementById('edit-school')?.value.trim() || '';
+      const honor_year = document.getElementById('edit-honor-year')?.value.trim() || '';
+      const honor_rank = document.getElementById('edit-honor-rank')?.value.trim() || '';
+      const oldPwd = document.getElementById('edit-old-pwd')?.value || '';
+      const newPwd = document.getElementById('edit-new-pwd')?.value || '';
 
-// 辅助函数：创建带标签的输入框
-function createInput(labelText, value = '', type = 'text') {
-  const wrapper = document.createElement('div');
-  wrapper.style.marginBottom = '8px';
+      const payload = { avatar, school, honor_year, honor_rank };
+      if (newPwd) {
+        if (!oldPwd) {
+          alert('请输入当前密码才能修改密码');
+          return;
+        }
+        payload.old_password = oldPwd;
+        payload.password = newPwd;
+      }
 
-  const label = document.createElement('label');
-  label.style.cssText = 'display:block;color:#ccc;margin-bottom:4px;font-size:0.9rem;';
-  label.textContent = labelText;
+      console.log('[编辑表单] 提交数据:', payload);
 
-  const input = document.createElement('input');
-  input.type = type;
-  input.value = value;
-  input.style.cssText = 'width:100%;padding:8px;background:#111;color:#ddd;border:1px solid #444;border-radius:4px;';
+      try {
+        const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.user.token}`
+          },
+          body: JSON.stringify(payload)
+        });
 
-  wrapper.appendChild(label);
-  wrapper.appendChild(input);
+        if (!res) throw new Error('请求失败，可能是网络或 CORS 问题');
+        if (res.error) throw new Error(res.error);
 
-  return { wrapper, input };
+        state.user = { ...state.user, ...(res.user || {}) };
+        localStorage.setItem('iwp-user', JSON.stringify(state.user));
+        alert('资料更新成功！');
+        renderProfileContent();
+      } catch (err) {
+        console.error('[编辑表单] 保存失败:', err);
+        alert('保存失败：' + err.message);
+      }
+    });
+  } else {
+    console.error('[编辑表单] 找不到保存按钮');
+  }
 }
 
 // ---------- 事件同步 ----------
@@ -319,7 +303,6 @@ window.addEventListener('storage', (e) => {
   }
 });
 
-// 点击面板外部关闭
 document.addEventListener('click', (e) => {
   const panel = $('#profile-panel');
   const btn = $('#btn-profile');
