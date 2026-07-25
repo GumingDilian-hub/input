@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User - IWP</title>
+    <link rel="icon" type="image/png" href="images/0721.png?v=1">
+    <link rel="stylesheet" href="css/style.css?v=7">
+    <style>
+        #content { max-width: 800px; } /* 限制宽度 */
+        .profile-card { background: #f9f9f9; padding: 2rem; border-radius: 8px; text-align: center; border: 1px solid #eee; }
+        .profile-avatar { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ddd; margin-bottom: 1rem; }
+        .profile-name { font-size: 1.8rem; color: #333; margin-bottom: 0.5rem; }
+        .profile-meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+        .honor-badge { background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin: 0 2px; }
+        .user-post-item { padding: 1rem 0; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+        .user-post-item:hover { background: #fcfcfc; padding-left: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="toolbar">
+            <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
+        </div>
+        <main id="content">
+            <!-- 热度榜视图 -->
+            <div id="hot-view" style="display:none;">
+                <h1>🔥 全站热度榜</h1>
+                <div id="hot-list"></div>
+            </div>
+            <!-- 用户详情视图 -->
+            <div id="user-view">
+                <div class="profile-card">
+                    <img id="u-avatar" class="profile-avatar" src="" alt="Avatar">
+                    <h2 id="u-name" class="profile-name"></h2>
+                    <div id="u-meta" class="profile-meta"></div>
+                    <div id="u-school" style="color:#888; margin-bottom:1rem;"></div>
+                </div>
+                <h3 style="margin-top:2rem; border-bottom:2px solid #333; padding-bottom:0.5rem;">TA的文章</h3>
+                <div id="u-posts"></div>
+            </div>
+        </main>
+    </div>
+    <script src="js/reader.js"></script>
+    <script src="js/blog.js"></script> <!-- 复用 API 调用 -->
+    <script>
+        const API = 'https://woxiangcaoni.2167964516.workers.dev'; // 你的 Worker 地址
+
+        async function init() {
+            const params = new URLSearchParams(location.search);
+            const user = params.get('user');
+            const type = params.get('type');
+
+            if (type === 'hot') {
+                document.getElementById('user-view').style.display = 'none';
+                document.getElementById('hot-view').style.display = 'block';
+                loadHotUsers();
+            } else if (user) {
+                loadUser(user);
+            }
+        }
+
+        async function loadUser(username) {
+            const res = await fetch(`${API}/users/${username}`);
+            const data = await res.json();
+            const u = data.user;
+            
+            document.getElementById('u-avatar').src = u.avatar || 'images/0721.png';
+            document.getElementById('u-name').innerText = u.username;
+            document.getElementById('u-school').innerText = u.school || '';
+            
+            const meta = document.getElementById('u-meta');
+            if(u.honor_year && u.honor_rank) {
+                meta.innerHTML = `<span class="honor-badge">${u.honor_year}</span><span class="honor-badge">${u.honor_rank}</span>`;
+            }
+
+            const postsDiv = document.getElementById('u-posts');
+            data.posts.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'user-post-item';
+                div.innerHTML = `<h4>${p.title}</h4><small style="color:#999;">浏览: ${p.views} · 评论: ${p.comments_count}</small>`;
+                div.onclick = () => location.href = `blog.html?post=${p.id}`;
+                postsDiv.appendChild(div);
+            });
+        }
+
+        async function loadHotUsers() {
+            const res = await fetch(`${API}/users/hot`);
+            const data = await res.json();
+            const list = document.getElementById('hot-list');
+            data.users.forEach((u, i) => {
+                const div = document.createElement('div');
+                div.className = 'user-post-item';
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center;">
+                        <span style="font-size:1.5rem; font-weight:bold; width:40px; color:#ccc;">#${i+1}</span>
+                        <img src="${u.avatar}" style="width:40px; height:40px; border-radius:50%; margin:0 15px;">
+                        <div style="flex:1;">
+                            <div style="font-weight:bold; color:#333;">${u.username}</div>
+                            <div style="font-size:0.8rem; color:#888;">${u.honor_year} ${u.honor_rank}</div>
+                        </div>
+                        <div style="font-weight:bold; color:#d9534f;">${Math.floor(u.total_heat)} 热度</div>
+                    </div>
+                `;
+                div.onclick = () => location.href = `more.html?user=${u.username}`;
+                list.appendChild(div);
+            });
+        }
+        init();
+    </script>
+</body>
+</html>
