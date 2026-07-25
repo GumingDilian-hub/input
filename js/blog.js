@@ -1,11 +1,11 @@
-const COMMENT_API = 'https://woxiangcaoni.2167964516.workers.dev'; // 替换你的 Worker 地址
-const ADMIN_USERNAME = 'loading'; // 👈 站主用户名（所有硬编码已替换为此变量）
+const COMMENT_API = 'https://woxiangcaoni.2167964516.workers.dev'; // 替换为你的 Worker 地址
+const ADMIN_USERNAME = 'loading'; // 站主用户名
 
 let currentUser = null;
 let currentPostId = null;
-let filterMasterOnly = false; // 只看站主过滤开关
+let filterMasterOnly = false;
 
-// ========== 工具函数 ==========
+// ========== 工具 ==========
 function escapeHtml(unsafe) {
     if (typeof unsafe !== 'string') return '';
     return unsafe
@@ -57,7 +57,6 @@ const blogApp = {
         }
     },
 
-    // ---------- 搜索 ----------
     setupSearch: () => {
         const input = document.getElementById('blog-search');
         if (!input) return;
@@ -71,7 +70,6 @@ const blogApp = {
         });
     },
 
-    // ---------- 文章列表（支持只看站主过滤） ----------
     fetchPosts: async () => {
         const keyword = document.getElementById('blog-search')?.value.trim() || '';
         const container = document.getElementById('posts-container');
@@ -101,10 +99,14 @@ const blogApp = {
             div.style.cssText = "padding: 1.5rem; border-bottom: 1px solid #333; cursor: pointer; transition: background 0.2s;";
             div.onmouseover = () => div.style.background = "#2a2a2a";
             div.onmouseout = () => div.style.background = "transparent";
+            
+            // 作者链接（点击跳转到用户主页，不触发卡片点击）
+            const authorLink = `<a href="more.html?user=${encodeURIComponent(post.author)}" style="color: #88b4e6; text-decoration: none; font-weight:bold;" onclick="event.stopPropagation();">${escapeHtml(post.author)}</a>`;
+            
             div.innerHTML = `
                 <h2 style="margin:0 0 0.5rem; color:#eee;">${escapeHtml(post.title)}</h2>
                 <div style="color:#aaa; font-size:0.9rem;">
-                    <span style="font-weight:bold; color:#ccc;">${escapeHtml(post.author)}</span> · 
+                    <span>${authorLink}</span> · 
                     热度 ${heat}
                 </div>
             `;
@@ -128,7 +130,6 @@ const blogApp = {
         blogApp.fetchPosts();
     },
 
-    // ---------- 文章阅读 ----------
     loadPost: async (id) => {
         currentPostId = id;
         document.getElementById('blog-list-view').style.display = 'none';
@@ -154,13 +155,16 @@ const blogApp = {
             html = '<p style="color:#f88;">内容解析错误</p>';
         }
 
+        // 作者链接（阅读页也加上）
+        const authorLink = `<a href="more.html?user=${encodeURIComponent(post.author)}" style="color: #88b4e6; text-decoration: none; font-weight:bold;">${escapeHtml(post.author)}</a>`;
+
         container.innerHTML = `
             <div style="margin-bottom:2rem; padding-bottom:1rem; border-bottom:1px solid #444;">
                 <h1 style="font-size:2.5rem; margin-bottom:0.5rem; color:#eee;">${escapeHtml(post.title)}</h1>
                 <div style="display:flex; align-items:center; color:#aaa;">
                     <img src="${escapeHtml(author.avatar || 'images/0721.png')}" style="width:40px; height:40px; border-radius:50%; margin-right:10px;" onerror="this.src='images/0721.png'">
                     <div>
-                        <div style="font-weight:bold; color:#ddd;">${escapeHtml(post.author)}</div>
+                        <div style="font-weight:bold; color:#ddd;">${authorLink}</div>
                         <div style="font-size:0.85rem; color:#888;">${escapeHtml((author.honor_year||'') + ' ' + (author.honor_rank||'') + ' ' + (author.school||''))}</div>
                     </div>
                 </div>
@@ -378,7 +382,6 @@ const blogApp = {
             div.style.padding = '10px 0';
             div.style.borderBottom = '1px solid #2a2a2a';
             
-            // 使用变量 ADMIN_USERNAME 判断站主
             const isMaster = (node.username === ADMIN_USERNAME);
             const masterTag = isMaster ? '<span style="background:#d9534f; color:#fff; font-size:10px; padding:2px 6px; border-radius:2px; margin-left:5px;">始作俑者</span>' : '';
 
@@ -386,10 +389,13 @@ const blogApp = {
             const safeContent = escapeHtml(node.content);
             const avatar = escapeHtml(node.avatar || 'images/0721.png');
 
+            // 用户名加链接
+            const userLink = `<a href="more.html?user=${encodeURIComponent(node.username)}" style="color: #88b4e6; text-decoration: none; font-weight:bold;">${safeUsername}</a>`;
+
             div.innerHTML = `
                 <div style="display:flex; align-items:center;">
                     <img src="${avatar}" style="width:24px; height:24px; border-radius:50%; margin-right:8px;" onerror="this.src='images/0721.png'">
-                    <strong style="color:#ddd;">${safeUsername}</strong>
+                    <strong style="color:#ddd;">${userLink}</strong>
                     ${masterTag}
                     <span style="font-size:0.7rem; color:#666; margin-left:8px;">${node.created_at ? new Date(node.created_at).toLocaleString() : ''}</span>
                 </div>
