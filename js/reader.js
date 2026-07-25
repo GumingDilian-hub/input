@@ -1,7 +1,7 @@
 /* ========== 配置与常量 ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev', // 请确保这是你的 Worker 地址
-    ADMIN_USERNAME: 'loading', // 站主账号（始作俑者标签判定）
+    ADMIN_USERNAME: 'loading', // 站主账号
     CHAPTERS: [
         'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
         'notes/004/index.md', 'notes/005/index.md', 'notes/006/index.md', 'notes/007/index.md',
@@ -16,13 +16,13 @@ const CONFIG = {
 /* ========== 全局状态 ========== */
 let state = {
     user: null, // { username, token }
-    comments: {}, // 缓存评论数据 { sectionId: { comments: [], page: 1 } }
+    comments: {}, // 缓存评论数据 { sectionId: { comments: [], page: 1 } } 或直接数组
     scrollSpyActive: false
 };
 
 /* ========== 工具函数 ========== */
 const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const escapeHtml = (unsafe) => {
     if (typeof unsafe !== 'string') return '';
@@ -34,22 +34,41 @@ const escapeHtml = (unsafe) => {
         .replace(/'/g, "&#039;");
 };
 
-const safeFetch = async (url, options = {}) => {
+// 更健壮的 safeFetch：根据 content-type 解析，处理 204/非 JSON
+async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url, options);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        if (!res.ok) {
+            // 返回结构中可能包含错误信息，先尝试解析 text/json
+            let errText = res.statusText || `HTTP ${res.status}`;
+            try {
+                const ct = res.headers.get('content-type') || '';
+                if (ct.includes('application/json')) {
+                    const j = await res.json();
+                    errText = j.message || JSON.stringify(j);
+                } else {
+                    const t = await res.text();
+                    if (t) errText = t;
+                }
+            } catch (e) {}
+            throw new Error(errText);
+        }
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) return await res.json();
+        if (ct.includes('text/') || ct === '') return await res.text();
+        // 对于无返回体或其他类型，返回原 response 以供上层处理
+        return res;
     } catch (error) {
         console.error(`Fetch Error [${url}]:`, error);
         return null;
     }
-};
+}
 
 /* ========== 初始化入口 ========== */
 document.addEventListener('DOMContentLoaded', async () => {
     const overlay = $('#loading-overlay');
-    
-    // 并行加载所有章节（优化版）
+
+    // 并行加载所有章节（改为 Promise.allSettled 并按原序处理）
     await loadAllContent();
 
     // 移除 Loading
@@ -66,11 +85,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         initProgress();
         initAuthorPanel();
         initChapterSelect();
-        
+
         // 恢复用户登录状态
         restoreUserSession();
-        
-        // 渲染所有评论区结构
+
+        // 渲染所有评论区结构（使用 DOM API，避免内联 onclick）
         const body = $('#article-body');
         if (body) {
             injectCommentSections(body);
@@ -88,12 +107,9 @@ async function loadAllContent() {
     if (!body) return;
 
     const total = CONFIG.CHAPTERS.length;
-    const results = [];
-
-    // 并行下载
-    const promises = CONFIG.CHAPTERS.map((path, index) => 
+    const fetchPromises = CONFIG.CHAPTERS.map((path) =>
         fetch(path)
-            .then(resp => resp.ok ? resp.text() : Promise.reject('404'))
+            .then(resp => resp.ok ? resp.text() : Promise.reject(new Error('404')))
             .then(text => processMarkdown(text, path))
             .catch(err => {
                 console.warn(`Load failed: ${path}`, err);
@@ -101,35 +117,29 @@ async function loadAllContent() {
             })
     );
 
-    for (let i = 0; i < total; i++) {
-        try {
-            const result = await promises[i];
-            results.push(result);
-            
-            // 更新进度文本
-            if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-        } catch (e) {
-            console.error("Chapter load error:", e);
-            results.push({ meta: null, content: '', chapterNum: 'err' });
-        }
-    }
+    // 等待全部完成（不阻塞单个较慢项的进度更新）
+    const settled = await Promise.allSettled(fetchPromises);
+
+    const results = settled.map((s, i) => {
+        if (s.status === 'fulfilled') return s.value;
+        return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
+    });
 
     // 渲染版本信息
     renderVersionInfo(results);
-    
+
     // 分批渲染 DOM (避免主线程卡死)
     if (progressText) progressText.textContent = '正在渲染 DOM...';
     body.innerHTML = '';
-
-    let currentWrapper = null;
 
     for (let i = 0; i < results.length; i++) {
         const chunk = results[i].content;
         if (!chunk) continue;
 
+        // 使用统一 wrapper 类名：section-wrapper
         const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'section-chunk clearfix';
-        
+        sectionDiv.className = 'section-wrapper clearfix';
+
         // 安全解析 Markdown
         try {
             sectionDiv.innerHTML = marked.parse(chunk);
@@ -141,10 +151,13 @@ async function loadAllContent() {
         postProcessImages(sectionDiv, results[i].chapterNum);
         postProcessFigure(sectionDiv);
         sectionDiv.querySelectorAll('pre code').forEach(b => {
-            try { hljs.highlightElement(b); } catch(e){}
+            try { hljs.highlightElement(b); } catch (e) { }
         });
 
         body.appendChild(sectionDiv);
+
+        // 更新进度文本
+        if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
 
         // 每 3 章节让出主线程，保持 UI 响应
         if (i % 3 === 2) await new Promise(r => requestAnimationFrame(r));
@@ -153,7 +166,7 @@ async function loadAllContent() {
     // 后处理
     renderMath();
     buildTOC();
-    
+
     // 如果进度条还在，隐藏它
     if (progressText) progressText.parentElement.classList.add('hidden');
 }
@@ -161,22 +174,27 @@ async function loadAllContent() {
 /* ========== Markdown 预处理 ========== */
 function processMarkdown(md, path) {
     const { meta, content } = extractAndRemoveFrontMatter(md);
-    const chapterNum = path.split('/')[1];
-    
+    const chapterNum = path.split('/')[1] || '000';
+
     let processedContent = content
-        // 图片路径修正
+        // 图片路径修正：支持 http(s): / 开头、data:, ./ ../ 情况
         .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
-            if (!src.startsWith('http') && !src.startsWith('/')) {
+            src = src.trim();
+            if (!/^(https?:|\/|data:)/i.test(src)) {
+                // 移除前导 ./ 或 ../
+                src = src.replace(/^\.\/+/, '').replace(/^\.\.\//, '');
                 return `![${alt}](images/${chapterNum}/${src})`;
             }
             return m;
         })
-        // 特殊图片标签处理
-        .replace(/(:::image\s+\S+\s+)([^\s]+)(\s*.*?:::)/g, (m, prefix, filename, suffix) => {
-            if (!filename.startsWith('http') && !filename.startsWith('/')) {
-                return prefix + 'images/' + chapterNum + '/' + filename + suffix;
+        // 特殊图片标签处理（:::image pos filename caption :::）
+        .replace(/:::image\s+([^\s]+)?\s*([^\s]+)\s*(.*?)\s*:::/g, (m, pos, filename, caption) => {
+            pos = pos || 'center';
+            if (!/^(https?:|\/|data:)/i.test(filename)) {
+                filename = `images/${chapterNum}/${filename}`;
             }
-            return m;
+            // 转成标准 HTML，交由 postProcessFigure 进一步处理
+            return `<div class="iwp-figure" data-pos="${pos}"><img src="${filename}" alt="${escapeHtml(caption || '')}"><div class="figure-caption">${escapeHtml(caption || '')}</div></div>`;
         });
 
     return { meta, content: processedContent, chapterNum };
@@ -187,19 +205,32 @@ function extractAndRemoveFrontMatter(md) {
     if (lines[0].trim() !== '---') return { content: md, meta: null };
     const end = lines.indexOf('---', 1);
     if (end === -1) return { content: md, meta: null };
-    
+
     const fmLines = lines.slice(1, end);
     const meta = {};
     fmLines.forEach(line => {
-        const m = line.match(/^(\w+):\s*(.*)/);
+        const m = line.match(/^([\w-]+):\s*(.*)/);
         if (m) {
             let key = m[1], val = m[2].trim();
-            if (key === 'tags') val = val.replace(/[\[\]]/g, '').split(',').map(t=>t.trim());
-            meta[key] = val;
+            if (key === 'tags') {
+                // 简单解析数组形式
+                if (val.startsWith('[') && val.endsWith(']')) {
+                    try {
+                        meta[key] = val.slice(1, -1).split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+                    } catch (e) {
+                        meta[key] = val;
+                    }
+                } else {
+                    meta[key] = val.split(',').map(t => t.trim()).filter(Boolean);
+                }
+            } else {
+                // 去掉两侧引号
+                meta[key] = val.replace(/^['"]|['"]$/g, '');
+            }
         }
     });
-    
-    let content = lines.slice(end+1).join('\n').replace(/^\n+/, '');
+
+    let content = lines.slice(end + 1).join('\n').replace(/^\n+/, '');
     return { content, meta };
 }
 
@@ -207,52 +238,73 @@ function extractAndRemoveFrontMatter(md) {
 function postProcessImages(container, chapterNum) {
     container.querySelectorAll('img').forEach(img => {
         // 容错：添加加载失败处理
-        img.onerror = function() {
+        img.onerror = function () {
             console.warn('Image broken:', this.src);
-            // 可选：替换为占位符
-            // this.style.display = 'none'; 
+            this.src = CONFIG.DEFAULT_AVATAR; // 使用占位图（可替换）
         };
 
         const alt = img.alt || '';
-        const match = alt.match(/\{(left|right|around)\s*(width=(\d+))?\}/);
+        const match = alt.match(/\{(left|right|around|center)\s*(?:width=(\d+))?\}/);
         if (match) {
-            const pos = match[1], width = match[3];
-            if (width) img.style.width = width+'px';
+            const pos = match[1], width = match[2];
+            if (width) img.style.width = width + 'px';
             img.classList.add('iwp-img-' + pos);
             img.alt = alt.replace(match[0], '').trim();
         } else {
-            img.classList.add('iwp-img-center');
+            // 若父元素是 .iwp-figure 并带 data-pos，则使用该值
+            const fig = img.closest('.iwp-figure');
+            if (fig) {
+                const pos = fig.getAttribute('data-pos') || 'center';
+                img.classList.add('iwp-img-' + pos);
+            } else {
+                img.classList.add('iwp-img-center');
+            }
         }
     });
 }
 
 function postProcessFigure(container) {
-    const regex = /:::image\s+(left|right|center)?\s*([^\s]+)\s*(.*?)\s*:::/g;
-    container.innerHTML = container.innerHTML.replace(regex, (m, pos, filename, caption) => {
-        pos = pos || 'center';
-        return `<div class="figure-container figure-${pos}"><img src="${filename}" alt="${escapeHtml(caption)}" class="iwp-img-${pos}"><div class="figure-caption">${escapeHtml(caption)}</div></div>`;
+    // 将 .iwp-figure 结构规范化为 figure-container
+    container.querySelectorAll('.iwp-figure').forEach(node => {
+        const pos = node.getAttribute('data-pos') || 'center';
+        const img = node.querySelector('img');
+        const caption = node.querySelector('.figure-caption') ? node.querySelector('.figure-caption').textContent : '';
+        const wrapper = document.createElement('div');
+        wrapper.className = `figure-container figure-${pos}`;
+        const imgEl = document.createElement('img');
+        imgEl.src = img ? img.getAttribute('src') : '';
+        imgEl.alt = caption ? escapeHtml(caption) : '';
+        imgEl.className = `iwp-img-${pos}`;
+        const cap = document.createElement('div');
+        cap.className = 'figure-caption';
+        cap.textContent = caption ? caption : '';
+        wrapper.appendChild(imgEl);
+        wrapper.appendChild(cap);
+        node.parentNode.replaceChild(wrapper, node);
     });
 }
 
+/* ========== 渲染数学公式 ========== */
 function renderMath() {
     const body = $('#article-body');
     if (body && typeof renderMathInElement === 'function') {
         renderMathInElement(body, {
             delimiters: [
-                {left: '$$', right: '$$', display: true},
-                {left: '$', right: '$', display: false}
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
             ],
             throwOnError: false
         });
     }
 }
 
+/* ========== 版本信息渲染 ========== */
 function renderVersionInfo(results) {
     let versionMeta = null;
     for (const r of results) {
         if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
     }
-    
+
     const versionDiv = $('#version-info');
     if (versionMeta && versionDiv) {
         versionDiv.innerHTML =
@@ -271,24 +323,24 @@ function initSidebar() {
     if (!resizer || !sidebar) return;
 
     let isResizing = false;
-    resizer.addEventListener('mousedown', () => { isResizing=true; document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; });
-    document.addEventListener('mousemove', e => { 
-        if(!isResizing) return; 
-        const w = e.clientX; 
-        if(w > 180 && w < 600) sidebar.style.width = w + 'px'; 
+    resizer.addEventListener('mousedown', () => { isResizing = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; });
+    document.addEventListener('mousemove', e => {
+        if (!isResizing) return;
+        const w = e.clientX;
+        if (w > 180 && w < 600) sidebar.style.width = w + 'px';
     });
-    document.addEventListener('mouseup', () => { isResizing=false; document.body.style.cursor=''; document.body.style.userSelect=''; });
-    
+    document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
+
     // 全局展开/折叠绑定
     window.expandAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display='');
-        $$('.toc-toggle').forEach(t => t.textContent='▼');
-        $$('.toc-item[data-parent]').forEach(i => i.style.display='');
+        $$('.section-wrapper').forEach(w => w.style.display = '');
+        $$('.toc-toggle').forEach(t => t.textContent = '▼');
+        $$('.toc-item[data-parent]').forEach(i => i.style.display = '');
     };
     window.collapseAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display='none');
-        $$('.toc-toggle').forEach(t => t.textContent='▶');
-        $$('.toc-item[data-parent]').forEach(i => i.style.display='none');
+        $$('.section-wrapper').forEach(w => w.style.display = 'none');
+        $$('.toc-toggle').forEach(t => t.textContent = '▶');
+        $$('.toc-item[data-parent]').forEach(i => i.style.display = 'none');
     };
 }
 
@@ -297,7 +349,7 @@ function buildTOC() {
     if (!toc) return;
     toc.innerHTML = '';
     const headings = $$('#article-body h1, #article-body h2, #article-body h3');
-    let lastH1=null, lastH2=null;
+    let lastH1 = null, lastH2 = null;
     let headingIndex = 0;
 
     headings.forEach(h => {
@@ -308,24 +360,24 @@ function buildTOC() {
         item.className = `toc-item toc-h${level}`;
         item.setAttribute('data-target', h.id);
 
-        if (level===1) { lastH1=h.id; lastH2=null; }
-        else if (level===2) { lastH2=h.id; item.setAttribute('data-parent', lastH1); }
-        else if (level===3) { item.setAttribute('data-parent', lastH2||lastH1); }
+        if (level === 1) { lastH1 = h.id; lastH2 = null; }
+        else if (level === 2) { lastH2 = h.id; item.setAttribute('data-parent', lastH1); }
+        else if (level === 3) { item.setAttribute('data-parent', lastH2 || lastH1); }
 
-        if (level<=2) {
+        if (level <= 2) {
             const toggle = document.createElement('span');
-            toggle.className='toc-toggle'; toggle.textContent='▼';
+            toggle.className = 'toc-toggle'; toggle.textContent = '▼';
             toggle.addEventListener('click', e => { e.stopPropagation(); toggleSectionVisibility(h.id, toggle); });
             item.appendChild(toggle);
         } else {
             const spacer = document.createElement('span');
-            spacer.style.display='inline-block'; spacer.style.width='1rem';
+            spacer.style.display = 'inline-block'; spacer.style.width = '1rem';
             item.appendChild(spacer);
         }
-        const span = document.createElement('span'); span.textContent=text;
+        const span = document.createElement('span'); span.textContent = text;
         item.appendChild(span);
-        item.addEventListener('click', () => { 
-            try { h.scrollIntoView({behavior:'smooth',block:'start'}); } catch(e){}
+        item.addEventListener('click', () => {
+            try { h.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
         });
         toc.appendChild(item);
     });
@@ -334,25 +386,38 @@ function buildTOC() {
 function toggleSectionVisibility(headingId, toggleEl) {
     const target = document.getElementById(headingId);
     if (!target) return;
-    const wrapper = target.closest('.section-wrapper');
-    if (!wrapper) return;
+    // 找到最近的 section-wrapper（我们在渲染时已把每章置为 section-wrapper）
+    let wrapper = target.closest('.section-wrapper');
+    if (!wrapper) {
+        // 退而求其次：折叠从 heading 向后直到下一个同级 heading
+        let node = target.nextElementSibling;
+        const nodes = [];
+        while (node && !/H1|H2|H3/.test(node.tagName)) {
+            nodes.push(node);
+            node = node.nextElementSibling;
+        }
+        const visible = nodes.length > 0 && nodes[0].style.display !== 'none';
+        nodes.forEach(n => n.style.display = visible ? 'none' : '');
+        if (toggleEl) toggleEl.textContent = visible ? '▶' : '▼';
+        return;
+    }
     const visible = wrapper.style.display !== 'none';
     if (visible) {
-        wrapper.style.display = 'none'; toggleEl.textContent = '▶';
+        wrapper.style.display = 'none'; if (toggleEl) toggleEl.textContent = '▶';
         hideTOCChildren(headingId);
     } else {
-        wrapper.style.display = ''; toggleEl.textContent = '▼';
+        wrapper.style.display = ''; if (toggleEl) toggleEl.textContent = '▼';
         showTOCChildren(headingId);
     }
 }
 
-function hideTOCChildren(parentId) { $$('.toc-item').forEach(c => { if(c.getAttribute('data-parent')===parentId) c.style.display='none'; }); }
-function showTOCChildren(parentId) { 
-    $$('.toc-item').forEach(c => { 
-        if(c.getAttribute('data-parent')===parentId) {
-            if(isParentVisible(c)) c.style.display='';
-        } 
-    }); 
+function hideTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) c.style.display = 'none'; }); }
+function showTOCChildren(parentId) {
+    $$('.toc-item').forEach(c => {
+        if (c.getAttribute('data-parent') === parentId) {
+            if (isParentVisible(c)) c.style.display = '';
+        }
+    });
 }
 function isParentVisible(child) {
     const pid = child.getAttribute('data-parent');
@@ -360,7 +425,7 @@ function isParentVisible(child) {
     const p = document.getElementById(pid);
     if (!p) return true;
     const pw = p.closest('.section-wrapper');
-    return !(pw && pw.style.display==='none');
+    return !(pw && pw.style.display === 'none');
 }
 
 function initSearch() {
@@ -374,18 +439,18 @@ function initSearch() {
     function buildIndex() {
         searchIndex = [];
         $$('#article-body h3').forEach((h3, i) => {
-            if(!h3.id) h3.id = 'h3-'+i;
+            if (!h3.id) h3.id = 'h3-' + i;
             const title = h3.textContent.trim();
             let ctx = '', node = h3.nextElementSibling;
-            while(node && !['H1','H2','H3'].includes(node.tagName)) {
-                if(node.textContent.trim()) ctx += node.textContent.trim()+' ';
+            while (node && !['H1', 'H2', 'H3'].includes(node.tagName)) {
+                if (node.textContent.trim()) ctx += node.textContent.trim() + ' ';
                 node = node.nextElementSibling;
-                if(ctx.length>80) break;
+                if (ctx.length > 80) break;
             }
-            searchIndex.push({ title, titleLower: title.toLowerCase(), context: ctx.slice(0,80).trim(), id: h3.id });
+            searchIndex.push({ title, titleLower: title.toLowerCase(), context: ctx.slice(0, 80).trim(), id: h3.id });
         });
     }
-    
+
     // 延迟构建索引，等待 DOM 渲染
     setTimeout(buildIndex, 1000);
 
@@ -394,16 +459,18 @@ function initSearch() {
         debounceTimer = setTimeout(() => {
             const q = input.value.trim().toLowerCase();
             results.innerHTML = '';
-            if(!q) return;
-            
-            searchIndex.filter(i => i.titleLower.includes(q) || i.context.toLowerCase().includes(q)).forEach(i=>{
+            if (!q) return;
+
+            searchIndex.filter(i => i.titleLower.includes(q) || i.context.toLowerCase().includes(q)).forEach(i => {
                 const div = document.createElement('div');
-                div.className='search-result-item';
-                div.innerHTML = `<div class="title">${escapeHtml(i.title)}</div><div class="context">${escapeHtml(i.context)}</div>`;
-                div.addEventListener('click', ()=>{
+                div.className = 'search-result-item';
+                const title = document.createElement('div'); title.className = 'title'; title.textContent = i.title;
+                const ctx = document.createElement('div'); ctx.className = 'context'; ctx.textContent = i.context;
+                div.appendChild(title); div.appendChild(ctx);
+                div.addEventListener('click', () => {
                     const el = document.getElementById(i.id);
-                    if(el) {
-                        el.scrollIntoView({behavior:'smooth',block:'start'});
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         toggleSearchPanel();
                     }
                 });
@@ -470,14 +537,14 @@ function initScrollSpy() {
     });
 
     $$('#article-body h1, #article-body h2, #article-body h3').forEach(h => {
-        try { observer.observe(h); } catch (e) {}
+        try { observer.observe(h); } catch (e) { }
     });
 }
 
 function initProgress() {
     const content = $('#content');
     if (!content) return;
-    
+
     // 恢复
     const saved = localStorage.getItem('iwp-progress');
     if (saved) content.scrollTop = parseInt(saved) || 0;
@@ -503,27 +570,27 @@ function initAuthorPanel() {
 
         try {
             const resp = await fetch(CONFIG.AUTHOR_MD);
-            if(resp.ok) {
+            if (resp.ok) {
                 const md = await resp.text();
                 const fm = extractAndRemoveFrontMatter(md).meta || {};
                 let name = fm.name || '未署名', bio = fm.bio || '暂无简介', avatar = fm.avatar || '';
-                if(avatar && !avatar.startsWith('http')) avatar = 'images/000/' + avatar;
-                
+                if (avatar && !avatar.startsWith('http')) avatar = 'images/000/' + avatar;
+
                 info.innerHTML = `${avatar ? `<img src="${avatar}" style="width:80px;border-radius:50%;margin-bottom:1rem;">` : ''}<h2>${escapeHtml(name)}</h2><p>${escapeHtml(bio)}</p>`;
                 panel.classList.add('loaded');
             }
-        } catch(e){}
+        } catch (e) { }
     });
-    
+
     close.addEventListener('click', () => panel.classList.remove('panel-visible'));
 }
 
 function initChapterSelect() {
     const select = $('#chapter-select');
-    if(!select) return;
+    if (!select) return;
     // 简单获取所有 H1
     $$('#article-body h1').forEach(h1 => {
-        if(!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2,8);
+        if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2, 8);
         const opt = document.createElement('option');
         opt.value = h1.id;
         opt.textContent = h1.textContent.trim();
@@ -531,13 +598,13 @@ function initChapterSelect() {
     });
     select.addEventListener('change', () => {
         const el = document.getElementById(select.value);
-        if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 }
 
 /* ========== 评论区系统 (核心嵌套逻辑) ========== */
 
-// 1. 为每个 H2 插入评论区容器
+// 1. 为每个 H2 插入评论区容器（使用 DOM API，避免内联 onclick）
 function injectCommentSections(body) {
     const h2s = body.querySelectorAll('h2');
     h2s.forEach((h2, index) => {
@@ -547,36 +614,77 @@ function injectCommentSections(body) {
         const commentSection = document.createElement('div');
         commentSection.className = 'comment-section';
         commentSection.setAttribute('data-section-id', sectionId);
-        commentSection.innerHTML = `
-            <div class="comment-toggle" onclick="toggleCommentSection(this, '${sectionId}')">
-                来喵两句～（点击展开评论区） <span class="comment-count-badge" id="comment-count-${sectionId}"></span>
-            </div>
-            <div class="comment-body" id="comment-body-${sectionId}" style="display:none;">
-                <div class="comment-list" id="comment-list-${sectionId}"></div>
-                <div class="comment-form" id="comment-form-${sectionId}">
-                    <div class="auth-panel" id="auth-panel-${sectionId}"></div>
-                    <div class="input-area" id="input-area-${sectionId}" style="display:none;">
-                        <textarea id="comment-input-${sectionId}" placeholder="良言一句我就热，恶语伤人我就冷..." rows="3"></textarea>
-                        <button onclick="submitComment('${sectionId}')">说话！</button>
-                    </div>
-                </div>
-            </div>
-        `;
+
+        const toggle = document.createElement('div');
+        toggle.className = 'comment-toggle';
+        toggle.textContent = '来喵两句～（点击展开评论区） ';
+        const countBadge = document.createElement('span');
+        countBadge.className = 'comment-count-badge';
+        countBadge.id = 'comment-count-' + sectionId;
+        toggle.appendChild(countBadge);
+        toggle.addEventListener('click', () => toggleCommentSection(sectionId));
+
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'comment-body';
+        bodyDiv.id = 'comment-body-' + sectionId;
+        bodyDiv.style.display = 'none';
+
+        const list = document.createElement('div');
+        list.className = 'comment-list';
+        list.id = 'comment-list-' + sectionId;
+
+        const form = document.createElement('div');
+        form.className = 'comment-form';
+        form.id = 'comment-form-' + sectionId;
+
+        const authPanel = document.createElement('div');
+        authPanel.className = 'auth-panel';
+        authPanel.id = 'auth-panel-' + sectionId;
+
+        const inputArea = document.createElement('div');
+        inputArea.className = 'input-area';
+        inputArea.id = 'input-area-' + sectionId;
+        inputArea.style.display = 'none';
+
+        const textarea = document.createElement('textarea');
+        textarea.id = `comment-input-${sectionId}`;
+        textarea.placeholder = '良言一句我就热，恶语伤人我就冷...';
+        textarea.rows = 3;
+
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'button';
+        submitBtn.textContent = '说话！';
+        submitBtn.addEventListener('click', () => submitComment(sectionId));
+
+        inputArea.appendChild(textarea);
+        inputArea.appendChild(submitBtn);
+
+        form.appendChild(authPanel);
+        form.appendChild(inputArea);
+
+        bodyDiv.appendChild(list);
+        bodyDiv.appendChild(form);
+
+        commentSection.appendChild(toggle);
+        commentSection.appendChild(bodyDiv);
+
         h2.parentNode.insertBefore(commentSection, h2.nextSibling);
+
+        // 初始化 auth UI for this section
+        updateAuthUI(sectionId);
     });
 }
 
 // 2. 切换评论区显示
-function toggleCommentSection(toggleEl, sectionId) {
+function toggleCommentSection(sectionId) {
     const body = document.getElementById('comment-body-' + sectionId);
+    if (!body) return;
     if (body.style.display === 'none' || body.style.display === '') {
         body.style.display = 'block';
         // 延迟加载，提升首屏性能
         if (!state.comments[sectionId]) {
             fetchCommentsForSection(sectionId);
         } else {
-            // 已加载，直接显示（如果已经被渲染）
-            // 这里简单处理：总是重新渲染以确保状态同步，或者由 state 管理
             renderCommentsForSection(sectionId);
         }
     } else {
@@ -591,11 +699,13 @@ async function fetchCommentsForSection(sectionId) {
     if (!listEl) return;
     listEl.innerHTML = '少女祈祷中...';
 
-    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${sectionId}&limit=100`);
-    
+    const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(sectionId)}&limit=100`);
+
     if (data) {
-        state.comments[sectionId] = data.comments || [];
-        if (countBadge) countBadge.textContent = `(${data.total || 0})`;
+        // 支持两种返回形式：{ comments: [...], total } 或直接 array
+        const flat = Array.isArray(data) ? data : (data.comments || []);
+        state.comments[sectionId] = flat;
+        if (countBadge) countBadge.textContent = `(${(data.total || flat.length || 0)})`;
         renderCommentsForSection(sectionId);
         updateAuthUI(sectionId); // 更新登录状态显示
     } else {
@@ -607,79 +717,150 @@ async function fetchCommentsForSection(sectionId) {
 function buildCommentTree(flatComments) {
     const map = {};
     const roots = [];
-    
-    flatComments.forEach(c => { 
-        c.children = []; 
-        map[c.id] = c; 
-    });
-    
+
     flatComments.forEach(c => {
-        // 如果存在 parent_id 且能在 map 中找到父节点，则加入父节点 children
-        // 否则，视为孤儿节点，作为根节点显示（鲁棒性处理）
+        c.children = [];
+        map[c.id] = c;
+    });
+
+    flatComments.forEach(c => {
         if (c.parent_id && map[c.parent_id]) {
             map[c.parent_id].children.push(c);
         } else {
+            // 标记孤儿（便于 UI 提示）
+            if (c.parent_id && !map[c.parent_id]) c.orphan = true;
             roots.push(c);
         }
     });
     return roots;
 }
 
-// 5. 渲染评论树 (递归)
+// 5. 渲染评论树 (改用 DOM API，避免内联事件与 XSS)
 function renderCommentsForSection(sectionId) {
     const listEl = document.getElementById('comment-list-' + sectionId);
     if (!listEl) return;
-    
+
     const flat = state.comments[sectionId] || [];
     const tree = buildCommentTree(flat);
     listEl.innerHTML = ''; // 清空
-    
+
     if (flat.length === 0) {
         listEl.innerHTML = '<p style="color:#999; font-size:0.9rem;">暂无评论，快来抢沙发～</p>';
         return;
     }
-    
+
     renderCommentNodeRecursive(listEl, tree, sectionId);
 }
 
 function renderCommentNodeRecursive(container, nodes, sectionId) {
     nodes.forEach(node => {
-        const div = document.createElement('div');
+        const wrapper = document.createElement('div');
         const isChild = !!node.parent_id;
-        
-        // 样式逻辑
-        const style = isChild ? 
-            `margin-left: 24px; padding-left: 12px; border-left: 2px solid #eee; background: #fcfcfc;` : 
-            `padding: 12px 0; border-bottom: 1px solid #eee;`;
-        div.style.cssText = style;
 
-        // 站主标签
-        const isMaster = (node.username === CONFIG.ADMIN_USERNAME);
-        const masterTag = isMaster ? 
-            `<span style="background:#d9534f; color:white; font-size:10px; padding:2px 6px; border-radius:3px; margin-left:6px; vertical-align:middle;">始作俑者</span>` : '';
+        // 样式逻辑（使用类而不是直接内联样式）
+        wrapper.className = isChild ? 'comment-node-child' : 'comment-node-root';
+        wrapper.style.marginLeft = isChild ? '24px' : '';
+        wrapper.style.paddingLeft = isChild ? '12px' : '';
+        wrapper.style.borderLeft = isChild ? '2px solid #eee' : '';
 
-        div.innerHTML = `
-            <div class="comment-item">
-                <div class="comment-avatar">
-                    <img src="${node.avatar || CONFIG.DEFAULT_AVATAR}" width="30" height="30" onerror="this.src='${CONFIG.DEFAULT_AVATAR}'">
-                </div>
-                <div class="comment-content">
-                    <div>
-                        <span class="comment-user">${escapeHtml(node.username)}</span>${masterTag}
-                        <span class="comment-time">${node.created_at ? new Date(node.created_at).toLocaleString() : ''}</span>
-                    </div>
-                    <p style="margin: 5px 0 0; color: #444; line-height: 1.5;">${escapeHtml(node.content)}</p>
-                    <div class="comment-actions" style="margin-top: 5px;">
-                        <button onclick="likeComment(${node.id}, '${sectionId}')" style="background:none; border:none; cursor:pointer; font-size:0.85rem;">❤️ ${node.likes || 0}</button>
-                        <button onclick="quoteComment('${escapeHtml(node.content)}', '${sectionId}')" style="background:none; border:none; cursor:pointer; font-size:0.85rem;">引用</button>
-                        <button onclick="showReplyBox(${node.id}, '${sectionId}')" style="background:none; border:none; cursor:pointer; font-size:0.85rem;">回复</button>
-                    </div>
-                </div>
-            </div>
-            <div id="reply-box-${node.id}" style="display:none; margin: 8px 0 8px 42px;"></div>
-        `;
-        
-        container.appendChild(div);
+        // comment-item
+        const item = document.createElement('div');
+        item.className = 'comment-item';
+
+        const avatarWrap = document.createElement('div');
+        avatarWrap.className = 'comment-avatar';
+        const avatarImg = document.createElement('img');
+        avatarImg.src = node.avatar || CONFIG.DEFAULT_AVATAR;
+        avatarImg.width = 32; avatarImg.height = 32;
+        avatarImg.onerror = function () { this.src = CONFIG.DEFAULT_AVATAR; };
+        avatarWrap.appendChild(avatarImg);
+
+        const contentWrap = document.createElement('div');
+        contentWrap.className = 'comment-content';
+
+        const header = document.createElement('div');
+        const userSpan = document.createElement('span');
+        userSpan.className = 'comment-user';
+        userSpan.textContent = node.username || '匿名';
+        header.appendChild(userSpan);
+
+        if (node.username === CONFIG.ADMIN_USERNAME) {
+            const masterTag = document.createElement('span');
+            masterTag.style.cssText = "background:#d9534f; color:white; font-size:10px; padding:2px 6px; border-radius:3px; margin-left:6px; vertical-align:middle;";
+            masterTag.textContent = '始作俑者';
+            header.appendChild(masterTag);
+        }
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'comment-time';
+        timeSpan.style.marginLeft = '8px';
+        timeSpan.textContent = node.created_at ? new Date(node.created_at).toLocaleString() : '';
+        header.appendChild(timeSpan);
+
+        const para = document.createElement('p');
+        para.style.margin = '5px 0 0';
+        para.style.color = '#444';
+        para.style.lineHeight = '1.5';
+        para.textContent = node.content || '';
+
+        const actions = document.createElement('div');
+        actions.className = 'comment-actions';
+        actions.style.marginTop = '5px';
+
+        const likeBtn = document.createElement('button');
+        likeBtn.type = 'button';
+        likeBtn.style.background = 'none';
+        likeBtn.style.border = 'none';
+        likeBtn.style.cursor = 'pointer';
+        likeBtn.style.fontSize = '0.85rem';
+        likeBtn.textContent = `❤️ ${node.likes || 0}`;
+        likeBtn.addEventListener('click', () => likeComment(node.id, sectionId));
+
+        const quoteBtn = document.createElement('button');
+        quoteBtn.type = 'button';
+        quoteBtn.style.background = 'none';
+        quoteBtn.style.border = 'none';
+        quoteBtn.style.cursor = 'pointer';
+        quoteBtn.style.fontSize = '0.85rem';
+        quoteBtn.textContent = '引用';
+        quoteBtn.addEventListener('click', () => {
+            const input = document.getElementById(`comment-input-${sectionId}`);
+            if (input) {
+                input.value += `> ${node.content}\n`;
+                input.focus();
+            }
+        });
+
+        const replyBtn = document.createElement('button');
+        replyBtn.type = 'button';
+        replyBtn.style.background = 'none';
+        replyBtn.style.border = 'none';
+        replyBtn.style.cursor = 'pointer';
+        replyBtn.style.fontSize = '0.85rem';
+        replyBtn.textContent = '回复';
+        replyBtn.addEventListener('click', () => showReplyBox(node.id, sectionId));
+
+        actions.appendChild(likeBtn);
+        actions.appendChild(quoteBtn);
+        actions.appendChild(replyBtn);
+
+        contentWrap.appendChild(header);
+        contentWrap.appendChild(para);
+        contentWrap.appendChild(actions);
+
+        item.appendChild(avatarWrap);
+        item.appendChild(contentWrap);
+
+        wrapper.appendChild(item);
+
+        // 回复框容器
+        const replyBox = document.createElement('div');
+        replyBox.id = `reply-box-${node.id}`;
+        replyBox.style.display = 'none';
+        replyBox.style.margin = '8px 0 8px 42px';
+        wrapper.appendChild(replyBox);
+
+        container.appendChild(wrapper);
 
         // 递归
         if (node.children && node.children.length > 0) {
@@ -697,7 +878,7 @@ function restoreUserSession() {
     if (saved) {
         try {
             state.user = JSON.parse(saved);
-        } catch(e) { localStorage.removeItem('iwp-user'); }
+        } catch (e) { localStorage.removeItem('iwp-user'); }
     }
     // 更新所有可见的评论区 UI
     $$('.comment-section').forEach(sec => {
@@ -710,35 +891,47 @@ function updateAuthUI(sectionId) {
     const panel = document.getElementById('auth-panel-' + sectionId);
     const inputArea = document.getElementById('input-area-' + sectionId);
     if (!panel) return;
-    
+
+    panel.innerHTML = ''; // 清空并用 DOM API 填充，避免内联事件
+
     if (state.user) {
-        panel.innerHTML = `<span>Hi ${state.user.username}</span> <button onclick="doLogout()">退出</button>`;
+        const span = document.createElement('span'); span.textContent = `Hi ${state.user.username}`;
+        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '退出';
+        btn.addEventListener('click', () => doLogout());
+        panel.appendChild(span); panel.appendChild(document.createTextNode(' ')); panel.appendChild(btn);
         if (inputArea) inputArea.style.display = 'block';
     } else {
-        panel.innerHTML = `
-            <button onclick="showLoginUI('${sectionId}')">登录</button>
-            <button onclick="showRegisterUI('${sectionId}')">注册</button>
-        `;
+        const loginBtn = document.createElement('button'); loginBtn.type = 'button'; loginBtn.textContent = '登录';
+        const regBtn = document.createElement('button'); regBtn.type = 'button'; regBtn.textContent = '注册';
+        loginBtn.addEventListener('click', () => showLoginUI(sectionId));
+        regBtn.addEventListener('click', () => showRegisterUI(sectionId));
+        panel.appendChild(loginBtn); panel.appendChild(regBtn);
         if (inputArea) inputArea.style.display = 'none';
     }
 }
 
 function showLoginUI(sectionId) {
     const panel = document.getElementById('auth-panel-' + sectionId);
-    panel.innerHTML = `
-        <input type="text" id="login-user-${sectionId}" placeholder="用户名">
-        <input type="password" id="login-pass-${sectionId}" placeholder="密码">
-        <button onclick="doLogin('${sectionId}')">Go</button>
-    `;
+    if (!panel) return;
+    panel.innerHTML = '';
+
+    const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `login-user-${sectionId}`;
+    const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `login-pass-${sectionId}`;
+    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go';
+    goBtn.addEventListener('click', () => doLogin(sectionId));
+    panel.appendChild(userInput); panel.appendChild(passInput); panel.appendChild(goBtn);
 }
 
 function showRegisterUI(sectionId) {
     const panel = document.getElementById('auth-panel-' + sectionId);
-    panel.innerHTML = `
-        <input type="text" id="reg-user-${sectionId}" placeholder="用户名">
-        <input type="password" id="reg-pass-${sectionId}" placeholder="密码">
-        <button onclick="doRegister('${sectionId}')">Go</button>
-    `;
+    if (!panel) return;
+    panel.innerHTML = '';
+
+    const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `reg-user-${sectionId}`;
+    const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `reg-pass-${sectionId}`;
+    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go';
+    goBtn.addEventListener('click', () => doRegister(sectionId));
+    panel.appendChild(userInput); panel.appendChild(passInput); panel.appendChild(goBtn);
 }
 
 async function doLogin(sectionId) {
@@ -748,12 +941,13 @@ async function doLogin(sectionId) {
 
     const data = await safeFetch(`${CONFIG.COMMENT_API}/login`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: u, password: p })
     });
 
     if (data && data.token) {
         state.user = { username: u, token: data.token };
+        // 注意安全性：token 存 localStorage 有被 XSS 窃取风险，部署时请考虑 HttpOnly cookie
         localStorage.setItem('iwp-user', JSON.stringify(state.user));
         updateAuthUI(sectionId);
         fetchCommentsForSection(sectionId); // 刷新评论
@@ -769,7 +963,7 @@ async function doRegister(sectionId) {
 
     const data = await safeFetch(`${CONFIG.COMMENT_API}/register`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: u, password: p })
     });
 
@@ -787,7 +981,6 @@ function doLogout() {
     state.user = null;
     localStorage.removeItem('iwp-user');
     $$('.auth-panel').forEach(p => {
-        // 查找最近的 section ID
         const sec = p.closest('.comment-section');
         if (sec) updateAuthUI(sec.getAttribute('data-section-id'));
     });
@@ -802,7 +995,7 @@ async function submitComment(sectionId) {
 
     const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}`},
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}` },
         body: JSON.stringify({ section: sectionId, content })
     });
 
@@ -814,18 +1007,50 @@ async function submitComment(sectionId) {
     }
 }
 
-// 显示回复框
+// 显示回复框（动态生成并绑定发送事件）
 function showReplyBox(parentId, sectionId) {
     const box = document.getElementById(`reply-box-${parentId}`);
-    if (box.style.display === 'none') {
+    if (!box) return;
+    if (box.style.display === 'none' || box.style.display === '') {
         box.style.display = 'block';
-        box.innerHTML = `
-            <textarea id="reply-input-${parentId}" rows="2" style="width:100%; border:1px solid #ddd; border-radius:4px; padding:5px;" placeholder="回复..."></textarea>
-            <div style="margin-top:5px;">
-                <button onclick="doReply(${parentId}, '${sectionId}')" style="padding:4px 10px; background:#333; color:#fff; border:none; border-radius:3px; cursor:pointer;">发送</button>
-                <button onclick="document.getElementById('reply-box-${parentId}').style.display='none'" style="padding:4px 10px; border:none; background:none; cursor:pointer;">取消</button>
-            </div>
-        `;
+        box.innerHTML = ''; // 清空
+        const textarea = document.createElement('textarea');
+        textarea.id = `reply-input-${parentId}`;
+        textarea.rows = 2;
+        textarea.style.width = '100%';
+        textarea.style.border = '1px solid #ddd';
+        textarea.style.borderRadius = '4px';
+        textarea.style.padding = '5px';
+        textarea.placeholder = '回复...';
+
+        const bar = document.createElement('div');
+        bar.style.marginTop = '5px';
+
+        const sendBtn = document.createElement('button');
+        sendBtn.type = 'button';
+        sendBtn.style.padding = '4px 10px';
+        sendBtn.style.background = '#333';
+        sendBtn.style.color = '#fff';
+        sendBtn.style.border = 'none';
+        sendBtn.style.borderRadius = '3px';
+        sendBtn.style.cursor = 'pointer';
+        sendBtn.textContent = '发送';
+        sendBtn.addEventListener('click', () => doReply(parentId, sectionId));
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.style.padding = '4px 10px';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.background = 'none';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.textContent = '取消';
+        cancelBtn.addEventListener('click', () => { box.style.display = 'none'; });
+
+        bar.appendChild(sendBtn);
+        bar.appendChild(cancelBtn);
+
+        box.appendChild(textarea);
+        box.appendChild(bar);
     } else {
         box.style.display = 'none';
     }
@@ -840,7 +1065,7 @@ async function doReply(parentId, sectionId) {
 
     const res = await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}`},
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.user.token}` },
         body: JSON.stringify({ section: sectionId, content, parent_id: parentId })
     });
 
@@ -853,27 +1078,24 @@ async function doReply(parentId, sectionId) {
 
 // 点赞
 async function likeComment(commentId, sectionId) {
-    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments/${commentId}/like`, { method: 'POST' });
+    const res = await safeFetch(`${CONFIG.COMMENT_API}/comments/${encodeURIComponent(commentId)}/like`, { method: 'POST' });
     if (res) {
         fetchCommentsForSection(sectionId);
     }
 }
 
-// 引用
-function quoteComment(text, sectionId) {
-    const input = document.getElementById(`comment-input-${sectionId}`);
-    if (input) {
-        input.value += `> ${text}\n`;
-        input.focus();
-    }
-}
-
-// 绑定全局事件（防止内联 onclick 找不到函数）
+/* ========== 绑定全局事件（供 HTML 内其他脚本调用） ========== */
 function setupGlobalCommentListeners() {
     window.toggleCommentSection = toggleCommentSection;
     window.submitComment = submitComment;
     window.likeComment = likeComment;
-    window.quoteComment = quoteComment;
+    window.quoteComment = (text, sectionId) => {
+        const input = document.getElementById(`comment-input-${sectionId}`);
+        if (input) {
+            input.value += `> ${text}\n`;
+            input.focus();
+        }
+    };
     window.showReplyBox = showReplyBox;
     window.doReply = doReply;
     window.showLoginUI = showLoginUI;
