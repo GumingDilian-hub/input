@@ -926,61 +926,17 @@ function showRegisterUI(sectionId) {
 
     const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = `reg-user-${sectionId}`;
     const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = `reg-pass-${sectionId}`;
-    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go*
-// ----- profile panel open/close helpers -----
-// Add these global functions so onclick="openProfile()" in HTML works.
+    const goBtn = document.createElement('button'); goBtn.type = 'button'; goBtn.textContent = 'Go';
+    goBtn.addEventListener('click', () => doRegister(sectionId));
+    panel.appendChild(userInput); panel.appendChild(passInput); panel.appendChild(goBtn);
+}
 
+// 下面是修复个人中心面板未连接的问题：实现 openProfile / closeProfile，并渲染面板内容。
 function openProfile() {
     const panel = document.getElementById('profile-panel');
-    const content = document.getElementById('profile-content');
-    if (!panel || !content) return;
+    if (!panel) return;
     panel.style.display = 'block';
-
-    // If already populated for this session, keep it (avoid re-render)
-    // but ensure it reflects current state.user
-    content.innerHTML = '';
-
-    if (state && state.user) {
-        // Show simple profile summary + logout
-        const avatar = escapeHtml(state.user.avatar || CONFIG.DEFAULT_AVATAR);
-        const username = escapeHtml(state.user.username || '匿名');
-        content.innerHTML = `
-            <div style="text-align:center; padding:1rem;">
-              <img src="${avatar}" alt="avatar" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin-bottom:0.8rem;" onerror="this.src='${CONFIG.DEFAULT_AVATAR}'">
-              <h3 style="margin:0 0 0.4rem 0; color:#fff;">${username}</h3>
-              <p style="color:#aaa; margin:0 0 1rem 0;">已登录</p>
-              <div><button id="profile-logout-btn">退出</button></div>
-            </div>
-        `;
-        const outBtn = document.getElementById('profile-logout-btn');
-        if (outBtn) outBtn.addEventListener('click', () => {
-            doLogout();
-            // refresh panel to login view
-            openProfile();
-        });
-    } else {
-        // Show a lightweight login/register form that calls existing doLogin/doRegister
-        // Inputs are given ids expected by doLogin/doRegister when sectionId = 'profile'
-        content.innerHTML = `
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <input id="login-user-profile" type="text" placeholder="用户名" style="width:100%; padding:8px;"/>
-            <input id="login-pass-profile" type="password" placeholder="密码" style="width:100%; padding:8px;"/>
-            <div style="display:flex; gap:8px;">
-              <button id="profile-do-login">登录</button>
-              <button id="profile-do-register">注册</button>
-            </div>
-          </div>
-        `;
-
-        document.getElementById('profile-do-login')?.addEventListener('click', () => {
-            // reuse doLogin which expects elements with ids `login-user-${sectionId}` and `login-pass-${sectionId}`
-            // our inputs are named login-user-profile / login-pass-profile so pass 'profile'
-            doLogin('profile');
-        });
-        document.getElementById('profile-do-register')?.addEventListener('click', () => {
-            doRegister('profile');
-        });
-    }
+    renderProfileContent();
 }
 
 function closeProfile() {
@@ -988,3 +944,153 @@ function closeProfile() {
     if (!panel) return;
     panel.style.display = 'none';
 }
+
+function renderProfileContent() {
+    const container = document.getElementById('profile-content');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // If we have a user from state, show profile summary and logout
+    if (state.user) {
+        const top = document.createElement('div');
+        top.style.textAlign = 'center';
+
+        const avatar = document.createElement('img');
+        avatar.src = (state.user.avatar && typeof state.user.avatar === 'string') ? state.user.avatar : CONFIG.DEFAULT_AVATAR;
+        avatar.style.width = '80px';
+        avatar.style.height = '80px';
+        avatar.style.borderRadius = '50%';
+        avatar.style.objectFit = 'cover';
+        avatar.onerror = function () { this.src = CONFIG.DEFAULT_AVATAR; };
+
+        const name = document.createElement('div');
+        name.style.marginTop = '0.6rem';
+        name.style.fontWeight = '600';
+        name.style.color = '#fff';
+        name.textContent = state.user.username || '匿名';
+
+        top.appendChild(avatar);
+        top.appendChild(name);
+
+        const btnBar = document.createElement('div');
+        btnBar.style.display = 'flex';
+        btnBar.style.gap = '8px';
+        btnBar.style.justifyContent = 'center';
+        btnBar.style.marginTop = '1rem';
+
+        const logoutBtn = document.createElement('button');
+        logoutBtn.textContent = '退出登录';
+        logoutBtn.addEventListener('click', () => {
+            if (typeof doLogout === 'function') doLogout();
+            renderProfileContent();
+        });
+
+        const moreBtn = document.createElement('button');
+        moreBtn.textContent = '查看资料';
+        moreBtn.addEventListener('click', () => {
+            window.open(`more.html?user=${encodeURIComponent(state.user.username || '')}`, '_blank');
+        });
+
+        btnBar.appendChild(moreBtn);
+        btnBar.appendChild(logoutBtn);
+
+        container.appendChild(top);
+        container.appendChild(btnBar);
+
+        // basic info block
+        const info = document.createElement('div');
+        info.style.marginTop = '1rem';
+        info.style.color = '#ccc';
+        info.innerHTML = `<div>用户名：${escapeHtml(state.user.username || '')}</div>`;
+        if (state.user.email) info.innerHTML += `<div>邮箱：${escapeHtml(state.user.email)}</div>`;
+        container.appendChild(info);
+    } else {
+        // show login/register form inside profile panel
+        const form = document.createElement('div');
+        form.style.display = 'flex';
+        form.style.flexDirection = 'column';
+        form.style.gap = '8px';
+
+        const userInput = document.createElement('input'); userInput.type = 'text'; userInput.placeholder = '用户名'; userInput.id = 'profile-login-user';
+        const passInput = document.createElement('input'); passInput.type = 'password'; passInput.placeholder = '密码'; passInput.id = 'profile-login-pass';
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+
+        const loginBtn = document.createElement('button'); loginBtn.textContent = '登录';
+        loginBtn.addEventListener('click', () => {
+            // if existing doLogin accepts a sectionId, call with 'profile' so it can update state and dispatch events
+            if (typeof doLogin === 'function') {
+                // populate the temporary inputs expected by doLogin (it reads by id: login-user-<sectionId>)
+                try { document.getElementById('login-user-profile').value = userInput.value; } catch (e) {}
+                try { document.getElementById('login-pass-profile').value = passInput.value; } catch (e) {}
+                // create fallback ids so doLogin can read them
+                userInput.id = 'login-user-profile'; passInput.id = 'login-pass-profile';
+                doLogin('profile');
+            } else {
+                alert('登录功能不可用');
+            }
+            setTimeout(renderProfileContent, 300);
+        });
+
+        const regBtn = document.createElement('button'); regBtn.textContent = '注册';
+        regBtn.addEventListener('click', () => {
+            if (typeof doRegister === 'function') {
+                try { document.getElementById('reg-user-profile').value = userInput.value; } catch (e) {}
+                try { document.getElementById('reg-pass-profile').value = passInput.value; } catch (e) {}
+                userInput.id = 'reg-user-profile'; passInput.id = 'reg-pass-profile';
+                doRegister('profile');
+            } else {
+                alert('注册功能不可用');
+            }
+            setTimeout(renderProfileContent, 300);
+        });
+
+        btnGroup.appendChild(loginBtn); btnGroup.appendChild(regBtn);
+
+        form.appendChild(userInput);
+        form.appendChild(passInput);
+        form.appendChild(btnGroup);
+
+        container.appendChild(form);
+
+        const hint = document.createElement('div');
+        hint.style.marginTop = '1rem';
+        hint.style.color = '#888';
+        hint.textContent = '登录后可发表评论、点赞并查看个人资料。';
+        container.appendChild(hint);
+    }
+}
+
+// keep profile panel in sync with login/logout events and storage changes
+document.addEventListener('profile-login', (e) => {
+    try { state.user = e.detail; } catch (err) { /* ignore */ }
+    renderProfileContent();
+});
+
+document.addEventListener('profile-logout', () => {
+    state.user = null;
+    renderProfileContent();
+});
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'iwp-user') {
+        try { state.user = e.newValue ? JSON.parse(e.newValue) : null; } catch (err) { state.user = null; }
+        renderProfileContent();
+    }
+});
+
+// close panel when clicking outside (optional UX improvement)
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('profile-panel');
+    const btn = document.getElementById('btn-profile');
+    if (!panel || !btn) return;
+    if (panel.style.display === 'none' || panel.style.display === '') return;
+    const withinPanel = panel.contains(e.target);
+    const isBtn = btn.contains(e.target);
+    if (!withinPanel && !isBtn) {
+        panel.style.display = 'none';
+    }
+});
