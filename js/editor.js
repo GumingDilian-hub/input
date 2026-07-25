@@ -1,6 +1,7 @@
 const editor = {
     insert: (prefix, suffix) => {
         const ta = document.getElementById('editor-content');
+        if (!ta) return;
         const start = ta.selectionStart;
         const end = ta.selectionEnd;
         const text = ta.value;
@@ -9,14 +10,16 @@ const editor = {
         ta.selectionStart = start + prefix.length;
         ta.selectionEnd = end + prefix.length;
     },
-    
+
     insertTable: () => {
-        const table = `
-| 表头1 | 表头2 |
-| --- | --- |
-| 内容1 | 内容2 |
-`;
         const ta = document.getElementById('editor-content');
-        ta.value += table;
+        if (!ta) return;
+        const table = [
+            '| 表头1 | 表头2 |',
+            '| --- | --- |',
+            '| 内容1 | 内容2 |',
+            ''
+        ].join('\n');
+        ta.value += '\n' + table;
     }
 };
