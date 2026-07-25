@@ -69,17 +69,17 @@ const blogApp = {
   async fetchPosts() {
     const container = document.getElementById('posts-container');
     if (!container) return;
-    container.innerHTML = '<p style="color:#999;">正在加载文章列表...</p>';
+    container.innerHTML = '<p style="color:#999;">少女祈祷中...</p>';
 
     try {
       const res = await fetch(`${CONFIG.COMMENT_API}/posts`);
-      if (!res.ok) throw new Error('加载失败');
+      if (!res.ok) throw new Error('啊我死了');
       const data = await res.json();
       const posts = data.posts || [];
 
       container.innerHTML = '';
       if (posts.length === 0) {
-        container.innerHTML = '<p style="color:#999;">没有找到文章。</p>';
+        container.innerHTML = '<p style="color:#999;">没有找到文章QWQ。</p>';
         return;
       }
 
@@ -129,7 +129,7 @@ const blogApp = {
 
     listView.style.display = 'none';
     readView.style.display = '';
-    article.innerHTML = '<p style="color:#999;">正在加载文章...</p>';
+    article.innerHTML = '<p style="color:#999;">少女祈祷中...</p>';
 
     try {
       const res = await fetch(`${CONFIG.COMMENT_API}/posts/${id}`);
@@ -178,7 +178,7 @@ const blogApp = {
         this.loadComments();
       }
     } catch (e) {
-      article.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
+      article.innerHTML = '<p style="color:red;">啊我死了：' + e.message + '</p>';
     }
   },
 
@@ -223,7 +223,7 @@ const blogApp = {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      alert('文章发布成功！');
+      alert('你亲手证明了自己不是机器人，恭喜！');
       this.closeEditor();
       this.fetchPosts();
     } catch (err) {
@@ -238,7 +238,7 @@ const blogApp = {
     const list = document.getElementById('blog-comment-list');
     const countSpan = document.getElementById('blog-comment-count');
     if (!list) return;
-    list.innerHTML = '加载中...';
+    list.innerHTML = '少女祈祷中...';
 
     const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(section)}&limit=100`);
     if (!data) {
@@ -250,7 +250,7 @@ const blogApp = {
     const tree = this._buildTree(flat);
     list.innerHTML = '';
     if (flat.length === 0) {
-      list.innerHTML = '<p style="color:#999;">暂无评论，快来抢沙发</p>';
+      list.innerHTML = '<p style="color:#999;">这里是天堂吗</p>';
     } else {
       this._renderTree(list, tree, section);
     }
