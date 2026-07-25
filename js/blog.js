@@ -128,7 +128,7 @@ const blogApp = {
             marked.setOptions({ sanitize: true, sanitizer: escapeHtml });
             html = marked.parse(post.content_md || '');
         } catch(e) {
-            html = '<p style="color:#f88;">内容解析错误</p>';
+            html = '<p style="color:#f88;">啊我死了</p>';
         }
 
         container.innerHTML = `
