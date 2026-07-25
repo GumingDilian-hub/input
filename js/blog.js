@@ -1,7 +1,11 @@
 const COMMENT_API = 'https://woxiangcaoni.2167964516.workers.dev'; // 替换你的 Worker 地址
+const ADMIN_USERNAME = 'loading'; // 👈 站主用户名（所有硬编码已替换为此变量）
+
 let currentUser = null;
 let currentPostId = null;
+let filterMasterOnly = false; // 只看站主过滤开关
 
+// ========== 工具函数 ==========
 function escapeHtml(unsafe) {
     if (typeof unsafe !== 'string') return '';
     return unsafe
@@ -26,6 +30,7 @@ async function safeFetch(url, options = {}) {
     }
 }
 
+// ========== 主应用 ==========
 const blogApp = {
     init: async () => {
         const params = new URLSearchParams(location.search);
@@ -37,16 +42,22 @@ const blogApp = {
         }
         blogApp.checkLogin();
         blogApp.setupSearch();
+        blogApp.bindProfileEvents();
         window.blogApp = blogApp;
     },
 
     checkLogin: () => {
         const saved = localStorage.getItem('iwp-user');
         if (saved) {
-            try { currentUser = JSON.parse(saved); } catch(e) { localStorage.removeItem('iwp-user'); }
+            try { currentUser = JSON.parse(saved); } catch (e) { localStorage.removeItem('iwp-user'); }
+        }
+        blogApp.updateAuthUI();
+        if (document.getElementById('profile-panel').style.display === 'block') {
+            blogApp.renderProfile();
         }
     },
 
+    // ---------- 搜索 ----------
     setupSearch: () => {
         const input = document.getElementById('blog-search');
         if (!input) return;
@@ -60,6 +71,7 @@ const blogApp = {
         });
     },
 
+    // ---------- 文章列表（支持只看站主过滤） ----------
     fetchPosts: async () => {
         const keyword = document.getElementById('blog-search')?.value.trim() || '';
         const container = document.getElementById('posts-container');
@@ -72,13 +84,18 @@ const blogApp = {
             return;
         }
 
+        let posts = data.posts || [];
+        if (filterMasterOnly) {
+            posts = posts.filter(p => p.author === ADMIN_USERNAME);
+        }
+
         container.innerHTML = '';
-        if (!data.posts || data.posts.length === 0) {
+        if (posts.length === 0) {
             container.innerHTML = '<div style="padding:2rem; text-align:center; color:#888;">暂无文章</div>';
             return;
         }
 
-        data.posts.forEach(post => {
+        posts.forEach(post => {
             const heat = Math.floor(post.heat_score || 0);
             const div = document.createElement('div');
             div.style.cssText = "padding: 1.5rem; border-bottom: 1px solid #333; cursor: pointer; transition: background 0.2s;";
@@ -99,6 +116,11 @@ const blogApp = {
         });
     },
 
+    toggleFilterMaster: () => {
+        filterMasterOnly = document.getElementById('filter-master').checked;
+        blogApp.fetchPosts();
+    },
+
     backToList: () => {
         document.getElementById('blog-list-view').style.display = 'block';
         document.getElementById('blog-read-view').style.display = 'none';
@@ -106,6 +128,7 @@ const blogApp = {
         blogApp.fetchPosts();
     },
 
+    // ---------- 文章阅读 ----------
     loadPost: async (id) => {
         currentPostId = id;
         document.getElementById('blog-list-view').style.display = 'none';
@@ -127,8 +150,8 @@ const blogApp = {
         try {
             marked.setOptions({ sanitize: true, sanitizer: escapeHtml });
             html = marked.parse(post.content_md || '');
-        } catch(e) {
-            html = '<p style="color:#f88;">啊我死了</p>';
+        } catch (e) {
+            html = '<p style="color:#f88;">内容解析错误</p>';
         }
 
         container.innerHTML = `
@@ -150,10 +173,10 @@ const blogApp = {
                 renderMathInElement(container, {
                     delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
                 });
-            } catch(e) {}
+            } catch (e) {}
         }
         container.querySelectorAll('pre code').forEach(b => {
-            try { hljs.highlightElement(b); } catch(e) {}
+            try { hljs.highlightElement(b); } catch (e) {}
         });
 
         document.getElementById('post-stats').innerText = `查看 ${post.views || 0} · 评论 ${post.comments_count || 0}`;
@@ -172,6 +195,7 @@ const blogApp = {
         blogApp.updateAuthUI();
     },
 
+    // ---------- 编辑器 ----------
     openEditor: () => {
         if (!currentUser) return alert('请先登录（在评论区）');
         const panel = document.getElementById('editor-panel');
@@ -207,6 +231,105 @@ const blogApp = {
         }
     },
 
+    // ---------- 个人中心 ----------
+    openProfile: () => {
+        if (!currentUser) {
+            alert('请先登录');
+            return;
+        }
+        const panel = document.getElementById('profile-panel');
+        if (panel) {
+            panel.style.display = 'block';
+            blogApp.renderProfile();
+        }
+    },
+    closeProfile: () => {
+        const panel = document.getElementById('profile-panel');
+        if (panel) panel.style.display = 'none';
+    },
+    renderProfile: async () => {
+        if (!currentUser) return;
+        const data = await safeFetch(`${COMMENT_API}/users/me`, {
+            headers: { 'Authorization': `Bearer ${currentUser.token}` }
+        });
+        if (!data || !data.user) {
+            alert('获取用户信息失败');
+            return;
+        }
+        const u = data.user;
+        document.getElementById('profile-avatar-display').src = u.avatar || 'images/0721.png';
+        document.getElementById('profile-username-display').innerText = u.username;
+        document.getElementById('profile-school-display').innerText = u.school || '';
+        const metaDiv = document.getElementById('profile-meta-display');
+        if (u.honor_year && u.honor_rank) {
+            metaDiv.innerHTML = `<span style="background:#444; padding:2px 8px; border-radius:4px;">${escapeHtml(u.honor_year)}</span> <span style="background:#444; padding:2px 8px; border-radius:4px;">${escapeHtml(u.honor_rank)}</span>`;
+        } else {
+            metaDiv.innerHTML = '';
+        }
+        document.getElementById('edit-avatar').value = u.avatar || '';
+        document.getElementById('edit-username').value = u.username || '';
+        document.getElementById('edit-school').value = u.school || '';
+        document.getElementById('edit-honor-year').value = u.honor_year || '';
+        document.getElementById('edit-honor-rank').value = u.honor_rank || '';
+        document.getElementById('edit-password').value = '';
+    },
+
+    bindProfileEvents: () => {
+        document.getElementById('btn-save-profile').addEventListener('click', blogApp.saveProfile);
+        document.getElementById('btn-cancel-edit').addEventListener('click', () => {
+            blogApp.renderProfile();
+        });
+        document.getElementById('btn-logout-profile').addEventListener('click', () => {
+            blogApp.logout();
+            blogApp.closeProfile();
+        });
+    },
+
+    saveProfile: async () => {
+        if (!currentUser) return alert('请先登录');
+        const avatar = document.getElementById('edit-avatar').value.trim();
+        const username = document.getElementById('edit-username').value.trim();
+        const password = document.getElementById('edit-password').value.trim();
+        const school = document.getElementById('edit-school').value.trim();
+        const honor_year = document.getElementById('edit-honor-year').value.trim();
+        const honor_rank = document.getElementById('edit-honor-rank').value.trim();
+
+        const payload = {};
+        if (avatar) payload.avatar = avatar;
+        if (username && username !== currentUser.username) payload.username = username;
+        if (password) payload.password = password;
+        if (school) payload.school = school;
+        if (honor_year) payload.honor_year = honor_year;
+        if (honor_rank) payload.honor_rank = honor_rank;
+
+        if (Object.keys(payload).length === 0) {
+            alert('没有修改任何内容');
+            return;
+        }
+
+        const data = await safeFetch(`${COMMENT_API}/users/me`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentUser.token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (data && data.user) {
+            alert('修改成功！');
+            if (data.user.username && data.user.username !== currentUser.username) {
+                currentUser.username = data.user.username;
+                localStorage.setItem('iwp-user', JSON.stringify(currentUser));
+            }
+            blogApp.renderProfile();
+            blogApp.fetchPosts();
+        } else {
+            alert('修改失败，请检查网络或联系管理员');
+        }
+    },
+
+    // ---------- 评论系统 ----------
     loadComments: async () => {
         const list = document.getElementById('blog-comment-list');
         const countEl = document.getElementById('blog-comment-count');
@@ -242,7 +365,7 @@ const blogApp = {
                 roots.push(c);
             }
         });
-        roots.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+        roots.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         return roots;
     },
 
@@ -255,7 +378,8 @@ const blogApp = {
             div.style.padding = '10px 0';
             div.style.borderBottom = '1px solid #2a2a2a';
             
-            const isMaster = (node.username === 'loading');
+            // 使用变量 ADMIN_USERNAME 判断站主
+            const isMaster = (node.username === ADMIN_USERNAME);
             const masterTag = isMaster ? '<span style="background:#d9534f; color:#fff; font-size:10px; padding:2px 6px; border-radius:2px; margin-left:5px;">始作俑者</span>' : '';
 
             const safeUsername = escapeHtml(node.username);
@@ -351,19 +475,23 @@ const blogApp = {
         }
     },
 
+    // ---------- 认证 ----------
     updateAuthUI: () => {
         const authPanel = document.getElementById('blog-auth-panel');
         const inputArea = document.getElementById('blog-input-area');
+        const profileBtn = document.getElementById('btn-profile');
         if (!authPanel) return;
         if (currentUser) {
             authPanel.innerHTML = `<span style="color:#ddd;">${escapeHtml(currentUser.username)}</span> <button onclick="blogApp.logout()">退出</button>`;
             if (inputArea) inputArea.style.display = 'block';
+            if (profileBtn) profileBtn.style.display = 'inline-block';
         } else {
             authPanel.innerHTML = `
                 <button onclick="blogApp.showLogin()">登录</button>
                 <button onclick="blogApp.showRegister()">注册</button>
             `;
             if (inputArea) inputArea.style.display = 'none';
+            if (profileBtn) profileBtn.style.display = 'none';
         }
     },
 
@@ -436,6 +564,8 @@ const blogApp = {
         localStorage.removeItem('iwp-user');
         blogApp.updateAuthUI();
         document.querySelectorAll('[id^="reply-area-"]').forEach(el => el.style.display = 'none');
+        blogApp.closeProfile();
+        blogApp.fetchPosts();
     },
 
     submitComment: async () => {
@@ -462,4 +592,5 @@ const blogApp = {
     }
 };
 
+// ---------- 启动 ----------
 document.addEventListener('DOMContentLoaded', blogApp.init);
