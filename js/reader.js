@@ -1,4 +1,10 @@
 /* ========== 配置与常量 ========== */
+/*
+  变更说明：
+  - 使 reader.js 使用 profile.js 提供的用户信息：优先调用 window.getProfileUser()（如果 profile.js 已暴露）。
+  - 监听 profile-login / profile-logout 自定义事件以及 storage 事件（iwp-user），保证与 profile.js 在单页或多标签页中的同步。
+  - 其余逻辑尽量保留原结构（加载章节、渲染、评论逻辑）。
+*/
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev', // 请确保这是你的 Worker 地址
     ADMIN_USERNAME: 'loading', // 站主账号
@@ -86,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initAuthorPanel();
         initChapterSelect();
 
-        // 恢复用户登录状态
+        // 恢复用户登录状态（优先使用 profile.js 提供的 getter）
         restoreUserSession();
 
         // 渲染所有评论区结构（使用 DOM API，避免内联 onclick）
@@ -901,12 +907,40 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
 
 /* ========== 交互逻辑：登录、回复、点赞 ========== */
 
+/**
+ * 优先从 profile.js 暴露的 getter 获取用户信息（getProfileUser / window.getProfileUser）。
+ * 回退到 localStorage('iwp-user')。所有变更都会写入 state.user 并刷新当前界面中所有评论区的 auth UI。
+ */
 function restoreUserSession() {
-    const saved = localStorage.getItem('iwp-user');
-    if (saved) {
-        try {
-            state.user = JSON.parse(saved);
-        } catch (e) { localStorage.removeItem('iwp-user'); }
+    try {
+        if (typeof getProfileUser === 'function') {
+            // profile.js 提供的 getter（更可靠）
+            const pu = getProfileUser();
+            // 如果 profile.js 的内部 profileUser 可能是 null 初始值，但 window.localStorage 可能已保存，优先使用 getter 的返回值，
+            // 如果 getter 返回 null，再回退去 localStorage（以支持 profile.js 未初始化时的情形）
+            if (pu) {
+                state.user = pu;
+            } else {
+                const saved = localStorage.getItem('iwp-user');
+                if (saved) {
+                    try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
+                } else {
+                    state.user = null;
+                }
+            }
+        } else if (typeof window.profileUser !== 'undefined' && window.profileUser) {
+            state.user = window.profileUser;
+        } else {
+            const saved = localStorage.getItem('iwp-user');
+            if (saved) {
+                try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
+            } else {
+                state.user = null;
+            }
+        }
+    } catch (e) {
+        console.error('restoreUserSession error', e);
+        state.user = null;
     }
     // 更新所有可见的评论区 UI
     $$('.comment-section').forEach(sec => {
@@ -977,8 +1011,12 @@ async function doLogin(sectionId) {
         state.user = { username: u, token: data.token };
         // 注意安全性：token 存 localStorage 有被 XSS 窃取风险，部署时请考虑 HttpOnly cookie
         localStorage.setItem('iwp-user', JSON.stringify(state.user));
+        // 同步到 window.profileUser（如果 profile.js 在场并期望同步会处理）
+        try { window.profileUser = state.user; } catch (e) {}
         updateAuthUI(sectionId);
         fetchCommentsForSection(sectionId); // 刷新评论
+        // 触发全局事件，供其他模块（如 blog.js）监听
+        document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
         alert('登录失败');
     }
@@ -998,8 +1036,10 @@ async function doRegister(sectionId) {
     if (data && data.token) {
         state.user = { username: u, token: data.token };
         localStorage.setItem('iwp-user', JSON.stringify(state.user));
+        try { window.profileUser = state.user; } catch (e) {}
         updateAuthUI(sectionId);
         fetchCommentsForSection(sectionId);
+        document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
         alert('注册失败，可能用户名已存在');
     }
@@ -1008,13 +1048,16 @@ async function doRegister(sectionId) {
 function doLogout() {
     state.user = null;
     localStorage.removeItem('iwp-user');
+    try { window.profileUser = null; } catch (e) {}
     $$('.auth-panel').forEach(p => {
         const sec = p.closest('.comment-section');
         if (sec) updateAuthUI(sec.getAttribute('data-section-id'));
     });
+    // 通知其它模块
+    document.dispatchEvent(new CustomEvent('profile-logout'));
 }
 
-// 顶层评论
+/** 顶层评论 */
 async function submitComment(sectionId) {
     if (!state.user) return alert('请先登录');
     const input = document.getElementById(`comment-input-${sectionId}`);
@@ -1035,6 +1078,7 @@ async function submitComment(sectionId) {
     }
 }
 
+/* ========== 回复与点赞 ========== */
 // 显示回复框（动态生成并绑定发送事件）
 function showReplyBox(parentId, sectionId) {
     const box = document.getElementById(`reply-box-${parentId}`);
@@ -1132,3 +1176,20 @@ function setupGlobalCommentListeners() {
     window.doRegister = doRegister;
     window.doLogout = doLogout;
 }
+
+/* ========== 同步监听：与 profile.js 协作 ========== */
+/*
+  当 profile.js 完成登录/登出并 dispatchEvent('profile-login'/'profile-logout') 时，会触发下面的回调。
+  同时监听 storage 事件以支持跨标签页登录/登出同步（localStorage iwp-user）。
+*/
+document.addEventListener('profile-login', () => {
+    try { restoreUserSession(); } catch (e) { console.error(e); }
+});
+document.addEventListener('profile-logout', () => {
+    try { restoreUserSession(); } catch (e) { console.error(e); }
+});
+window.addEventListener('storage', (e) => {
+    if (e.key === 'iwp-user') {
+        try { restoreUserSession(); } catch (err) { console.error(err); }
+    }
+});
