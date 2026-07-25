@@ -32,7 +32,7 @@ async function renderProfileContent() {
     });
     if (res && res.user) fullUser = res.user;
   } catch (e) {
-    console.warn('获取用户信息失败', e);
+    console.warn('啊我死了', e);
   }
 
   const user = { ...state.user, ...(fullUser || {}) };
@@ -176,7 +176,7 @@ function renderLoginForm(container) {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'margin-top:1rem;color:#888;font-size:0.9rem;';
-  hint.textContent = '登录后可编辑荣誉、学校等信息。';
+  hint.textContent = '登录后你会由一个人变成一个人';
   container.appendChild(hint);
 }
 
