@@ -255,7 +255,7 @@ const blogApp = {
             div.style.padding = '10px 0';
             div.style.borderBottom = '1px solid #2a2a2a';
             
-            const isMaster = (node.username === 'GumingDilian');
+            const isMaster = (node.username === 'loading');
             const masterTag = isMaster ? '<span style="background:#d9534f; color:#fff; font-size:10px; padding:2px 6px; border-radius:2px; margin-left:5px;">始作俑者</span>' : '';
 
             const safeUsername = escapeHtml(node.username);
