@@ -108,7 +108,7 @@ async function loadAllContent() {
         return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
     });
     renderVersionInfo(results);
-    if (progressText) progressText.textContent = '正在渲染 DOM...';
+    if (progressText) progressText.textContent = '少女祈祷中...';
     body.innerHTML = '';
     for (let i = 0; i < results.length; i++) {
         const chunk = results[i].content;
@@ -118,7 +118,7 @@ async function loadAllContent() {
         try {
             sectionDiv.innerHTML = marked.parse(chunk);
         } catch (e) {
-            sectionDiv.innerHTML = `<p>[解析错误]</p>`;
+            sectionDiv.innerHTML = `<p>[少女折寿中]</p>`;
         }
         postProcessImages(sectionDiv, results[i].chapterNum);
         postProcessFigure(sectionDiv);
@@ -567,7 +567,7 @@ function injectCommentSections(body) {
         inputArea.style.display = 'none';
         const textarea = document.createElement('textarea');
         textarea.id = `comment-input-${sectionId}`;
-        textarea.placeholder = '良言一句我就热，恶语伤人我就冷...';
+        textarea.placeholder = '良言一句没头脑，恶语伤人不高兴...';
         textarea.rows = 3;
         const submitBtn = document.createElement('button');
         submitBtn.type = 'button';
@@ -679,7 +679,7 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
         if (node.username === CONFIG.ADMIN_USERNAME) {
             const masterTag = document.createElement('span');
             masterTag.style.cssText = "background:#d9534f; color:white; font-size:10px; padding:2px 6px; border-radius:3px; margin-left:6px; vertical-align:middle;";
-            masterTag.textContent = '始作俑者';
+            masterTag.textContent = '未来的我';
             header.appendChild(masterTag);
         }
         const timeSpan = document.createElement('span');
@@ -844,14 +844,14 @@ async function doLogin(sectionId) {
         state.likedComments.clear();   // 清空点赞记录
         document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
-        alert('登录失败');
+        alert('啊我死了');
     }
 }
 
 async function doRegister(sectionId) {
     const u = document.getElementById(`reg-user-${sectionId}`)?.value.trim();
     const p = document.getElementById(`reg-pass-${sectionId}`)?.value;
-    if (!u || !p) return alert('请填写完整');
+    if (!u || !p) return alert('别骗我');
     const data = await safeFetch(`${CONFIG.COMMENT_API}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -866,7 +866,7 @@ async function doRegister(sectionId) {
         state.likedComments.clear();
         document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
-        alert('注册失败，可能用户名已存在');
+        alert('啊我死了');
     }
 }
 
@@ -884,7 +884,7 @@ function doLogout() {
 
 /* ========== 评论发送/回复/点赞 ========== */
 async function submitComment(sectionId) {
-    if (!state.user) return alert('请先登录');
+    if (!state.user) return alert('别骗我');
     const input = document.getElementById(`comment-input-${sectionId}`);
     const content = input?.value.trim();
     if (!content) return;
@@ -897,7 +897,7 @@ async function submitComment(sectionId) {
         input.value = '';
         fetchCommentsForSection(sectionId);
     } else {
-        alert('发送失败');
+        alert('啊我死了');
     }
 }
 
@@ -925,7 +925,7 @@ function showReplyBox(parentId, sectionId) {
         sendBtn.style.border = 'none';
         sendBtn.style.borderRadius = '3px';
         sendBtn.style.cursor = 'pointer';
-        sendBtn.textContent = '发送';
+        sendBtn.textContent = 'GO!';
         sendBtn.addEventListener('click', () => doReply(parentId, sectionId));
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
@@ -945,7 +945,7 @@ function showReplyBox(parentId, sectionId) {
 }
 
 async function doReply(parentId, sectionId) {
-    if (!state.user) return alert('请先登录');
+    if (!state.user) return alert('别骗我');
     const input = document.getElementById(`reply-input-${parentId}`);
     const content = input?.value.trim();
     if (!content) return;
@@ -957,7 +957,7 @@ async function doReply(parentId, sectionId) {
     if (res) {
         fetchCommentsForSection(sectionId);
     } else {
-        alert('发送失败');
+        alert('啊我死了');
     }
 }
 
