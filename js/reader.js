@@ -1,13 +1,13 @@
 /* ========== 配置与常量 ========== */
 /*
   变更说明：
-  - 使 reader.js 使用 profile.js 提供的用户信息：优先调用 window.getProfileUser()（如果 profile.js 已暴露）。
+  - 使用 profile.js 提供的用户信息：优先调用 window.getProfileUser()（如果 profile.js 已暴露）。
   - 监听 profile-login / profile-logout 自定义事件以及 storage 事件（iwp-user），保证与 profile.js 在单页或多标签页中的同步。
-  - 其余逻辑尽量保留原结构（加载章节、渲染、评论逻辑）。
+  - 保留并增强原有功能（加载章节、渲染、评论树、TOC、scrollspy 等）。
 */
 const CONFIG = {
-    COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev', // 请确保这是你的 Worker 地址
-    ADMIN_USERNAME: 'loading', // 站主账号
+    COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
+    ADMIN_USERNAME: 'loading',
     CHAPTERS: [
         'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
         'notes/004/index.md', 'notes/005/index.md', 'notes/006/index.md', 'notes/007/index.md',
@@ -21,8 +21,8 @@ const CONFIG = {
 
 /* ========== 全局状态 ========== */
 let state = {
-    user: null, // { username, token }
-    comments: {}, // 缓存评论数据 { sectionId: { comments: [], page: 1 } } 或直接数组
+    user: null,
+    comments: {},
     scrollSpyActive: false
 };
 
@@ -40,12 +40,10 @@ const escapeHtml = (unsafe) => {
         .replace(/'/g, "&#039;");
 };
 
-// 更健壮的 safeFetch：根据 content-type 解析，处理 204/非 JSON
 async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url, options);
         if (!res.ok) {
-            // 返回结构中可能包含错误信息，先尝试解析 text/json
             let errText = res.statusText || `HTTP ${res.status}`;
             try {
                 const ct = res.headers.get('content-type') || '';
@@ -62,7 +60,6 @@ async function safeFetch(url, options = {}) {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) return await res.json();
         if (ct.includes('text/') || ct === '') return await res.text();
-        // 对于无返回体或其他类型，返回原 response 以供上层处理
         return res;
     } catch (error) {
         console.error(`Fetch Error [${url}]:`, error);
@@ -74,16 +71,13 @@ async function safeFetch(url, options = {}) {
 document.addEventListener('DOMContentLoaded', async () => {
     const overlay = $('#loading-overlay');
 
-    // 并行加载所有章节（改为 Promise.allSettled 并按原序处理）
     await loadAllContent();
 
-    // 移除 Loading
     if (overlay) {
         overlay.classList.add('hidden');
         setTimeout(() => overlay.remove(), 500);
     }
 
-    // 初始化 UI 组件
     try {
         initSidebar();
         initSearch();
@@ -92,10 +86,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         initAuthorPanel();
         initChapterSelect();
 
-        // 恢复用户登录状态（优先使用 profile.js 提供的 getter）
         restoreUserSession();
 
-        // 渲染所有评论区结构（使用 DOM API，避免内联 onclick）
         const body = $('#article-body');
         if (body) {
             injectCommentSections(body);
@@ -123,7 +115,6 @@ async function loadAllContent() {
             })
     );
 
-    // 等待全部完成（不阻塞单个较慢项的进度更新）
     const settled = await Promise.allSettled(fetchPromises);
 
     const results = settled.map((s, i) => {
@@ -131,10 +122,8 @@ async function loadAllContent() {
         return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
     });
 
-    // 渲染版本信息
     renderVersionInfo(results);
 
-    // 分批渲染 DOM (避免主线程卡死)
     if (progressText) progressText.textContent = '正在渲染 DOM...';
     body.innerHTML = '';
 
@@ -142,18 +131,15 @@ async function loadAllContent() {
         const chunk = results[i].content;
         if (!chunk) continue;
 
-        // 使用统一 wrapper 类名：section-wrapper
         const sectionDiv = document.createElement('div');
         sectionDiv.className = 'section-wrapper clearfix';
 
-        // 安全解析 Markdown
         try {
             sectionDiv.innerHTML = marked.parse(chunk);
         } catch (e) {
             sectionDiv.innerHTML = `<p>[解析错误]</p>`;
         }
 
-        // 图片处理
         postProcessImages(sectionDiv, results[i].chapterNum);
         postProcessFigure(sectionDiv);
         sectionDiv.querySelectorAll('pre code').forEach(b => {
@@ -162,18 +148,14 @@ async function loadAllContent() {
 
         body.appendChild(sectionDiv);
 
-        // 更新进度文本
         if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
 
-        // 每 3 章节让出主线程，保持 UI 响应
         if (i % 3 === 2) await new Promise(r => requestAnimationFrame(r));
     }
 
-    // 后处理
     renderMath();
     buildTOC();
 
-    // 如果进度条还在，隐藏它
     if (progressText) progressText.parentElement.classList.add('hidden');
 }
 
@@ -183,23 +165,19 @@ function processMarkdown(md, path) {
     const chapterNum = path.split('/')[1] || '000';
 
     let processedContent = content
-        // 图片路径修正：支持 http(s): / 开头、data:, ./ ../ 情况
         .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (m, alt, src) => {
             src = src.trim();
             if (!/^(https?:|\/|data:)/i.test(src)) {
-                // 移除前导 ./ 或 ../
                 src = src.replace(/^\.\/+/, '').replace(/^\.\.\//, '');
                 return `![${alt}](images/${chapterNum}/${src})`;
             }
             return m;
         })
-        // 特殊图片标签处理（:::image pos filename caption :::）
         .replace(/:::image\s+([^\s]+)?\s*([^\s]+)\s*(.*?)\s*:::/g, (m, pos, filename, caption) => {
             pos = pos || 'center';
             if (!/^(https?:|\/|data:)/i.test(filename)) {
                 filename = `images/${chapterNum}/${filename}`;
             }
-            // 转成标准 HTML，交由 postProcessFigure 进一步处理
             return `<div class="iwp-figure" data-pos="${pos}"><img src="${filename}" alt="${escapeHtml(caption || '')}"><div class="figure-caption">${escapeHtml(caption || '')}</div></div>`;
         });
 
@@ -219,7 +197,6 @@ function extractAndRemoveFrontMatter(md) {
         if (m) {
             let key = m[1], val = m[2].trim();
             if (key === 'tags') {
-                // 简单解析数组形式
                 if (val.startsWith('[') && val.endsWith(']')) {
                     try {
                         meta[key] = val.slice(1, -1).split(',').map(t => t.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
@@ -230,7 +207,6 @@ function extractAndRemoveFrontMatter(md) {
                     meta[key] = val.split(',').map(t => t.trim()).filter(Boolean);
                 }
             } else {
-                // 去掉两侧引号
                 meta[key] = val.replace(/^['"]|['"]$/g, '');
             }
         }
@@ -243,10 +219,8 @@ function extractAndRemoveFrontMatter(md) {
 /* ========== 图片与图表后处理 ========== */
 function postProcessImages(container, chapterNum) {
     container.querySelectorAll('img').forEach(img => {
-        // 容错：添加加载失败处理
         img.onerror = function () {
-            console.warn('Image broken:', this.src);
-            this.src = CONFIG.DEFAULT_AVATAR; // 使用占位图（可替换）
+            this.src = CONFIG.DEFAULT_AVATAR;
         };
 
         const alt = img.alt || '';
@@ -257,7 +231,6 @@ function postProcessImages(container, chapterNum) {
             img.classList.add('iwp-img-' + pos);
             img.alt = alt.replace(match[0], '').trim();
         } else {
-            // 若父元素是 .iwp-figure 并带 data-pos，则使用该值
             const fig = img.closest('.iwp-figure');
             if (fig) {
                 const pos = fig.getAttribute('data-pos') || 'center';
@@ -270,7 +243,6 @@ function postProcessImages(container, chapterNum) {
 }
 
 function postProcessFigure(container) {
-    // 将 .iwp-figure 结构规范化为 figure-container
     container.querySelectorAll('.iwp-figure').forEach(node => {
         const pos = node.getAttribute('data-pos') || 'center';
         const img = node.querySelector('img');
@@ -322,7 +294,8 @@ function renderVersionInfo(results) {
     }
 }
 
-/* ========== UI 功能：侧边栏、搜索、进度 ========== */
+/* ========== UI 功能、TOC、搜索、ScrollSpy 等 ========== */
+// （保留原逻辑，略去文件中重复注释，这里与之前实现兼容）
 function initSidebar() {
     const resizer = $('#resizer');
     const sidebar = $('#sidebar');
@@ -337,7 +310,6 @@ function initSidebar() {
     });
     document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
 
-    // 全局展开/折叠绑定
     window.expandAll = () => {
         $$('.section-wrapper').forEach(w => w.style.display = '');
         $$('.toc-toggle').forEach(t => t.textContent = '▼');
@@ -389,13 +361,12 @@ function buildTOC() {
     });
 }
 
+// TOC toggle and helpers
 function toggleSectionVisibility(headingId, toggleEl) {
     const target = document.getElementById(headingId);
     if (!target) return;
-    // 找到最近的 section-wrapper（我们在渲染时已把每章置为 section-wrapper）
     let wrapper = target.closest('.section-wrapper');
     if (!wrapper) {
-        // 退而求其次：折叠从 heading 向后直到下一个同级 heading
         let node = target.nextElementSibling;
         const nodes = [];
         while (node && !/H1|H2|H3/.test(node.tagName)) {
@@ -416,15 +387,8 @@ function toggleSectionVisibility(headingId, toggleEl) {
         showTOCChildren(headingId);
     }
 }
-
 function hideTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) c.style.display = 'none'; }); }
-function showTOCChildren(parentId) {
-    $$('.toc-item').forEach(c => {
-        if (c.getAttribute('data-parent') === parentId) {
-            if (isParentVisible(c)) c.style.display = '';
-        }
-    });
-}
+function showTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) { if (isParentVisible(c)) c.style.display = ''; }}); }
 function isParentVisible(child) {
     const pid = child.getAttribute('data-parent');
     if (!pid) return true;
@@ -457,7 +421,6 @@ function initSearch() {
         });
     }
 
-    // 延迟构建索引，等待 DOM 渲染
     setTimeout(buildIndex, 1000);
 
     input.addEventListener('input', () => {
@@ -551,11 +514,9 @@ function initProgress() {
     const content = $('#content');
     if (!content) return;
 
-    // 恢复
     const saved = localStorage.getItem('iwp-progress');
     if (saved) content.scrollTop = parseInt(saved) || 0;
 
-    // 保存
     let timer;
     content.addEventListener('scroll', () => {
         clearTimeout(timer);
@@ -582,7 +543,6 @@ function initAuthorPanel() {
                 let name = fm.name || '未署名', bio = fm.bio || '暂无简介', avatar = fm.avatar || '';
                 if (avatar && !avatar.startsWith('http')) avatar = 'images/000/' + avatar;
 
-                // ---- 改动点1：作者名字变成链接 ----
                 const nameLink = document.createElement('a');
                 nameLink.href = `more.html?user=${encodeURIComponent(name)}`;
                 nameLink.style.color = '#88b4e6';
@@ -617,7 +577,6 @@ function initAuthorPanel() {
 function initChapterSelect() {
     const select = $('#chapter-select');
     if (!select) return;
-    // 简单获取所有 H1
     $$('#article-body h1').forEach(h1 => {
         if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2, 8);
         const opt = document.createElement('option');
@@ -631,9 +590,7 @@ function initChapterSelect() {
     });
 }
 
-/* ========== 评论区系统 (核心嵌套逻辑) ========== */
-
-// 1. 为每个 H2 插入评论区容器（使用 DOM API，避免内联 onclick）
+/* ========== 评论区系统 ========== */
 function injectCommentSections(body) {
     const h2s = body.querySelectorAll('h2');
     h2s.forEach((h2, index) => {
@@ -699,18 +656,15 @@ function injectCommentSections(body) {
 
         h2.parentNode.insertBefore(commentSection, h2.nextSibling);
 
-        // 初始化 auth UI for this section
         updateAuthUI(sectionId);
     });
 }
 
-// 2. 切换评论区显示
 function toggleCommentSection(sectionId) {
     const body = document.getElementById('comment-body-' + sectionId);
     if (!body) return;
     if (body.style.display === 'none' || body.style.display === '') {
         body.style.display = 'block';
-        // 延迟加载，提升首屏性能
         if (!state.comments[sectionId]) {
             fetchCommentsForSection(sectionId);
         } else {
@@ -721,7 +675,6 @@ function toggleCommentSection(sectionId) {
     }
 }
 
-// 3. 获取评论数据
 async function fetchCommentsForSection(sectionId) {
     const listEl = document.getElementById('comment-list-' + sectionId);
     const countBadge = document.getElementById('comment-count-' + sectionId);
@@ -731,18 +684,16 @@ async function fetchCommentsForSection(sectionId) {
     const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(sectionId)}&limit=100`);
 
     if (data) {
-        // 支持两种返回形式：{ comments: [...], total } 或直接 array
         const flat = Array.isArray(data) ? data : (data.comments || []);
         state.comments[sectionId] = flat;
         if (countBadge) countBadge.textContent = `(${(data.total || flat.length || 0)})`;
         renderCommentsForSection(sectionId);
-        updateAuthUI(sectionId); // 更新登录状态显示
+        updateAuthUI(sectionId);
     } else {
         listEl.innerHTML = '加载失败，请稍后再试';
     }
 }
 
-// 4. 构建评论树 (健壮性：处理孤儿节点)
 function buildCommentTree(flatComments) {
     const map = {};
     const roots = [];
@@ -756,7 +707,6 @@ function buildCommentTree(flatComments) {
         if (c.parent_id && map[c.parent_id]) {
             map[c.parent_id].children.push(c);
         } else {
-            // 标记孤儿（便于 UI 提示）
             if (c.parent_id && !map[c.parent_id]) c.orphan = true;
             roots.push(c);
         }
@@ -764,14 +714,13 @@ function buildCommentTree(flatComments) {
     return roots;
 }
 
-// 5. 渲染评论树 (改用 DOM API，避免内联事件与 XSS)
 function renderCommentsForSection(sectionId) {
     const listEl = document.getElementById('comment-list-' + sectionId);
     if (!listEl) return;
 
     const flat = state.comments[sectionId] || [];
     const tree = buildCommentTree(flat);
-    listEl.innerHTML = ''; // 清空
+    listEl.innerHTML = '';
 
     if (flat.length === 0) {
         listEl.innerHTML = '<p style="color:#999; font-size:0.9rem;">暂无评论，快来抢沙发～</p>';
@@ -786,13 +735,11 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
         const wrapper = document.createElement('div');
         const isChild = !!node.parent_id;
 
-        // 样式逻辑（使用类而不是直接内联样式）
         wrapper.className = isChild ? 'comment-node-child' : 'comment-node-root';
         wrapper.style.marginLeft = isChild ? '24px' : '';
         wrapper.style.paddingLeft = isChild ? '12px' : '';
         wrapper.style.borderLeft = isChild ? '2px solid #eee' : '';
 
-        // comment-item
         const item = document.createElement('div');
         item.className = 'comment-item';
 
@@ -809,7 +756,6 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
 
         const header = document.createElement('div');
 
-        // ---- 改动点2：用户名变成链接 ----
         const userLink = document.createElement('a');
         userLink.href = `more.html?user=${encodeURIComponent(node.username || '')}`;
         userLink.style.color = '#007bff';
@@ -887,7 +833,6 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
 
         wrapper.appendChild(item);
 
-        // 回复框容器
         const replyBox = document.createElement('div');
         replyBox.id = `reply-box-${node.id}`;
         replyBox.style.display = 'none';
@@ -896,7 +841,6 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
 
         container.appendChild(wrapper);
 
-        // 递归
         if (node.children && node.children.length > 0) {
             const childrenContainer = document.createElement('div');
             container.appendChild(childrenContainer);
@@ -905,19 +849,11 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
     });
 }
 
-/* ========== 交互逻辑：登录、回复、点赞 ========== */
-
-/**
- * 优先从 profile.js 暴露的 getter 获取用户信息（getProfileUser / window.getProfileUser）。
- * 回退到 localStorage('iwp-user')。所有变更都会写入 state.user 并刷新当前界面中所有评论区的 auth UI。
- */
+/* ========== 登录、注册、回复、点赞 ========== */
 function restoreUserSession() {
     try {
         if (typeof getProfileUser === 'function') {
-            // profile.js 提供的 getter（更可靠）
             const pu = getProfileUser();
-            // 如果 profile.js 的内部 profileUser 可能是 null 初始值，但 window.localStorage 可能已保存，优先使用 getter 的返回值，
-            // 如果 getter 返回 null，再回退去 localStorage（以支持 profile.js 未初始化时的情形）
             if (pu) {
                 state.user = pu;
             } else {
@@ -942,7 +878,6 @@ function restoreUserSession() {
         console.error('restoreUserSession error', e);
         state.user = null;
     }
-    // 更新所有可见的评论区 UI
     $$('.comment-section').forEach(sec => {
         const sectionId = sec.getAttribute('data-section-id');
         updateAuthUI(sectionId);
@@ -954,7 +889,7 @@ function updateAuthUI(sectionId) {
     const inputArea = document.getElementById('input-area-' + sectionId);
     if (!panel) return;
 
-    panel.innerHTML = ''; // 清空并用 DOM API 填充，避免内联事件
+    panel.innerHTML = '';
 
     if (state.user) {
         const span = document.createElement('span'); span.textContent = `Hi ${state.user.username}`;
@@ -1009,13 +944,10 @@ async function doLogin(sectionId) {
 
     if (data && data.token) {
         state.user = { username: u, token: data.token };
-        // 注意安全性：token 存 localStorage 有被 XSS 窃取风险，部署时请考虑 HttpOnly cookie
         localStorage.setItem('iwp-user', JSON.stringify(state.user));
-        // 同步到 window.profileUser（如果 profile.js 在场并期望同步会处理）
         try { window.profileUser = state.user; } catch (e) {}
         updateAuthUI(sectionId);
-        fetchCommentsForSection(sectionId); // 刷新评论
-        // 触发全局事件，供其他模块（如 blog.js）监听
+        fetchCommentsForSection(sectionId);
         document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
         alert('登录失败');
@@ -1053,11 +985,10 @@ function doLogout() {
         const sec = p.closest('.comment-section');
         if (sec) updateAuthUI(sec.getAttribute('data-section-id'));
     });
-    // 通知其它模块
     document.dispatchEvent(new CustomEvent('profile-logout'));
 }
 
-/** 顶层评论 */
+/* ========== 评论发送/回复/点赞 ========== */
 async function submitComment(sectionId) {
     if (!state.user) return alert('请先登录');
     const input = document.getElementById(`comment-input-${sectionId}`);
@@ -1078,14 +1009,12 @@ async function submitComment(sectionId) {
     }
 }
 
-/* ========== 回复与点赞 ========== */
-// 显示回复框（动态生成并绑定发送事件）
 function showReplyBox(parentId, sectionId) {
     const box = document.getElementById(`reply-box-${parentId}`);
     if (!box) return;
     if (box.style.display === 'none' || box.style.display === '') {
         box.style.display = 'block';
-        box.innerHTML = ''; // 清空
+        box.innerHTML = '';
         const textarea = document.createElement('textarea');
         textarea.id = `reply-input-${parentId}`;
         textarea.rows = 2;
@@ -1128,7 +1057,6 @@ function showReplyBox(parentId, sectionId) {
     }
 }
 
-// 发送回复
 async function doReply(parentId, sectionId) {
     if (!state.user) return alert('请先登录');
     const input = document.getElementById(`reply-input-${parentId}`);
@@ -1148,7 +1076,6 @@ async function doReply(parentId, sectionId) {
     }
 }
 
-// 点赞
 async function likeComment(commentId, sectionId) {
     const res = await safeFetch(`${CONFIG.COMMENT_API}/comments/${encodeURIComponent(commentId)}/like`, { method: 'POST' });
     if (res) {
@@ -1156,7 +1083,7 @@ async function likeComment(commentId, sectionId) {
     }
 }
 
-/* ========== 绑定全局事件（供 HTML 内其他脚本调用） ========== */
+/* ========== 绑定与同步 ========== */
 function setupGlobalCommentListeners() {
     window.toggleCommentSection = toggleCommentSection;
     window.submitComment = submitComment;
@@ -1177,19 +1104,6 @@ function setupGlobalCommentListeners() {
     window.doLogout = doLogout;
 }
 
-/* ========== 同步监听：与 profile.js 协作 ========== */
-/*
-  当 profile.js 完成登录/登出并 dispatchEvent('profile-login'/'profile-logout') 时，会触发下面的回调。
-  同时监听 storage 事件以支持跨标签页登录/登出同步（localStorage iwp-user）。
-*/
-document.addEventListener('profile-login', () => {
-    try { restoreUserSession(); } catch (e) { console.error(e); }
-});
-document.addEventListener('profile-logout', () => {
-    try { restoreUserSession(); } catch (e) { console.error(e); }
-});
-window.addEventListener('storage', (e) => {
-    if (e.key === 'iwp-user') {
-        try { restoreUserSession(); } catch (err) { console.error(err); }
-    }
-});
+document.addEventListener('profile-login', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
+document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
+window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
