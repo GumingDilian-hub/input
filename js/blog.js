@@ -1,12 +1,9 @@
 /* Full reconstructed js/blog.js
    Restored missing/truncated parts and added a minimal blogApp to satisfy blog.html's calls.
+   Fixed submitPost to use real Worker API.
 */
 
 /* ========== 配置与常量 ========== */
-/*
-  变更说明：修复仓库中被截断的 blog.js，补全评论、TOC、搜索、scrollspy 等公共逻辑，
-  并添加简单的 blogApp 接口，以避免 blog.html 中出现未定义错误。
-*/
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -1108,51 +1105,49 @@ document.addEventListener('profile-login', () => { try { restoreUserSession(); }
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
 
-/* ========== 简易 blogApp（补足 blog.html 需要的接口） ========== */
+/* ========== blogApp（真实 API 版本） ========== */
 const blogApp = (function () {
     async function fetchPosts() {
         const container = document.getElementById('posts-container');
         if (!container) return;
         container.innerHTML = '<p style="color:#999;">正在加载文章列表...</p>';
 
-        const list = [];
-        for (const path of CONFIG.CHAPTERS) {
-            try {
-                const txt = await (await fetch(path)).text();
-                const fm = extractAndRemoveFrontMatter(txt).meta || {};
-                list.push({ path, title: fm.title || fm.name || path, excerpt: fm.description || '' });
-            } catch (e) {
-                // skip
+        try {
+            const res = await fetch(`${CONFIG.COMMENT_API}/posts`);
+            if (!res.ok) throw new Error('加载失败');
+            const data = await res.json();
+            const posts = data.posts || [];
+
+            container.innerHTML = '';
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="color:#999;">没有找到文章。</p>';
+                return;
             }
-        }
 
-        container.innerHTML = '';
-        if (list.length === 0) {
-            container.innerHTML = '<p style="color:#999;">没有找到文章。</p>';
-            return;
-        }
-
-        list.forEach((p, i) => {
-            const el = document.createElement('div');
-            el.className = 'post-item';
-            el.style.padding = '0.6rem 0.8rem';
-            el.style.borderBottom = '1px solid #333';
-            const a = document.createElement('a');
-            a.href = 'javascript:void(0)';
-            a.textContent = p.title;
-            a.style.color = '#88b4e6';
-            a.addEventListener('click', async () => {
-                await openPost(p.path);
+            posts.forEach(p => {
+                const el = document.createElement('div');
+                el.className = 'post-item';
+                el.style.padding = '0.6rem 0.8rem';
+                el.style.borderBottom = '1px solid #333';
+                const a = document.createElement('a');
+                a.href = 'javascript:void(0)';
+                a.textContent = p.title;
+                a.style.color = '#88b4e6';
+                a.addEventListener('click', async () => {
+                    await openPostById(p.id);
+                });
+                el.appendChild(a);
+                if (p.excerpt) {
+                    const ex = document.createElement('div'); ex.textContent = p.excerpt; ex.style.color = '#888'; ex.style.fontSize = '0.9rem'; el.appendChild(ex);
+                }
+                container.appendChild(el);
             });
-            el.appendChild(a);
-            if (p.excerpt) {
-                const ex = document.createElement('div'); ex.textContent = p.excerpt; ex.style.color = '#888'; ex.style.fontSize = '0.9rem'; el.appendChild(ex);
-            }
-            container.appendChild(el);
-        });
+        } catch (e) {
+            container.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
+        }
     }
 
-    async function openPost(path) {
+    async function openPostById(id) {
         const listView = document.getElementById('blog-list-view');
         const readView = document.getElementById('blog-read-view');
         const article = document.getElementById('article-container');
@@ -1161,17 +1156,31 @@ const blogApp = (function () {
         readView.style.display = '';
         article.innerHTML = '<p style="color:#999;">正在加载文章...</p>';
         try {
-            const txt = await (await fetch(path)).text();
-            const c = processMarkdown(txt, path).content;
-            article.innerHTML = (typeof marked !== 'undefined') ? marked.parse(c) : c;
-            // post process images & highlight
+            const res = await fetch(`${CONFIG.COMMENT_API}/posts/${id}`);
+            if (!res.ok) throw new Error('文章不存在');
+            const data = await res.json();
+            const post = data.post;
+            article.innerHTML = (typeof marked !== 'undefined') ? marked.parse(post.content_md) : post.content_md;
             const container = article;
-            postProcessImages(container, path.split('/')[1] || '000');
+            postProcessImages(container, '');
             postProcessFigure(container);
             container.querySelectorAll('pre code').forEach(b => { try { if (typeof hljs !== 'undefined') hljs.highlightElement(b); } catch(e){} });
             renderMath();
+            // 更新点赞信息
+            document.getElementById('post-stats').textContent = `浏览: ${post.views} · 评论: ${post.comments_count} · 热度: ${(post.views||0) + (post.likes||0)*5 + (post.comments_count||0)*10}`;
+            document.getElementById('btn-like-post').onclick = async () => {
+                if (!state.user) { alert('请先登录'); return; }
+                await fetch(`${CONFIG.COMMENT_API}/posts/${id}/like`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.user.token}` }
+                });
+                openPostById(id); // 刷新
+            };
+            // 下一篇
+            document.getElementById('btn-next-post').style.display = data.next_id ? '' : 'none';
+            document.getElementById('btn-next-post').onclick = () => data.next_id && openPostById(data.next_id);
         } catch (e) {
-            article.innerHTML = '<p style="color:red;">加载失败</p>';
+            article.innerHTML = '<p style="color:red;">加载失败：' + e.message + '</p>';
         }
     }
 
@@ -1189,24 +1198,42 @@ const blogApp = (function () {
         const panel = document.getElementById('editor-panel');
         if (panel) panel.style.display = 'none';
     }
+
+    // ✅ 真实 API 发文
     async function submitPost() {
-        // Minimal behavior: read editor fields and append to posts list locally (no server)
-        const title = document.getElementById('editor-title')?.value || '无标题';
-        const content = document.getElementById('editor-content')?.value || '';
-        console.log('提交文章（本地模拟）', title, content.substring(0, 200));
-        alert('已本地保存（模拟），实际发布需要后端支持。');
-        closeEditor();
+        if (!state || !state.user || !state.user.token) {
+            alert('请先登录再发布文章');
+            return;
+        }
+        const title = document.getElementById('editor-title')?.value.trim();
+        const content_md = document.getElementById('editor-content')?.value.trim();
+        if (!title || !content_md) {
+            alert('标题和内容不能为空');
+            return;
+        }
+        try {
+            const response = await fetch(`${CONFIG.COMMENT_API}/posts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.user.token}`
+                },
+                body: JSON.stringify({ title, content_md })
+            });
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+            alert('文章发布成功！');
+            closeEditor();
+            fetchPosts(); // 刷新列表
+        } catch (err) {
+            console.error('发布失败:', err);
+            alert('发布失败：' + err.message);
+        }
     }
 
     return { fetchPosts, openEditor, closeEditor, submitPost, backToList };
 })();
 
-// make blogApp global
 window.blogApp = blogApp;
-
-/* ========== End of js/blog.js ==========
-   Notes:
-   - 已补全被截断的函数并添加简单的 blogApp 以避免 blog.html 中出现未定义错误。
-   - comment API 端点 (CONFIG.COMMENT_API) 需要实现 CORS 并提供：GET /comments, POST /comments, POST /login, POST /register, POST /comments/:id/like
-   - 若要我把这个文件提交到仓库（替换原文件），告诉我即可；目前按您的要求只是把文件内容给您。
-*/
