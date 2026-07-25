@@ -34,6 +34,8 @@ function initProfile() {
     if (saved) {
         try { profileUser = JSON.parse(saved); } catch(e) { localStorage.removeItem('iwp-user'); }
     }
+    // 同步到全局，确保其它模块能及时读取
+    try { window.profileUser = profileUser; } catch (e) {}
     updateProfileButton();
 }
 
@@ -75,8 +77,10 @@ async function renderProfile() {
                 <div style="margin-top:1.5rem;">
                     <input type="text" id="profile-login-user" placeholder="用户名" style="width:80%; padding:10px; margin-bottom:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px;">
                     <input type="password" id="profile-login-pass" placeholder="密码" style="width:80%; padding:10px; margin-bottom:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px;">
-                    <button onclick="profileDoLogin()" style="background:#000; color:#fff; border:1px solid #333; padding:10px 30px; border-radius:4px; cursor:pointer; font-size:1rem;">登录</button>
-                    <button onclick="profileShowRegister()" style="background:transparent; color:#88b4e6; border:none; cursor:pointer; margin-left:10px; font-size:0.9rem;">注册</button>
+                    <div style="margin-top:10px;">
+                        <button onclick="profileDoLogin()" style="background:#000; color:#fff; border:1px solid #333; padding:10px 30px; border-radius:4px; cursor:pointer; font-size:1rem;">登录</button>
+                        <button onclick="profileShowRegister()" style="background:transparent; color:#88b4e6; border:none; cursor:pointer; margin-left:10px; font-size:0.9rem;">注册</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -103,27 +107,27 @@ async function renderProfile() {
         <div style="margin-top:1rem;">
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">头像</span>
-                <input type="text" id="profile-edit-avatar" value="${escapeHtml(u.avatar || '')}" placeholder="图片链接" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="text" id="profile-edit-avatar" value="${escapeHtml(u.avatar || '')}" placeholder="图片链接" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">用户名</span>
-                <input type="text" id="profile-edit-username" value="${escapeHtml(u.username)}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="text" id="profile-edit-username" value="${escapeHtml(u.username)}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">新密码</span>
-                <input type="password" id="profile-edit-password" placeholder="留空不修改" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="password" id="profile-edit-password" placeholder="留空不修改" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">学校</span>
-                <input type="text" id="profile-edit-school" value="${escapeHtml(u.school || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="text" id="profile-edit-school" value="${escapeHtml(u.school || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">荣誉年份</span>
-                <input type="text" id="profile-edit-year" value="${escapeHtml(u.honor_year || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="text" id="profile-edit-year" value="${escapeHtml(u.honor_year || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
             <div style="display:flex; align-items:center; border-bottom:1px solid #333; padding:8px 0;">
                 <span style="color:#888; width:80px;">荣誉等级</span>
-                <input type="text" id="profile-edit-rank" value="${escapeHtml(u.honor_rank || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 10px;">
+                <input type="text" id="profile-edit-rank" value="${escapeHtml(u.honor_rank || '')}" style="flex:1; margin-left:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px;">
             </div>
         </div>
         <div style="display:flex; justify-content:flex-end; margin-top:1.5rem; gap:10px;">
@@ -148,6 +152,8 @@ async function profileDoLogin() {
     if (data && data.token) {
         profileUser = { username: u, token: data.token };
         localStorage.setItem('iwp-user', JSON.stringify(profileUser));
+        // 同步到 window 全局，确保其它模块可见
+        try { window.profileUser = profileUser; } catch (e) {}
         renderProfile();
         updateProfileButton();
         // 触发自定义事件，通知其他模块（如评论区）更新
@@ -161,6 +167,7 @@ async function profileDoLogin() {
 // ========== 显示注册界面 ==========
 function profileShowRegister() {
     const container = document.getElementById('profile-content');
+    if (!container) return;
     container.innerHTML = `
         <div style="text-align:center; padding:1rem 0;">
             <p style="color:#aaa; font-size:1.1rem;">注册新账号</p>
@@ -169,8 +176,10 @@ function profileShowRegister() {
                 <input type="password" id="profile-reg-pass" placeholder="密码" style="width:80%; padding:10px; margin-bottom:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px;">
                 <input type="password" id="profile-reg-pass2" placeholder="确认密码" style="width:80%; padding:10px; margin-bottom:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px;">
                 <input type="text" id="profile-reg-school" placeholder="学校（可选）" style="width:80%; padding:10px; margin-bottom:10px; background:#111; color:#ddd; border:1px solid #444; border-radius:4px;">
-                <button onclick="profileDoRegister()" style="background:#000; color:#fff; border:1px solid #333; padding:10px 30px; border-radius:4px; cursor:pointer; font-size:1rem;">注册</button>
-                <button onclick="renderProfile()" style="background:transparent; color:#88b4e6; border:none; cursor:pointer; margin-left:10px;">返回登录</button>
+                <div style="margin-top:10px;">
+                    <button onclick="profileDoRegister()" style="background:#000; color:#fff; border:1px solid #333; padding:10px 30px; border-radius:4px; cursor:pointer; font-size:1rem;">注册</button>
+                    <button onclick="renderProfile()" style="background:transparent; color:#88b4e6; border:none; cursor:pointer; margin-left:10px;">返回登录</button>
+                </div>
             </div>
         </div>
     `;
@@ -194,6 +203,7 @@ async function profileDoRegister() {
     if (data && data.token) {
         profileUser = { username: u, token: data.token };
         localStorage.setItem('iwp-user', JSON.stringify(profileUser));
+        try { window.profileUser = profileUser; } catch (e) {}
         renderProfile();
         updateProfileButton();
         document.dispatchEvent(new CustomEvent('profile-login', { detail: profileUser }));
@@ -239,6 +249,10 @@ async function profileSave() {
         if (data.user.username && data.user.username !== profileUser.username) {
             profileUser.username = data.user.username;
             localStorage.setItem('iwp-user', JSON.stringify(profileUser));
+            // 同步到全局
+            try { window.profileUser = profileUser; } catch (e) {}
+            // 触发事件让其它模块更新显示
+            document.dispatchEvent(new CustomEvent('profile-login', { detail: profileUser }));
         }
         alert('修改成功！');
         renderProfile();
@@ -252,6 +266,7 @@ async function profileSave() {
 function profileLogout() {
     profileUser = null;
     localStorage.removeItem('iwp-user');
+    try { window.profileUser = null; } catch (e) {}
     renderProfile();
     updateProfileButton();
     document.dispatchEvent(new CustomEvent('profile-logout'));
