@@ -194,8 +194,8 @@ function showEditForm(container, user) {
 
   const avatarInput = createInput('头像 URL', user.avatar || '');
   const schoolInput = createInput('学校', user.school || '');
-  const honorYearInput = createInput('荣誉年份 (如 2025)', user.honor_year || '');
-  const honorRankInput = createInput('荣誉等级 (如 省一)', user.honor_rank || '');
+  const honorYearInput = createInput('年份 (如 2025)', user.honor_year || '');
+  const honorRankInput = createInput('等级 (如 省一)', user.honor_rank || '');
 
   const pwdDiv = document.createElement('div');
   pwdDiv.style.cssText = 'border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;';
