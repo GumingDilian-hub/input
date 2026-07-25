@@ -459,3 +459,62 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 /* 详情页头像等样式 */
 .profile-header { text-align: center; padding: 2rem; }
 .honor-tag { background: #ffc107; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin: 0 2px; }
+/* ===== 全局按钮黑底白字（覆盖所有带边框的按钮） ===== */
+button,
+.toolbar-btn,
+#btn-write,
+#btn-home,
+#btn-like-post,
+#btn-next-post,
+.comment-actions button,
+#blog-auth-panel button,
+.editor-tool-btn,
+.panel-content button,
+#editor-panel .close-btn {
+    background: #000 !important;
+    color: #fff !important;
+    border: 1px solid #333 !important;
+    border-radius: 4px !important;
+    padding: 6px 14px !important;
+    cursor: pointer !important;
+    transition: background 0.2s !important;
+}
+button:hover,
+.toolbar-btn:hover,
+#btn-write:hover,
+#btn-home:hover,
+#btn-like-post:hover,
+#btn-next-post:hover,
+.comment-actions button:hover,
+#blog-auth-panel button:hover,
+.editor-tool-btn:hover,
+.panel-content button:hover {
+    background: #222 !important;
+    border-color: #555 !important;
+}
+/* 特殊：关闭按钮保持透明 */
+#editor-panel .close-btn {
+    background: transparent !important;
+    border: none !important;
+    font-size: 1.5rem !important;
+    padding: 0 8px !important;
+}
+#editor-panel .close-btn:hover {
+    background: transparent !important;
+    color: #aaa !important;
+}
+/* 输入框深色 */
+input[type="text"],
+input[type="password"],
+textarea {
+    background: #1a1a1a !important;
+    color: #ddd !important;
+    border: 1px solid #444 !important;
+    border-radius: 4px !important;
+    padding: 6px 10px !important;
+}
+input:focus,
+textarea:focus {
+    border-color: #888 !important;
+    outline: none !important;
+}
