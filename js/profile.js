@@ -1,22 +1,22 @@
-/* ========== profile.js (最终完整稳定版) ========== */
-/* 依赖：reader.js 或 blog.js 已提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
+/* ========== profile.js (完整稳定版) ========== */
+/* 依赖：reader.js 或 blog.js 提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
 
 function openProfile() {
-  const panel = document.getElementById('profile-panel');
+  const panel = $('#profile-panel');
   if (!panel) return;
   panel.style.display = 'block';
   renderProfileContent();
 }
 
 function closeProfile() {
-  const panel = document.getElementById('profile-panel');
+  const panel = $('#profile-panel');
   if (!panel) return;
   panel.style.display = 'none';
 }
 
 // ========== 主渲染 ==========
 async function renderProfileContent() {
-  const container = document.getElementById('profile-content');
+  const container = $('#profile-content');
   if (!container) return;
   container.innerHTML = '<div style="color:#888;text-align:center;padding:2rem;">加载中...</div>';
 
@@ -37,7 +37,6 @@ async function renderProfileContent() {
 
   const user = { ...state.user, ...(fullUser || {}) };
 
-  // 注册强推编辑
   if (sessionStorage.getItem('just_registered') === '1') {
     sessionStorage.removeItem('just_registered');
     showEditForm(container, user);
@@ -181,29 +180,23 @@ function renderLoginForm(container) {
   container.appendChild(hint);
 }
 
-// ========== 编辑资料表单（完整防关闭） ==========
+// ========== 编辑资料表单 ==========
 function showEditForm(container, user) {
   container.innerHTML = '';
-
-  // 整个编辑区域包裹，阻止冒泡 + 标记
-  const editWrapper = document.createElement('div');
-  editWrapper.setAttribute('data-keep-open', 'true');
-  editWrapper.addEventListener('click', (e) => {
-    e.stopPropagation();
-  });
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('data-keep-open', 'true');
+  wrapper.addEventListener('click', (e) => e.stopPropagation());
 
   const title = document.createElement('h3');
   title.style.cssText = 'color:#fff;margin-bottom:1rem;';
   title.textContent = '编辑资料';
-  editWrapper.appendChild(title);
+  wrapper.appendChild(title);
 
-  // 输入框
   const avatarInput = createInput('头像 URL', user.avatar || '');
   const schoolInput = createInput('学校', user.school || '');
   const honorYearInput = createInput('荣誉年份 (如 2025)', user.honor_year || '');
   const honorRankInput = createInput('荣誉等级 (如 省一)', user.honor_rank || '');
 
-  // 密码区
   const pwdDiv = document.createElement('div');
   pwdDiv.style.cssText = 'border-top:1px solid #444;padding-top:1rem;margin-top:0.5rem;';
   const oldPwdInput = createInput('当前密码（如需改密码必填）', '', 'password');
@@ -211,7 +204,6 @@ function showEditForm(container, user) {
   pwdDiv.appendChild(oldPwdInput.wrapper);
   pwdDiv.appendChild(newPwdInput.wrapper);
 
-  // 按钮区
   const btnGroup = document.createElement('div');
   btnGroup.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;';
 
@@ -228,7 +220,6 @@ function showEditForm(container, user) {
   saveBtn.style.background = '#d9534f';
   saveBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
-
     const payload = {
       avatar: avatarInput.input.value.trim(),
       school: schoolInput.input.value.trim(),
@@ -272,18 +263,16 @@ function showEditForm(container, user) {
   btnGroup.appendChild(cancelBtn);
   btnGroup.appendChild(saveBtn);
 
-  // 组装
-  editWrapper.appendChild(avatarInput.wrapper);
-  editWrapper.appendChild(schoolInput.wrapper);
-  editWrapper.appendChild(honorYearInput.wrapper);
-  editWrapper.appendChild(honorRankInput.wrapper);
-  editWrapper.appendChild(pwdDiv);
-  editWrapper.appendChild(btnGroup);
+  wrapper.appendChild(avatarInput.wrapper);
+  wrapper.appendChild(schoolInput.wrapper);
+  wrapper.appendChild(honorYearInput.wrapper);
+  wrapper.appendChild(honorRankInput.wrapper);
+  wrapper.appendChild(pwdDiv);
+  wrapper.appendChild(btnGroup);
 
-  container.appendChild(editWrapper);
+  container.appendChild(wrapper);
 }
 
-// 辅助函数
 function createInput(labelText, value = '', type = 'text') {
   const wrapper = document.createElement('div');
   wrapper.style.marginBottom = '8px';
@@ -299,8 +288,6 @@ function createInput(labelText, value = '', type = 'text') {
 
   wrapper.appendChild(label);
   wrapper.appendChild(input);
-
-  // 输入框点击不冒泡
   wrapper.addEventListener('click', (e) => e.stopPropagation());
   return { wrapper, input };
 }
@@ -308,44 +295,34 @@ function createInput(labelText, value = '', type = 'text') {
 // ========== 事件同步 ==========
 document.addEventListener('profile-login', (e) => {
   try { state.user = e.detail; } catch (err) {}
-
   if (sessionStorage.getItem('pending_registration') === '1') {
     sessionStorage.removeItem('pending_registration');
     sessionStorage.setItem('just_registered', '1');
   }
-
-  if (document.getElementById('profile-panel')?.style.display === 'block') {
+  if ($('#profile-panel')?.style.display === 'block') {
     renderProfileContent();
   }
 });
 
 document.addEventListener('profile-logout', () => {
   state.user = null;
-  if (document.getElementById('profile-panel')?.style.display === 'block') {
-    renderProfileContent();
-  }
+  if ($('#profile-panel')?.style.display === 'block') renderProfileContent();
 });
 
 window.addEventListener('storage', (e) => {
   if (e.key === 'iwp-user') {
     try { state.user = e.newValue ? JSON.parse(e.newValue) : null; } catch (err) { state.user = null; }
-    if (document.getElementById('profile-panel')?.style.display === 'block') {
-      renderProfileContent();
-    }
+    if ($('#profile-panel')?.style.display === 'block') renderProfileContent();
   }
 });
 
-// ========== 面板关闭逻辑（严格防止误关） ==========
+// ========== 面板关闭逻辑（彻底防止误关） ==========
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('profile-panel');
   const btn = document.getElementById('btn-profile');
   if (!panel || !btn) return;
   if (panel.style.display === 'none') return;
-
-  // 点击目标是面板内部或按钮本身 → 不关
   if (panel.contains(e.target) || btn.contains(e.target)) return;
-  // 点击目标或其祖先有 data-keep-open 属性 → 不关
   if (e.target.closest('[data-keep-open]')) return;
-
   panel.style.display = 'none';
 });
