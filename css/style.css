@@ -88,8 +88,7 @@ body {
 }
 #resizer:hover { background: #fff; }
 
-/* ========== 正文区域 - 白底 ========== */
-/* NOTE: padding-bottom 保留 25px，用于防止页面底部固定或遮挡元素覆盖正文末端 */
+/* ========== 正文区域 - 白底 (阅读器用) ========== */
 #content {
     flex: 1;
     overflow-y: auto;
@@ -193,7 +192,7 @@ body {
 .auto-scroll-toggle label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 .auto-scroll-toggle input[type="checkbox"] { accent-color: #fff; width: 1rem; height: 1rem; }
 
-/* ========== 文章标题与内容 ========== */
+/* ========== 文章标题与内容 (阅读器用) ========== */
 #article-body h1 {
     font-size: 2rem;
     margin: 1.8rem 0 1rem;
@@ -228,7 +227,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 
 .clearfix::after { content: ""; display: table; clear: both; }
 
-/* ========== 表格优化 ========== */
+/* ========== 表格优化 (阅读器) ========== */
 #article-body table {
     width: 100%;
     border-collapse: collapse;
@@ -253,7 +252,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 #article-body tr:hover td { background-color: #e6f0fa; transition: background-color 0.15s; }
 #article-body td code { background-color: #f0f0f0; }
 
-/* ========== 评论区样式（现代化，浅灰背景，无 emoji） ========== */
+/* ========== 评论区样式 (阅读器) ========== */
 .comment-section {
     margin: 2rem 0 1rem;
     border-top: 1px solid #ddd;
@@ -431,21 +430,95 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     color: #888;
     margin-left: 0.5rem;
 }
-... (rest of file unchanged) ...
 
-/* ========== 追加：可选的固定“隐形阻挡”用于视觉遮挡（不拦截事件） ==========
-   使用法：
-   - 若仅需避免遮挡， padding-bottom:25px 已足够（上面已设置）。
-   - 若需要视觉遮挡/渐变，可在页面 body 末尾加入：
-       <div class="bottom-spacer" aria-hidden="true"></div>
-*/
+/* ========== 固定底部占位 ========== */
 .bottom-spacer {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    height: 25px;           /* 与 #content 的 padding-bottom 保持一致 */
-    pointer-events: none;   /* 不拦截鼠标事件 */
-    background: transparent; /* 可替换为渐变： linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)); */
+    height: 25px;
+    pointer-events: none;
+    background: transparent;
     z-index: 900;
+}
+
+/* ============================================================
+   博客页面深色主题覆盖 (不影响阅读器)
+   ============================================================ */
+/* 博客没有侧边栏，直接用 main#content 作为全宽容器，
+   通过 blog.html 特有的父级或类来限制作用范围 */
+#blog-list-view,
+#blog-read-view {
+    background: #1a1a1a;
+    color: #ddd;
+}
+
+/* 文章内容容器 */
+#article-container {
+    background: #1a1a1a !important;
+    color: #ddd !important;
+}
+
+/* 标题 */
+#article-container h1,
+#article-container h2,
+#article-container h3 {
+    color: #eee !important;
+    border-bottom: 1px solid #333;
+}
+
+/* 段落 */
+#article-container p {
+    color: #ccc !important;
+}
+
+/* 代码块 */
+#article-container pre,
+#article-container code {
+    background: #2d2d2d !important;
+    color: #ccc !important;
+}
+
+/* 表格（去斑马线） */
+#article-container table {
+    background: #1a1a1a;
+    border-collapse: collapse;
+}
+#article-container th,
+#article-container td {
+    border: 1px solid #444;
+    padding: 0.5rem;
+    color: #ccc;
+    background: #1a1a1a !important;
+}
+#article-container th {
+    background: #2a2a2a !important;
+    font-weight: bold;
+}
+#article-container tr:nth-child(even) td {
+    background: #1a1a1a !important;
+}
+#article-container tr:hover td {
+    background: #2a2a2a !important;
+}
+
+/* 链接 */
+#article-container a {
+    color: #88b4e6 !important;
+}
+
+/* 博客评论区整体 */
+#blog-comments-area {
+    background: #1a1a1a !important;
+    color: #ddd !important;
+}
+#blog-comments-area .comment-body {
+    background: #1a1a1a;
+    border: 1px solid #333;
+}
+
+/* 评论列表内元素 */
+#blog-comment-list .comment-item {
+    border-bottom: 1px solid #333;
 }
