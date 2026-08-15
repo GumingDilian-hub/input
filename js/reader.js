@@ -1,4 +1,4 @@
-/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞) ========== */
+/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -82,6 +82,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             injectCommentSections(body);
             setupGlobalCommentListeners();
         }
+        // ⭐ 新增：移动端侧边栏初始化
+        initMobileSidebar();
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -1012,3 +1014,51 @@ function setupGlobalCommentListeners() {
 document.addEventListener('profile-login', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
+
+/* ========== ⭐ 新增：移动端侧边栏适配 ========== */
+function initMobileSidebar() {
+    // 点击内容区域关闭侧边栏（移动端）
+    const content = document.getElementById('content');
+    const sidebar = document.getElementById('sidebar');
+    const app = document.getElementById('app');
+    
+    if (content) {
+        content.addEventListener('click', function(e) {
+            if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
+                // 如果点击的是侧边栏内部或工具栏，不关闭
+                if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
+                    sidebar.classList.remove('sidebar-open');
+                    if (app) app.classList.remove('sidebar-active');
+                }
+            }
+        });
+    }
+    
+    // 窗口尺寸变化时自动处理侧边栏状态
+    function handleResize() {
+        if (!sidebar || !app) return;
+        if (window.innerWidth >= 768) {
+            sidebar.classList.remove('sidebar-open');
+            app.classList.remove('sidebar-active');
+        }
+    }
+    
+    // 监听 resize
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(handleResize, 150);
+    });
+    
+    // 初始化时执行一次
+    handleResize();
+}
+
+// ⭐ 暴露 toggleSidebar 给全局（供 HTML 中的 onclick 调用）
+window.toggleSidebar = function() {
+    const sidebar = document.getElementById('sidebar');
+    const app = document.getElementById('app');
+    if (!sidebar) return;
+    sidebar.classList.toggle('sidebar-open');
+    if (app) app.classList.toggle('sidebar-active');
+};
