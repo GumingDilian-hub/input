@@ -28,7 +28,7 @@
 
 ## 阅读须知
 
--要是需要Word版，请访问![onedrive]([https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-lightgrey](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4))
+-要是需要Word版，请访问![onedrive](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)
  或**百度网盘**分享的文件：链接:https://pan.baidu.com/s/1OkC4QJYL8HxJoa-0FbjfBw   提取码:7i0f
  下下来尽量使用WPS**汉仪书宋二简**
 - 电子版推荐字体：Word版务必使用汉仪书宋二简（打印务必切换，版权归北京汉仪科印信息技术有限公司所有）
