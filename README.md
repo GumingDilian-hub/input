@@ -28,7 +28,8 @@
 
 ## 阅读须知
 
-- 要是需要Word版，请访问
+- 要是需要Word版，请访问，尽量使用金山文档，避免排版问题
+- **金山文档**[![WPS文档](https://img.shields.io/badge/📄-WPS云盘-0078D4?style=flat&logo=wps&logoColor=white)](https://www.kdocs.cn/l/cpfoz8aFZG1W)
 - **微软云盘**[![Word文档](https://img.shields.io/badge/📄-OneDrive-0078D4?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)
 - **百度网盘**[![百度网盘](https://img.shields.io/badge/📄-百度网盘-0078D4?style=flat&logo=link&logoColor=white)](https://pan.baidu.com/s/1OkC4QJYL8HxJoa-0FbjfBw) 提取码:7i0f
 - **夸克网盘**[![夸克网盘](https://img.shields.io/badge/📄-夸克网盘-0088FF?style=flat&logo=link&logoColor=white)](https://pan.quark.cn/s/705378c1f4bf)
