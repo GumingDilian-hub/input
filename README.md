@@ -139,7 +139,7 @@ tags: [Western Blot, 蛋白表达]
 - 7实际上你什么不会都可以问AI，你可以把我的仓库链接贴给AI，哪里出问题都可以解决！
 - - 你要是听不懂，或者极端情况下可以把这个文件发给AI   [![OneDrive文档](https://img.shields.io/badge/📄-技术文件-0078D4?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDFIssarrO3QYHFpVLauDVEAbLxCO8TRLcDMK5JKGl0R48)
   - 但是博客功能不可用，因为它需要另一个工具cloudflare，你要想研究就自己写worker好了，这里是worker代码
-    ```javascript
+```javascript
 export default {
 
 async fetch(request, env) {
