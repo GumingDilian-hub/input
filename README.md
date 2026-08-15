@@ -1,6 +1,6 @@
 # IWP inputwenben please 请输入文本
 
-[![Website](https://img.shields.io/badge/🏠-gumingdilian--hub.github.io%2Finput-F8B8C8?style=for-the-badge)](https://gumingdilian-hub.github.io/input/)
+[![Website](https://img.shields.io/badge/gumingdilian--hub.github.io%2Finput-F8B8C8?style=for-the-badge)](https://gumingdilian-hub.github.io/input/)
 
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-lightgrey)
 ![Status](https://img.shields.io/badge/status-updating-lightgrey)
@@ -21,22 +21,20 @@
 - **进化生物学**
 - **生态行为** 
 - **生物信息学** 
-- **高等数学皮毛** 
+- **高等数学** 
 - **微生物学**
 - **免疫学** 
-- **植物学 / 动物学**
 
 ## 阅读须知
 
-- 要是需要Word版，请访问，尽量使用金山文档，避免排版问题
+- 要是需要Word版，请访问，尽量使用金山文档，避免排版问题，无论如何也要使用金山系软件打开，edge，chorme，Firefox大概率有问题。更新不及时是必然的，想看什么私信我即可，这个网站大概率我会一直用到研究生毕业
 - **金山文档**  [![WPS文档](https://img.shields.io/badge/📄-WPS云盘-F8B8C8?style=flat&logo=wps&logoColor=white)](https://www.kdocs.cn/l/cpfoz8aFZG1W)
 - **微软云盘**  [![Word文档](https://img.shields.io/badge/📄-OneDrive-F8B8C8?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)
 - **百度网盘**  [![百度网盘](https://img.shields.io/badge/📄-百度网盘-F8B8C8?style=flat&logo=link&logoColor=white)](https://pan.baidu.com/s/1OkC4QJYL8HxJoa-0FbjfBw) 提取码:7i0f
 - **夸克网盘**  [![夸克网盘](https://img.shields.io/badge/📄-夸克网盘-F8B8C8?style=flat&logo=link&logoColor=white)](https://pan.quark.cn/s/705378c1f4bf)
 - 下下来尽量使用WPS**汉仪书宋二简**
-- 电子版推荐字体：Word版务必使用汉仪书宋二简（打印务必切换，版权归北京汉仪科印信息技术有限公司所有）
-- 简写说明：Pr（蛋白质）、Glc（葡萄糖）、Pyr（丙酮酸）
-- 本文档开源协议：**CC BY-NC-SA 4.0**
+- 电子版推荐字体：**Word版务必使用汉仪书宋二简**（打印务必切换，版权归北京汉仪科印信息技术有限公司所有）
+- 本文档开源协议：**CC BY-NC-SA 4.0**,不遵守小心我拿神威无敌大将军炮轰似你
 
 ## 联系方式
 
