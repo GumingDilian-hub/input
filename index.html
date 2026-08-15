@@ -6,11 +6,9 @@
     <title>IWP · 请输入文本</title>
     <link rel="icon" type="image/png" href="images/0721.png?v=1">
 
-    <!-- 预连接 CDN -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
-    <!-- 预取关键 JS/CSS 库 -->
     <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/marked/marked.min.js" as="script">
     <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" as="script">
     <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" as="style">
@@ -18,7 +16,6 @@
     <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js" as="script">
     <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css" as="style">
 
-    <!-- 预取核心笔记（高频章节） -->
     <link rel="prefetch" href="notes/000/index.md" as="fetch" crossorigin>
     <link rel="prefetch" href="notes/001/index.md" as="fetch" crossorigin>
 
@@ -43,10 +40,12 @@
             align-items: center;
             justify-content: center;
             padding: 2rem;
+            gap: 2rem;
+            flex-wrap: wrap; /* 移动端换行 */
         }
         .home-left {
-            flex: 1;
-            padding-right: 3rem;
+            flex: 1 1 300px; /* 基础宽度 */
+            padding-right: 0;
             text-align: left;
         }
         .home-left h1 {
@@ -63,6 +62,7 @@
         .btn-group {
             display: flex;
             gap: 1.2rem;
+            flex-wrap: wrap;
         }
         .btn {
             padding: 0.8rem 2.2rem;
@@ -80,14 +80,14 @@
         .btn-secondary { background: #3a3a3a; color: #fff; border: 1px solid #555; }
         .btn-secondary:hover { background: #4a4a4a; }
         .home-right {
-            flex: 1;
+            flex: 1 1 300px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .home-right img {
             width: 100%;
-            max-width: 100%;
+            max-width: 500px;
             height: auto;
             border-radius: 6px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.6);
@@ -100,10 +100,18 @@
             align-items: center;
             padding: 0 1.5rem;
             font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        /* 移动端调整 */
+        @media (max-width: 600px) {
+            .home-left h1 { font-size: 2.4rem; }
+            .home-left p { font-size: 1.1rem; }
+            .btn { padding: 0.6rem 1.5rem; font-size: 1rem; }
+            .home-container { padding: 1rem; }
         }
     </style>
 </head>
-<!-- ...head部分不变... -->
 <body>
     <div class="home-container">
         <div class="home-left">
@@ -111,7 +119,6 @@
             <p>Input wenben please · 请输入文本</p>
             <div class="btn-group">
                 <a href="reader.html" class="btn btn-primary">让我来简单地喵两句～</a>
-                <!-- 修改这里：去掉 converter，改为 blog -->
                 <a href="blog.html" class="btn btn-secondary">该你喵了</a>
             </div>
         </div>
