@@ -29,7 +29,7 @@
 ## 阅读须知
 
 - 要是需要Word版，请访问
-- **微软云盘**[![Word文档](https://img.shields.io/badge/📄-onedrive-0078D4?style=flat&logo=microsoftword&logoColor=white)] (https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)你会发现排版是乱的，下载即可
+- **微软云盘**[![Word文档](https://img.shields.io/badge/📄-OneDrive-0078D4?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)
 - **百度网盘**[![百度网盘](https://img.shields.io/badge/📄-百度网盘-0078D4?style=flat&logo=link&logoColor=white)](https://pan.baidu.com/s/1OkC4QJYL8HxJoa-0FbjfBw)
 - 提取码:7i0f
 - **夸克网盘**[![夸克网盘](https://img.shields.io/badge/📄-夸克网盘%20(Input%20Wenben)-0088FF?style=flat&logo=link&logoColor=white)](https://pan.quark.cn/s/705378c1f4bf)
