@@ -94,6 +94,16 @@
         #toolbar .toolbar-btn#btn-profile {
             margin-left: auto;
         }
+
+        /* 移动端工具按钮显示控制 (由 reader.js 的 handleResize 切换) */
+        #btn-hamburger {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            #btn-hamburger {
+                display: inline-block !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -104,13 +114,14 @@
     </div>
 
     <div id="app">
-        <!-- 工具栏（新增个人中心按钮） -->
+        <!-- 工具栏（新增汉堡菜单按钮） -->
         <div id="toolbar">
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
             <button id="btn-profile" class="toolbar-btn" onclick="openProfile()">个人中心</button>
+            <button id="btn-hamburger" class="toolbar-btn" onclick="toggleSidebar()">☰</button>
         </div>
-        
+
         <!-- 搜索面板 -->
         <div id="search-panel" class="panel-hidden">
             <div class="panel-content">
@@ -125,7 +136,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 左侧目录 -->
         <div id="sidebar">
             <div class="sidebar-header">
@@ -142,9 +153,9 @@
             </div>
             <nav id="toc-tree"></nav>
         </div>
-        
+
         <div id="resizer"></div>
-        
+
         <main id="content">
             <div id="version-info"></div>
             <div id="article-body"></div>
@@ -174,6 +185,14 @@
             }
         }
 
+        // 侧边栏切换（移动端用）
+        function toggleSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            var app = document.getElementById('app');
+            sidebar.classList.toggle('sidebar-open');
+            app.classList.toggle('sidebar-active');
+        }
+
         // 版本号彩蛋
         (function() {
             var versionTag = document.getElementById('version-tag');
@@ -188,6 +207,35 @@
                 }
             });
         })();
+
+        // 点击内容区域关闭侧边栏（移动端）
+        document.addEventListener('DOMContentLoaded', function() {
+            var content = document.getElementById('content');
+            if (content) {
+                content.addEventListener('click', function(e) {
+                    var sidebar = document.getElementById('sidebar');
+                    var app = document.getElementById('app');
+                    if (window.innerWidth < 768 && sidebar.classList.contains('sidebar-open')) {
+                        if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
+                            sidebar.classList.remove('sidebar-open');
+                            app.classList.remove('sidebar-active');
+                        }
+                    }
+                });
+            }
+            // 窗口尺寸变化处理
+            function handleResize() {
+                var sidebar = document.getElementById('sidebar');
+                var app = document.getElementById('app');
+                if (window.innerWidth >= 768) {
+                    if (sidebar) {
+                        sidebar.classList.remove('sidebar-open');
+                        app.classList.remove('sidebar-active');
+                    }
+                }
+            }
+            window.addEventListener('resize', handleResize);
+        });
     </script>
 </body>
 </html>
