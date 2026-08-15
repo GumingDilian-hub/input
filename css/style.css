@@ -609,3 +609,121 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 #blog-comment-list .comment-item {
     border-bottom: 1px solid #333;
 }
+/* ========== ⭐ 移动端侧边栏适配 ========== */
+/* 汉堡按钮在宽屏下隐藏（由 JS 控制，但 CSS 保底） */
+#btn-hamburger {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    #btn-hamburger {
+        display: inline-block !important;
+    }
+
+    /* 侧边栏改为固定定位，滑出屏幕 */
+    #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 280px;
+        min-width: 280px;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        border-right: none;
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    #sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+
+    /* 遮罩层 */
+    #app::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 999;
+    }
+
+    #app.sidebar-active::after {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* 点击遮罩关闭侧边栏（光标反馈） */
+    #app.sidebar-active::after {
+        cursor: pointer;
+    }
+
+    /* 分隔条在移动端隐藏 */
+    #resizer {
+        display: none;
+    }
+
+    /* 正文内边距缩小 */
+    #content {
+        padding: 1.2rem 1rem 20px;
+    }
+
+    /* 文章标题字号缩小 */
+    #article-body h1 {
+        font-size: 1.6rem;
+    }
+    #article-body h2 {
+        font-size: 1.3rem;
+    }
+    #article-body h3 {
+        font-size: 1.1rem;
+    }
+    #article-body p {
+        font-size: 0.95rem;
+    }
+
+    /* 表格字号缩小 */
+    #article-body table {
+        font-size: 0.8rem;
+    }
+    #article-body th,
+    #article-body td {
+        padding: 0.3rem 0.4rem;
+    }
+
+    /* 评论区内边距缩小 */
+    .comment-body {
+        padding: 0.8rem 1rem;
+    }
+
+    /* 工具栏按钮在移动端紧凑排列 */
+    #toolbar {
+        top: 6px;
+        right: 8px;
+        gap: 4px;
+    }
+    .toolbar-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+    }
+
+    /* 个人中心面板在移动端全屏 */
+    #profile-panel {
+        width: 100%;
+    }
+
+    /* 搜索面板在移动端全屏 */
+    .panel-hidden {
+        width: 100%;
+        right: -100%;
+    }
+    .panel-visible {
+        right: 0;
+    }
+}
