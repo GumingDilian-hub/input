@@ -51,7 +51,7 @@
 - 2，把这个仓库fork到你自己的账号名下
 - 3，你可以DIY的大概有两个文件夹，一个是images，其下0721.png决定网站图标，images/00x用于插入图片。一个是notes，其下00x存放笔记内容
 - 4，notes采用markdown变种，没必要专门去学，把下面这个提示词复制给AI，再把你的笔记贴给AI，AI就可以帮你转化了
-- 你要是听不懂，或者极端情况下可以把这个文件发给AI   [![OneDrive文档](https://img.shields.io/badge/📄-技术文件-0078D4?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDFIssarrO3QYHFpVLauDVEAbLxCO8TRLcDMK5JKGl0R48)
+
 ````markdown
 你是一位文档格式转换专家，请将用户提供的原始笔记内容，按照以下 **IWP 项目规范** 进行转换。
 
@@ -137,6 +137,7 @@ tags: [Western Blot, 蛋白表达]
 - 5 完事把转化完的贴到notes里即可，000代表序言的文本，你想插入什么图片，就直接按照转化完的md命名即可，比如说我的001.md里有个005.png想插进去，直接把图片上传到images/000/005.png即可
 - 6 完事你写完了，就可以让网站上线了，先点setting－Pages，把那个d打头的改成main保存，然后去action，此时你应该会发现它在转圈圈，转完了点进去即可显示出你的网站
 - 7实际上你什么不会都可以问AI，你可以把我的仓库链接贴给AI，哪里出问题都可以解决！
+- - 你要是听不懂，或者极端情况下可以把这个文件发给AI   [![OneDrive文档](https://img.shields.io/badge/📄-技术文件-0078D4?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDFIssarrO3QYHFpVLauDVEAbLxCO8TRLcDMK5JKGl0R48)
 ---
 
 *本站基于 神秘东方文字（其实就是HTML CSS JS）搭建*
