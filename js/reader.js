@@ -1,4 +1,4 @@
-/* ========== reader.js (全文搜索 + 旧版标题索引 + 精确定位 + 目录折叠修复) ========== */
+/* ========== reader.js (全文搜索 + DOM标题定位 + 精确定位 + 目录折叠修复) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -370,67 +370,65 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（全文搜索 + 旧版标题索引 + 精确定位） ========== */
+/* ========== 搜索功能（全文搜索 + DOM标题定位 + 精确定位） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ---------- 旧版标题索引构建（完全保留） ----------
-    let titleIndex = []; // 存储每个 h3 的标题和其涵盖的文本内容范围
-    function buildTitleIndex() {
-        titleIndex = [];
-        $$('#article-body h3').forEach((h3, i) => {
-            if (!h3.id) h3.id = 'h3-' + i;
-            const title = h3.textContent.trim();
-            let ctx = '';
-            let node = h3.nextElementSibling;
-            // 收集后续兄弟节点文本，直到遇到下一个标题
-            while (node && !['H1', 'H2', 'H3'].includes(node.tagName)) {
-                if (node.textContent.trim()) ctx += node.textContent.trim() + ' ';
-                node = node.nextElementSibling;
-                if (ctx.length > 200) break; // 限制长度避免过大
+    // ⭐ 核心：通过文本节点在 DOM 中的位置查找最近的标题（优先 h3，其次 h2，最后 h1）
+    function findHeadingByNode(textNode) {
+        // 1. 尝试向上查找最近的标题祖先（包括父级）
+        let el = textNode.parentElement;
+        while (el && el !== document.body) {
+            if (/^H[1-3]$/.test(el.tagName)) {
+                return el.textContent.trim();
             }
-            titleIndex.push({
-                id: h3.id,
-                title: title,
-                context: ctx.slice(0, 200).trim()
-            });
-        });
-    }
-
-    // 页面加载后构建一次
-    setTimeout(buildTitleIndex, 1000);
-
-    // 辅助：根据文本内容查找所属标题（通过上下文匹配）
-    function findHeadingByContent(textSnippet) {
-        if (!textSnippet || textSnippet.length < 3) return '未分类';
-        // 尝试在 titleIndex 的 context 中查找
-        let bestMatch = null;
-        let bestScore = 0;
-        const snippet = textSnippet.trim().toLowerCase();
-        for (const item of titleIndex) {
-            const ctx = item.context.toLowerCase();
-            // 如果 snippet 在 context 中，直接返回
-            if (ctx.includes(snippet)) {
-                return item.title;
-            }
-            // 否则计算重叠度（简单的单词匹配）
-            const words = snippet.split(/\s+/);
-            let matchCount = 0;
-            for (const w of words) {
-                if (w.length > 2 && ctx.includes(w)) matchCount++;
-            }
-            if (matchCount > bestScore) {
-                bestScore = matchCount;
-                bestMatch = item.title;
-            }
+            el = el.parentElement;
         }
-        return bestMatch || '未分类';
+
+        // 2. 如果没有祖先标题，则通过所在的 section-wrapper 查找前面的标题
+        const wrapper = textNode.closest('.section-wrapper');
+        if (wrapper) {
+            // 获取 wrapper 内所有标题元素
+            const headings = wrapper.querySelectorAll('h1, h2, h3');
+            // 找到在文档位置中位于该文本节点之前的最近标题
+            let nearest = null;
+            let nearestPos = -1;
+            headings.forEach(h => {
+                // 比较节点位置：如果标题在文本节点之前（即 compareDocumentPosition 包含 4：节点在给定节点之前）
+                if (h.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                    // 标题在文本节点之前，取最接近的（即位置相差最小的）
+                    // 我们获取标题在 wrapper 内的索引，选择最大的索引
+                    const idx = Array.from(wrapper.children).indexOf(h);
+                    if (idx > nearestPos) {
+                        nearestPos = idx;
+                        nearest = h;
+                    }
+                }
+            });
+            if (nearest) return nearest.textContent.trim();
+        }
+
+        // 3. 回退：查找全局中的 h1/h2/h3（可能不准确，但作为后备）
+        const globalHeadings = document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3');
+        let nearestGlobal = null;
+        let nearestGlobalPos = -1;
+        globalHeadings.forEach(h => {
+            if (h.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                const idx = Array.from(document.querySelector('#article-body').children).indexOf(h);
+                if (idx > nearestGlobalPos) {
+                    nearestGlobalPos = idx;
+                    nearestGlobal = h;
+                }
+            }
+        });
+        if (nearestGlobal) return nearestGlobal.textContent.trim();
+
+        return '未分类';
     }
 
-    // ---------- 新版全文搜索 ----------
     // 辅助：提取上下文（前后各10字符，尽量按空格截断）
     function extractContext(text, start, end, maxLen = 10) {
         const fullLen = text.length;
@@ -489,9 +487,7 @@ function initSearch() {
                     textNode: node,
                     start: match.index,
                     end: regex.lastIndex,
-                    matchText: match[0],
-                    // 获取匹配文本前后一小段用于标题查找
-                    snippet: text.slice(Math.max(0, match.index - 10), Math.min(text.length, regex.lastIndex + 10))
+                    matchText: match[0]
                 });
             }
         }
@@ -510,21 +506,8 @@ function initSearch() {
             const div = document.createElement('div');
             div.className = 'search-result-item';
 
-            // 使用旧版索引查找标题
-            let heading = findHeadingByContent(m.snippet);
-            if (heading === '未分类') {
-                // 后备：尝试使用旧版 match 标题（基于 h3 索引，但可能不精确）
-                // 这里我们直接使用 findHeadingByContent 的结果
-                // 如果还是未分类，尝试从 DOM 向上查找
-                let el = m.textNode.parentElement;
-                while (el && el !== document.body) {
-                    if (el.tagName === 'H1' || el.tagName === 'H2' || el.tagName === 'H3') {
-                        heading = el.textContent.trim();
-                        break;
-                    }
-                    el = el.parentElement;
-                }
-            }
+            // 使用 DOM 定位查找标题
+            let heading = findHeadingByNode(m.textNode);
 
             // 显示所属标题（无 emoji）
             const headingDiv = document.createElement('div');
@@ -563,9 +546,6 @@ function initSearch() {
             performSearch(q);
         }, 300);
     });
-
-    // 暴露 rebuildIndex 以便需要时重新构建
-    window.rebuildTitleIndex = buildTitleIndex;
 }
 
 function toggleSearchPanel() {
