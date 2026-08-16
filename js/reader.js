@@ -1,4 +1,4 @@
-/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配) ========== */
+/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配 + 搜索高亮) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -84,6 +84,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // ⭐ 新增：移动端侧边栏初始化
         initMobileSidebar();
+        // ⭐ 新增：搜索高亮清除（监听关闭按钮）
+        const closeSearch = document.getElementById('close-search');
+        if (closeSearch) {
+            closeSearch.addEventListener('click', () => {
+                clearHighlight();
+            });
+        }
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -362,6 +369,7 @@ function isParentVisible(child) {
     return !(pw && pw.style.display === 'none');
 }
 
+/* ========== 搜索功能（含高亮） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
@@ -388,18 +396,30 @@ function initSearch() {
         debounceTimer = setTimeout(() => {
             const q = input.value.trim().toLowerCase();
             results.innerHTML = '';
-            if (!q) return;
+            // 清空搜索框时清除高亮
+            if (!q) {
+                clearHighlight();
+                return;
+            }
+            // 输入新词时清除旧高亮（避免混乱）
+            clearHighlight();
             searchIndex.filter(i => i.titleLower.includes(q) || i.context.toLowerCase().includes(q)).forEach(i => {
                 const div = document.createElement('div');
                 div.className = 'search-result-item';
                 const title = document.createElement('div'); title.className = 'title'; title.textContent = i.title;
                 const ctx = document.createElement('div'); ctx.className = 'context'; ctx.textContent = i.context;
                 div.appendChild(title); div.appendChild(ctx);
+                // ⭐ 点击结果：跳转并高亮关键词
                 div.addEventListener('click', () => {
                     const el = document.getElementById(i.id);
                     if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        toggleSearchPanel();
+                        // 延迟执行高亮，等待滚动完成后突出显示
+                        setTimeout(() => {
+                            highlightSearchTerm(input.value.trim());
+                        }, 300);
+                        // 可选：点击后自动关闭搜索面板（取消注释即可启用）
+                        // toggleSearchPanel();
                     }
                 });
                 results.appendChild(div);
@@ -411,8 +431,80 @@ function initSearch() {
 function toggleSearchPanel() {
     const panel = $('#search-panel');
     if (panel) panel.classList.toggle('panel-visible');
+    // 如果面板关闭，清除高亮
+    if (!panel.classList.contains('panel-visible')) {
+        clearHighlight();
+    }
 }
 
+/* ========== 搜索高亮（黑底白字，圆角） ========== */
+function clearHighlight() {
+    const highlights = document.querySelectorAll('.search-highlight');
+    highlights.forEach(span => {
+        const parent = span.parentNode;
+        parent.replaceChild(document.createTextNode(span.textContent), span);
+        parent.normalize(); // 合并相邻文本节点
+    });
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightSearchTerm(term) {
+    if (!term || !term.trim()) {
+        clearHighlight();
+        return;
+    }
+    clearHighlight();
+    const body = document.getElementById('article-body');
+    if (!body) return;
+    const walker = document.createTreeWalker(
+        body,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                // 跳过 style、script、已高亮区域
+                if (node.parentElement.closest('style, script, .search-highlight')) 
+                    return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+    const textNodes = [];
+    let node;
+    while ((node = walker.nextNode())) textNodes.push(node);
+    const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
+    let firstMatch = null;
+    textNodes.forEach(textNode => {
+        const text = textNode.textContent;
+        if (!regex.test(text)) return;
+        regex.lastIndex = 0; // 重置
+        const frag = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const before = text.slice(lastIndex, match.index);
+            if (before) frag.appendChild(document.createTextNode(before));
+            const span = document.createElement('span');
+            span.className = 'search-highlight';
+            span.textContent = match[0];
+            frag.appendChild(span);
+            lastIndex = regex.lastIndex;
+            if (!firstMatch) firstMatch = span;
+        }
+        if (lastIndex < text.length) {
+            frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+        textNode.parentNode.replaceChild(frag, textNode);
+    });
+    // 滚动到第一个高亮位置（居中）
+    if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+/* ========== 滚动追踪 ========== */
 function initScrollSpy() {
     const tocItems = $$('.toc-item');
     const autoCheckbox = $('#auto-scroll-checkbox');
@@ -1062,3 +1154,6 @@ window.toggleSidebar = function() {
     sidebar.classList.toggle('sidebar-open');
     if (app) app.classList.toggle('sidebar-active');
 };
+
+// ⭐ 暴露清除高亮给全局（便于 HTML 中调用）
+window.clearHighlight = clearHighlight;
