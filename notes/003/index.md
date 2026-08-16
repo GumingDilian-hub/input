@@ -70,10 +70,10 @@ tags: [生物技术, 技术原理, 完整授课讲义]
     *   **双向电泳（2D-PAGE）：** 横向 IEF，纵向 SDS-PAGE。
     *   **彗星扫尾电泳：** 检测细胞凋亡和坏死，凋亡细胞碎裂更小，拖尾更细长。
     *   **脉冲场凝胶电泳（PFGE）：** 不断改变电场方向，用于分离大片段 DNA。
-    *   **DNA 2D 电泳：** 第一向低电压/低浓度分离分子量，第二向高电压/高浓度分离构象。可用于区分复制起始方式（单向或双向）。::image center images/003/000.jpg 双向电泳示意图图：::
+    *   **DNA 2D 电泳：** 第一向低电压/低浓度分离分子量，第二向高电压/高浓度分离构象。可用于区分复制起始方式（单向或双向）。::image center 000.jpg 双向电泳示意图图：::
     *   **电泳迁移率变化分析（EMSA）：** 验证蛋白与 DNA 特异性结合。竞争性 EMSA 加入 100 倍非标记探针消除信号；超迁移 EMSA 加入抗体出现更靠上的带。
 
-::image center images/003/001.jpg 琼脂糖浓度与分离片段大小对应表 ::
+::image center 001.jpg 琼脂糖浓度与分离片段大小对应表 ::
 *(注：琼脂糖浓度 0.3%~2.0%，分离线状 DNA 大小 60kb~0.1kb，请自行插入对应的浓度表图片)*
 
 **8. 蛋白质测序技术**
@@ -183,7 +183,7 @@ tags: [生物技术, 技术原理, 完整授课讲义]
 *   **光镊技术：**
     *   原文档注：“看不懂”。（补充：光镊技术利用高度聚焦的激光束产生的梯度力来捕获和操纵微米/纳米级别的微粒或生物大分子，常应用于单分子水平研究。）
 
-::image center images/003/002.jpg 扫描隧道显微镜与原子力显微镜工作原理图 ::
+::image center 002.jpg 扫描隧道显微镜与原子力显微镜工作原理图 ::
 
 ### 2. 染色技术
 
@@ -236,7 +236,7 @@ tags: [生物技术, 技术原理, 完整授课讲义]
 
 CFSE荧光染料能够均匀地进入细胞，并与细胞内的氨基酸共价结合，形成一种稳定的荧光标记物。当细胞分裂时，CFSE的荧光信号会被平均分配到子细胞中。通过流式细胞仪检测荧光强度的衰减，可以定量分析细胞增殖的情况，尤其适用于长期追踪细胞群体的增殖行为。
 
-::image center images/003/003.jpg CFSE细胞增殖追踪原理示意图::
+::image center 003.jpg CFSE细胞增殖追踪原理示意图::
 
 细胞凋亡检验：
 
@@ -244,11 +244,11 @@ AnnexinV- FITC/PI AnnexinV和磷脂酰丝氨酸结合代表早期凋亡 PI碘化
 
 细胞周期时长检测：流式细胞仪PI染色法：
 
-::image center images/003/004.jpg 流式细胞仪PI染色法检测细胞周期::
+::image center 004.jpg 流式细胞仪PI染色法检测细胞周期::
 
 双脉冲法测细胞周期DPL：第一次用EdU标记S期细胞，隔Td时间后用BrdU标记S期细胞，则S期时长：
 
-::image center images/003/005.jpg DPL双脉冲法测细胞周期::
+::image center 005.jpg DPL双脉冲法测细胞周期::
 
 标记有丝分裂百分率法PLM：
 
@@ -258,7 +258,7 @@ AnnexinV- FITC/PI AnnexinV和磷脂酰丝氨酸结合代表早期凋亡 PI碘化
 
 FUCCI (fluorescent ubiquitination- based cell- cycle indicator) 小球能鉴别细胞处在细胞周期的哪一时期，因此可以用来研究癌症细胞周期的进程。FUCCI 技术建立在鉴定过表达的两种调节细胞周期的蛋白 geminin 和 cdt1 水平上，其中 geminin 融合的是绿色荧光基团 AmCyan，而 cdt1 融合的是红色荧光基团 mCherry。cdt1 和 geminin 的水平随着细胞周期的变化而不断波动：cdt1 蛋白 G1 阶段达到峰值，geminin 蛋白水平在 S，G2 和 M 期不断升高。表达 FUCCI 细胞核在 G1 期为红色而在 S，G2 和 M 期则呈现绿色
 
-::image center images/003/006.jpg FUCCI细胞周期标记物::
+::image center 006.jpg FUCCI细胞周期标记物::
 
 ### 4. 制片技术
 
@@ -643,7 +643,7 @@ TE缓冲液：TrisEDTA，在溶解DNA或RNA的同时保护其不被降解
 
 电泳结果分析marker样品1 样品2 样品3 样品4 样品5
 
-::image center images/003/007.jpg 质粒DNA电泳结果分析::
+::image center 007.jpg 质粒DNA电泳结果分析::
 
 4. RNA提取
 
@@ -671,7 +671,7 @@ Eluent洗脱液：Tris-HCl，调整pH使其释放DNA
 
 S1核酸酶作图：确定启动子、内含子位置
 
-::image center images/003/008.jpg S1核酸酶作图的实验流程示意图::
+::image center 008.jpg S1核酸酶作图的实验流程示意图::
 
 确定启动子位点与转录强度还有截断转录和No G- box转录法：使用限制酶切得到一段带有启动子的片段，测量转录物的长度，由于终止位点不在此片段，因此转录产物的总长度就是启动子距离下游酶切位点的距离。无G盒转录即插入一段不含G的片段，同时提供极少的G，转录会在遇到G的地方停下。启动子越强中断转录产物越多
 
@@ -681,7 +681,7 @@ DNaseI：从嘧啶核苷酸5′端磷酸处随机降解dsDNA（效率更高）�
 
 DNase足迹：
 
-::image center images/003/009.jpg DNase足迹法检测DNA-蛋白质结合位点示意图::
+::image center 009.jpg DNase足迹法检测DNA-蛋白质结合位点示意图::
 
 限制性内切酶：
 
@@ -729,7 +729,7 @@ DNA的分子结构：某些限制性核酸内切酶切割超螺旋的质粒DNA�
 
 类酶：结合后两个亚基在中间，结合后把突出的DNA环切断
 
-::image center images/003/010.jpg IIS型限制酶工作原理::
+::image center 010.jpg IIS型限制酶工作原理::
 
 HsdR限制酶切、HsdM甲基化修饰、HsdS特异性识别。并非一维热运动
 
@@ -749,13 +749,13 @@ IIC（组合）：集合甲基化修饰结构域。识别位点外切割（IIS�
 
 应用：无缝克隆
 
-::image center images/003/011.jpg Golden Gate克隆原理::
+::image center 011.jpg Golden Gate克隆原理::
 
-::image center images/003/012.jpg Gibson Assembly克隆原理::
+::image center 012.jpg Gibson Assembly克隆原理::
 
 质粒载体 1.4.1Gatcwy 克际 BP反应 通过BP反应，目的基因从带有attb位点的PCR产物转移到带有attb位点的Entry载体中，生成带有attb位点的Entry克隆 LR反应 将带有attb位点的Entry克隆与带有attb位点的目标表达载体进行LR反应。通过重组酶的作用，目的基因被转移到目标载体中，生成表达载体。在这个过程中，产生的连接区域为attb位点。
 
-::image center images/003/013.jpg Gateway克隆原理::
+::image center 013.jpg Gateway克隆原理::
 
 ### 3. PCR
 
@@ -891,7 +891,7 @@ c_T = - log X_o / log(1 - F_X) - (log(R_T - R_B) - log R_T)/log(1 + F_X)
 
 标准曲线: C_T值对[DNA]作图
 
-::image center images/003/014.jpg qPCR标准曲线::
+::image center 014.jpg qPCR标准曲线::
 
 3. 三代PCR:绝对定量的数字微滴PCR(ddPCR)
 
@@ -917,11 +917,11 @@ P(x = k) = (λ^k / k!) e^(-λ) 则λ = c / d = -ln(1 - q)
 
 6. 重叠PCR（PCR产物连接的SOE法Gene splicing by over lap extension）：连接两段序列
 
-::image center images/003/015.jpg 重叠延伸PCR(SOE)原理::
+::image center 015.jpg 重叠延伸PCR(SOE)原理::
 
 另补充SDL方法（Gene splicing by directed ligation）就是双酶切
 
-::image center images/003/016.jpg SDL双酶切法原理::
+::image center 016.jpg SDL双酶切法原理::
 
 7. 易错PCR：引入突变
 
@@ -957,15 +957,15 @@ AMV逆转录酶：禽髓母细胞瘤病毒、热稳定>MMLV，适合42度~55度�
 
 反向PCR
 
-::image center images/003/017.jpg 反向PCR扩增已知序列侧翼序列::
+::image center 017.jpg 反向PCR扩增已知序列侧翼序列::
 
 质粒获救
 
-::image center images/003/018.jpg 质粒获救技术原理::
+::image center 018.jpg 质粒获救技术原理::
 
 10. RACE: cDNA 末端快速扩增
 
-::image center images/003/019.jpg 5'RACE与3'RACE原理示意图::
+::image center 019.jpg 5'RACE与3'RACE原理示意图::
 
 11. RS-PCR
 
@@ -987,15 +987,15 @@ AMV逆转录酶：禽髓母细胞瘤病毒、热稳定>MMLV，适合42度~55度�
 
 19. 交错式热不对称PCR（TAIL/染色体步移）：扩增未知序列，减少非特异性交错式热：在整个过程中高低退火温度交错（特异性不同）不对称：高特异性扩增里sp引物结合更多，简并引物结合更少
 
-::image center images/003/020.jpg TAIL-PCR交错式热不对称PCR流程::
+::image center 020.jpg TAIL-PCR交错式热不对称PCR流程::
 
 20. COLD- PCR（在较低变性温度下共扩增PCR）检测突变或特殊等位基因。利用mt/wt杂交链Tm稍低，把变性温度设置在低的这里常规COLD- PCR：92度变性，退火，然后低温度熔化，大量扩增mt/wt链快速COLD- PCR：省去前面变性退火步骤，默认都是mt/wt链一个与之类似的补充：高分辨率熔融曲线分析：dsDNA结合荧光染料下进行PCR，完成后升高温度进行解链，通过荧光的变化绘制熔融曲线
 
-::image center images/003/021.jpg COLD-PCR与高分辨率熔融曲线分析::
+::image center 021.jpg COLD-PCR与高分辨率熔融曲线分析::
 
 21. 锅柄PCR（p- PCR）和反向PCR类似的一种用已知序列探测未知序列的方法。
 
-::image center images/003/022.jpg 锅柄PCR(p-PCR)原理示意图::
+::image center 022.jpg 锅柄PCR(p-PCR)原理示意图::
 
 22. 复原条件PCR
 
@@ -1020,7 +1020,7 @@ SNP：单核苷酸多态性。
 
 #### SNP连锁不平衡（Linkage Disequilibrium, LD）
 - SNP连锁不平衡（linkage disequilibrium, LD）：又称等位基因关联。指同一染色体上，两个等位基因间的非随机相关，即同一染色体上两个等位基因AB同时出现的频率，大于人群中因随机分布而同时出现的频率。
-::image center images/003/081.jpg 连锁不平衡与单倍型示例 ::
+::image center 081.jpg 连锁不平衡与单倍型示例 ::
 
 - SNP连锁不平衡（linkage disequilibrium, LD）：
   - LD受突变和重组，重组使LD程度下降，两个SNP距离越小，重组率越小，LD越高。没有重组，LD=1。
@@ -1057,7 +1057,7 @@ STS：序列标签位点标记。高分辨，所有的以上分子标记都可�
 
 物理图：
 常用的物理作图法：
-::image center images/003/082.jpg 限制酶作图和克隆作图原理 ::
+::image center 082.jpg 限制酶作图和克隆作图原理 ::
 
 限制酶作图：利用不同限制酶酶切片段大小来判断切点间距(似拼交换)
 克隆作图：根据重叠顺序构建叠连群(contig)
@@ -1103,31 +1103,31 @@ Taqman探针：两种不同的探针看哪种发光。
 ARMS- PCR：扩增阻滞突变系统PCR/等位基因特异性PCR(AS- PCR)，是基于只有当引物3末端的碱基与SNP位点的等位基因互补配对时，才能正常延伸扩增；对扩增产物进行凝胶电泳或荧光PCR检测，则可确定SNP基因型。
 
 改良方法：四引物ARMS- PCR(Tetra- primer ARMS- PCR)。若四条引物均与模板完全匹配，则可扩增出三种长度不一的产物(两条内引物位于同一位点上，无长片段扩增产物形成)；而如果两条内引物中有一条引物与模板不匹配，则只形成两种不同长度的产物。ARMS- PCR法的荧光PCR检测时，理论上只有引物3'端与模板完全匹配时，才能形成扩增曲线；实际检测时，单个碱基的错配依然可以延伸扩增。为了提高其特异性，有时需在靠近引物3'末端的位
-::image center images/003/083.jpg A.Tetra-primer set 1 B.Tetra- primer set 2 ::
+::image center 083.jpg A.Tetra-primer set 1 B.Tetra- primer set 2 ::
 
 分子信标法：分子信标是一段双标记的寡核苷酸探针，其5'末端和3'末端分别标记荧光基团和淬灭基团，且探针5'端和3'端的部分碱基可互补配对，从而形成茎环结构，使得荧光基团和淬灭基团相互靠近而荧光信号较低。分子信标的环状结构部分包含SNP检测位点，当模板与分子信标环状结构的核酸序列完全匹配时，分子信标可与模板杂交形成伸展状态，从而导致荧光基团和淬灭基团的空间距离拉大，荧光信号增强，因此可被仪器检测，并确定SNP位点。
-::image center images/003/084.jpg 分子信标检测SNP荧光信号变化图 ::
+::image center 084.jpg 分子信标检测SNP荧光信号变化图 ::
 
 CAPS法：酶切扩增多态性序列(CCAPS)/(PCR- RFLP)，结合PCR技术与RFLP技术。该方法基于DNA片段在酶切位点上的碱基变异，采用相应的限制性内切酶，对该DNA片段的PCR扩增产物进行酶切，从而产生不同的电泳图谱，由此确定SNP位点的碱基类型。
 CAPS仅能检测位于酶切位点处的SNP，对于酶切位点以外的SNP则无法检测。为了解决这个不足，对于那些不能采用CAPS检测的SNP位点，可以使用衍生酶切扩增多态性序列(dCAPS)进行检测，即通过在引物上引入错配碱基创造酶切位点，进而实现多态性检测。
 图1：http://www.greenly.leolert.com/ir/indsp/php/indsp/forum/indsp/2.html
 
 KASP 法：设计两条与上游引物标签序列一致的荧光探针，探针的 5' 端分别标记不同的荧光基团，同时对应于荧光探针设计各自互补配对的淬灭探针，并在淬灭探针的 3' 端标记淬灭基团。启动扩增形成含有标签序列的 DNA 片段；该标签序列可与荧光探针结合，而荧光探针 3' 端可作为引物启动扩增，最后形成带有荧光标记的扩增产物，而且荧光探针对应的淬灭探针则在扩增过程中被切割掉，从而使得扩增过程的荧光信号增强，可对 SNP 位点进行检测。
-::image center images/003/085.jpg KASP法SNP分型原理流程图 ::
+::image center 085.jpg KASP法SNP分型原理流程图 ::
 
 聚合酶链反应一单链构象多态性分析(PCR- SSCP): 首先PCR扩增特定靶序列, 然后将扩增产物变性为单链, 进行非变性聚丙烯酰胺凝胶电泳。在不含变性剂的中性聚丙烯酰胺凝胶中电泳时, DNA单链的迁移率除与DNA链的长短有关外, 更主要的是取决于DNA单链所形成的构象。在非变性条件下, DNA单链可自身折叠形成具有一定空间结构的构象。这种构象由DNA单链碱基决定, 其稳定性靠分子内局部顺序的相互作用(主要为氢键)来维持。相同长度的DNA单链其顺序不同, 甚至单个碱基不同, 所形成的构象不同, 电泳迁移率也不同。PCR产物变性后, 单链产物经中性聚丙烯酰胺凝胶电泳, 靶DNA中含单碱基置换, 或数个碱基插入或缺失等改变时, 因迁移率变化会出现泳动变位, 从而可将变异DNA与正常DNA区分开。
-::image center images/003/086.jpg PCR-SSCP（单链构象多态性）原理示意图 ::
+::image center 086.jpg PCR-SSCP（单链构象多态性）原理示意图 ::
 ## 5DNA测序
 
 图1 Single- read 文件构建方法
 
-::image center images/003/023.jpg 图1 Single-read 文件构建方法 ::
+::image center 023.jpg 图1 Single-read 文件构建方法 ::
 
-::image center images/003/024.jpg 图2 Paired-end 文件构建方法 ::
+::image center 024.jpg 图2 Paired-end 文件构建方法 ::
 
 Mate- paired(MP): 适用于 454 测序等。两侧加接头, 环化后测序两端
 
-::image center images/003/025.jpg Mate-Paired测序与Paired-End测序对比图 ::
+::image center 025.jpg Mate-Paired测序与Paired-End测序对比图 ::
 
 3. 三代测序
 
@@ -1159,7 +1159,7 @@ Heliscope测序: 将基因组DNA切割成随机小片段DNA分子, 每个片段�
 
 6. 外显子捕获
 
-::image center images/003/026.jpg 外显子捕获技术与模拟断裂基因进化 ::
+::image center 026.jpg 外显子捕获技术与模拟断裂基因进化 ::
 
 7. 宏基因组
 
@@ -1201,7 +1201,7 @@ siRNA:
 
 siRNA可作为一种特殊引物，在RdRP酶作用下以靶mRNA为模板合成dsRNA,再被RISC切割形成新的siRNA,不断循环，称为随机降解性聚合酶链式反应(random degradative PCR)。新生的dsRNA反复合成和降解，不断产生新的siRNA,从而使靶mRNA逐渐减少，导致目的基因沉默，呈现RNAi现象。
 
-::image center images/003/027.jpg RNAi机制示意图 ::
+::image center 027.jpg RNAi机制示意图 ::
 
 miRNA:
 
@@ -1213,7 +1213,7 @@ siRNA是由人工合成的双链RNA或病毒得来的双链RNA
 
 shRNA是指有发夹结构(short hairpin)的RNA,一般由polⅢ启动子控制转录
 
-::image center images/003/028.jpg miRNA加工及RNAi机制图 ::
+::image center 028.jpg miRNA加工及RNAi机制图 ::
 
 | 相同点/联系点 | siRNA | miRNA |
 | --- | --- | --- |
@@ -1232,7 +1232,7 @@ shRNA是指有发夹结构(short hairpin)的RNA,一般由polⅢ启动子控制�
 
 piRNA：抑制转座子活动，在生殖细胞中表达活跃。也促进鱼精蛋白转换等
 
-::image center images/003/029.jpg piRNA生成与作用机制示意图 ::
+::image center 029.jpg piRNA生成与作用机制示意图 ::
 
 ## 7 基因编辑
 
@@ -1265,13 +1265,13 @@ FLEX（Cre- On/DIO）：
 
 相应的有DO(Cre- Off)时间特异性表达：四环素操纵系统（诱导负）：
 
-::image center images/003/030.jpg Tet-Off（阻遏正）系统示意图 ::
+::image center 030.jpg Tet-Off（阻遏正）系统示意图 ::
 
 Tet- Off（阻遏正）：
 
 tTA=tetR+VP16(激活因子)，tTA可以结合到TRE启动转录当四环素类似物结合到tTA的tetR上时同样抑制tTA功能
 
-::image center images/003/031.jpg Tet-On（诱导正）系统示意图 ::
+::image center 031.jpg Tet-On（诱导正）系统示意图 ::
 
 把Cre放到TRE下游即可用Dox控制时间关闭表达
 
@@ -1281,13 +1281,13 @@ mut- tetR+VP16
 
 突变的tTA正常不结合TRE，只有结合Dox才结合TRE
 
-::image center images/003/032.jpg Cre-ERT2（雌激素诱导系统）示意图 ::
+::image center 032.jpg Cre-ERT2（雌激素诱导系统）示意图 ::
 
 Cre- ERT2（雌激素诱导系统）：
 
 将雌激素受体(ER)的配体结合区(LBD)与Cre重组酶相融合，形成定位于胞浆中的融合蛋白(Cre- ER)；其中Cre- ERT2突变体带有人雌激素受体配体结合区(ERLBD)的3个点突变：C400V/M543A/L544A；受人工雌激素Tamoxifen（他莫昔芬）、4- OHT诱导，不再受内源雌激素干扰，注射时间决定表达的特定发育时期。
 
-::image center images/003/033.jpg Gal4/UAS系统示意图 ::
+::image center 033.jpg Gal4/UAS系统示意图 ::
 
 Gal4/UAS系统：
 
@@ -1319,13 +1319,13 @@ CRISPR高度可变间隔区的获得：
 
 重复序列之间。CRISPR基因座的表达(包括转录和转录后的成熟加工)：当该噬菌体再次入侵细菌时，CRISPR 簇首先转录为长的crRNA前体，然后逐步被加工成小的成熟crRNA。crRNA结合相关的Cas蛋白后，形成crRNA- Cas蛋白复合体，通过碱基互补配对精确地与目标DNA相结合，随后由Cas蛋白对目标DNA进行断裂和降解。Cas9蛋白作用需要crRNA通过碱基配对与tracRNA结合形成双链RNA指导其在crRNA引导序列靶定位点剪切双链DNA。RNaseIII切割成小的crRNA，tracRNA与crRNA上的非spacer序列部分互补共同结合Cas
 
-::image center images/003/034.jpg CRISPR-Cas9作用机制示意图 ::
+::image center 034.jpg CRISPR-Cas9作用机制示意图 ::
 
 crRNA的非spacer序列如果结合到DNA上（CRISPRDNA）则抑制Cas活性。这样crRNA不会识别切割CRISPRDNA
 
 Cas9核酸酶有两个功能结构域：RuvC和HNH。当两个结构域激活时，HNH核酸酶结构域剪切互补链，RuvC结构域剪切非互补链，在基因组上产生双链断裂(DSB)。可将RuvC突变，仅进行单链切割。
 
-::image center images/003/035.jpg CRISPR全基因组筛选流程 ::
+::image center 035.jpg CRISPR全基因组筛选流程 ::
 
 | 型 | 亚型 | 包含的Cas蛋白 |
 | --- | --- | --- |
@@ -1352,11 +1352,11 @@ Cas9n：突变一侧切割结构域使之切单链
 
 就是在靶向sgRNA的引导下产生特异性切割后，会发生旁系切割（collateral cleavage），俗称“乱切”，这时把带有荧光标签（含有淬灭基团）的reporter基因放进去就能被Cas13a分开荧光基团和淬灭基团，从而产生荧光信号，用于检测目的核酸。
 
-::image center images/003/036.jpg SHERLOCK检测原理示意图 ::
+::image center 036.jpg SHERLOCK检测原理示意图 ::
 
 碱基编辑：Cas9n 的应用
 
-::image center images/003/037.jpg 碱基编辑（CBE/ABE）示意图 ::
+::image center 037.jpg 碱基编辑（CBE/ABE）示意图 ::
 ## 8 分子杂交
 
 1. Southern Blot
@@ -1371,7 +1371,7 @@ Northern blot
 
 Western blot：由于SDS已变性必须用线性表位
 
-::image center images/003/038.jpg Western blot常见问题及解决方案示意图 ::
+::image center 038.jpg Western blot常见问题及解决方案示意图 ::
 
 Southwestern blot: DNA 为探针，蛋白质为受体，SDS 变性后还要尿素复性
 
@@ -1393,7 +1393,7 @@ Southwestern blot: DNA 为探针，蛋白质为受体，SDS 变性后还要尿�
 
 免疫共沉淀Co-IP
 
-::image center images/003/039.jpg 免疫共沉淀（Co-IP）示意图 ::
+::image center 039.jpg 免疫共沉淀（Co-IP）示意图 ::
 
 Protein A 为金黄色葡萄球菌表面的一种表面蛋白，由 spa 基因转译而成，并由 DNA 的拓扑结构、包内渗透压，以及一个名为 ArsR-AriR 的双单元调控系统调控。该蛋白三维构造中有五个同源性免疫球蛋白结合域，每个结合域都能与多种哺乳类的大多数免疫球蛋白重链的 Fc 区域结合，最主要为 IgG，甚至可与人类 VH3 蛋白质家族的 Fab 区域结合。当蛋白质 A 与免疫球蛋白结合后，这些免疫球蛋白便失去了作用，进而摧毁免疫系统的吞噬作用及调理作用。
 
@@ -1401,15 +1401,15 @@ Protein G 是一种在 C 类和 G 类链球菌中表达的免疫球蛋白结合�
 
 GST- pull down
 
-::image center images/003/040.jpg GST pull-down 示意图 ::
+::image center 040.jpg GST pull-down 示意图 ::
 
 一般用于体外实验，用于体外验证两个已知蛋白的直接相互作用。重组诱饵蛋白一般采用原核表达体系，有高效的商业化载体（真核表达体系也可以做，但需要找到合适的载体）：并且固相复合物组分更少，有商业化的GSH琼脂糖珠，整个实验相对而言难度较低。
 
 酵母双杂交Y2H
 
-::image center images/003/041.jpg 酵母双杂交Y2H原理示意图 ::
+::image center 041.jpg 酵母双杂交Y2H原理示意图 ::
 
-::image center images/003/042.jpg GFP重组系统示意图 ::
+::image center 042.jpg GFP重组系统示意图 ::
 
 4. 蛋白质- RNA 互作
 
@@ -1454,7 +1454,7 @@ RNaseH用于在与DNA探针杂交的特定位点切割标靶RNA分子。如果�
 
 a验证互作b配体结合构象改变c蛋白质折叠d酶切反应
 
-::image center images/003/043.jpg 常见荧光蛋白FRET生物传感器策略示意图 ::
+::image center 043.jpg 常见荧光蛋白FRET生物传感器策略示意图 ::
 
 RNA聚合酶的蜷曲模型、σ因子随机释放模型等的验证也是靠FRET实现的
 
@@ -1468,7 +1468,7 @@ RNA聚合酶的蜷曲模型、σ因子随机释放模型等的验证也是靠FRE
 
 一个编码感兴趣蛋白质的基因被插入到噬菌体衣壳蛋白基因中，导致噬菌体在其外部“展示”蛋白质，同时在内部包含该蛋白质的基因。噬菌体所展示的蛋白质可以与其他蛋白质、肽或DNA序列进行筛选，以检测展示的蛋白质与其他分子的相互作用。与自然选择类似，可以在称为体外选择的过程中筛选和扩增大量蛋白质库。最常用的噬菌体展示噬菌体是M13和fd丝状噬菌体，尽管T4、T7和λ噬菌体也被使用过。可以用于单克隆抗体的制备与筛选
 
-::image center images/003/044.jpg 噬菌体展示技术流程示意图 ::
+::image center 044.jpg 噬菌体展示技术流程示意图 ::
 
 说到单克隆抗体制备，还需要介绍
 
@@ -1490,7 +1490,7 @@ RNA聚合酶的蜷曲模型、σ因子随机释放模型等的验证也是靠FRE
 
 与噬菌体展示类似，使用不含终止密码子的mRNA在体外翻译系统合成的蛋白质不会脱离核糖体。借此来进行富集和筛选。
 
-::image center images/003/045.jpg 核糖体展示技术流程示意图 ::
+::image center 045.jpg 核糖体展示技术流程示意图 ::
 
 酵母展示：
 
@@ -1510,7 +1510,7 @@ RNA聚合酶的蜷曲模型、σ因子随机释放模型等的验证也是靠FRE
 
 先将一种生物分子(靶分子)键合在生物传感器表面，再将含有另一种能与靶分子产生相互作用的生物分子(分析物)的溶液注入并流经生物传感器表面。生物分子间的结合引起生物传感器表面质量的增加，导致折射指数按同样的比例增强，生物分子间反应的变化即被观察到。
 
-::image center images/003/046.jpg 表面等离子共振(SPR)原理示意图 ::
+::image center 046.jpg 表面等离子共振(SPR)原理示意图 ::
 
 ## 9 ELISA
 
@@ -1544,7 +1544,7 @@ RNA聚合酶的蜷曲模型、σ因子随机释放模型等的验证也是靠FRE
 
 当需要侦测无法获得两种以上单一性抗体的抗原，或是不易得到足够的纯化抗体以固着于孔盘上时，一般会考虑使用竞争法ELISA。
 
-::image center images/003/047.jpg 三种常见ELISA方法原理示意图 ::
+::image center 047.jpg 三种常见ELISA方法原理示意图 ::
 
 ## 10 空间基因组学
 
@@ -1574,7 +1574,7 @@ ChIP-loop：ChIP+3C，确定已知蛋白质 P 是否参与已知片段 A 和片�
 
 ChIA- PET(Chromatin Interaction Analysis by Paired- End Tag Sequencing)
 
-::image center images/003/048.jpg 染色质构象捕获技术流程汇总示意图 ::
+::image center 048.jpg 染色质构象捕获技术流程汇总示意图 ::
 
 染色质开放性检测
 
@@ -1584,7 +1584,7 @@ ATAC- seq：利用转座酶研究染色质可进入性的高通量测序技术
 
 原理：转座酶Tn5容易结合在开放染色质，对Tn5酶捕获到的DNA序列进行测序且所需细胞量少，实验简单，可在全基因组范围内检测染色质的开放状态，ATAC已经成为研究染色质开放性的首选技术方法。
 
-::image center images/003/049.jpg ATAC-seq原理示意图 ::
+::image center 049.jpg ATAC-seq原理示意图 ::
 
 FAIRE- seq
 
@@ -1649,7 +1649,7 @@ RICC- seq
 
 清洁未和配体结合的核酸序列，然后再将结合了的核酸序列用聚合酶链式反应复制数百万倍，再选择多次，和配体最亲和的核酸序列就会产生。
 
-::image center images/003/050.jpg SELEX筛选流程图 ::
+::image center 050.jpg SELEX筛选流程图 ::
 
 核酸适配体与生物传感器(Biosensor)：
 
@@ -1679,17 +1679,17 @@ OLC方法（Overlap- Layout- Consensus）：在拼接的第一步，OLC方法会
 
 RCS方法（Read- contig- scaffold）：在进行重测序项目时，尤其是NGS时，运用此方法将该段比对到参考基因组上。Contig是将重叠的读段直接拼接在一起，不能有任何间隙存在。Scaffold是指多个contig不能直接拼接成一个长的连续序列时通过pair- end或mate- pair数据确定它们之间的相对位置和距离。将多个contig连接成长更包含有间隙的scaffold。
 
-::image center images/003/051.jpg 基于图论的de novo组装原理示意图 ::
+::image center 051.jpg 基于图论的de novo组装原理示意图 ::
 
 基于图论的de novo组装：什么是图论和k值右上的图已有描述。k- mer方法可以将短读长序列进一步切割为更小的子片段，逐步分析它们的重叠关系。在基于k- mer的de burij图中，节点代表不同的k- mer，边代表相邻k- mer之间的重叠。如果一个k- mer的最后k- 1个字符与另一个k- mer的前k- 1个字符相同，它们的节点之间就会有一条边。较小的k值难以区分重复序列，但是更容易找到重叠的区域，需求的数据量较小较大的k值需要更高的测序覆盖度，更适合处理重复序列Velvet是一种常用的基因组de novo拼接工具。该算法可以简化de burij图，例如，当节点A只有一个边连接到节点B，而B也只有一个入边时，这两个节点可以合并为一个节点。
 
 Velvet是一种常用的基因组de novo拼接工具。该算法可以简化de burij图，例如，当节点A只有一个边连接到节点B，而B也只有一个入边时，这两个节点可以合并为一个节点。
 
-::image center images/003/052.jpg Velvet算法简化de Bruijn图示意图 ::
+::image center 052.jpg Velvet算法简化de Bruijn图示意图 ::
 
 基因组大小的估计：G=k- mer总数/k- mer期望深度。使用k- mer而不是reads是因为没有参考基因组基因组复杂度分析：
 
-::image center images/003/053.jpg K-mer频率与基因组特征分析 ::
+::image center 053.jpg K-mer频率与基因组特征分析 ::
 
 3. 基因的预测
 
@@ -1743,9 +1743,9 @@ logFC < 0 表示在处理条件下基因表达下调。
 
 纵坐标为- IgP，大于一定值代表具有显著性，因此我们需要关注的是具有显著性的、表达上调或下调的部分的基因，同时注意FC的比值是哪个比哪个（24国赛考点）
 
-::image center images/003/054.jpg 主成分分析(PCA)结果解读示意图 ::
+::image center 054.jpg 主成分分析(PCA)结果解读示意图 ::
 
-::image center images/003/055.jpg GSEA富集分析图及详细解读 ::
+::image center 055.jpg GSEA富集分析图及详细解读 ::
 
 ## 案例解读
 
@@ -1755,13 +1755,13 @@ logFC < 0 表示在处理条件下基因表达下调。
 
 案例解读为了测试肿瘤体积大的患者是否系统性地表现出其微生物群的变化，研究者使用Bray- Curtis指数测量了整个队列的β多样性。主成分分析（PCA）显示这些患者的β多样性无显著差异。
 
-::image center images/003/056.jpg 热图解读示意图 ::
+::image center 056.jpg 热图解读示意图 ::
 
 ## 案例解读
 
 案例解读该热图展示了此前GO富集分析的80个gene子集的表达变化，样本（WT组与MUT组）的变量是K700E是否突变。星号标注的是受1- 8个差异剪接事件影响的gene。
 
-::image center images/003/057.jpg 火山图解读示意图 ::
+::image center 057.jpg 火山图解读示意图 ::
 
 ## 案例解读
 
@@ -1777,7 +1777,7 @@ logFC < 0 表示在处理条件下基因表达下调。
 
 个事件“基因在基因集中”与“基因是表达差异的”独立，则：
 
-::image center images/003/058.jpg 过度代表性分析ORA原理示意图 ::
+::image center 058.jpg 过度代表性分析ORA原理示意图 ::
 
 时间序列表达分析：
 
@@ -1787,7 +1787,7 @@ logFC < 0 表示在处理条件下基因表达下调。
 
 Hill et al.(2017)使用了由马生作为研究心组形态发生的模型生物。斑马鱼心脏的发生和环化从受精后30h开始，到约72h完成。研究者在这一段时间内的八个时间点会高心脏组织并进行RNA测序。对肝上具有表达差异的基因进行收集
 
-::image center images/003/059.jpg 时间序列表达模式的两种常见趋势（脉冲/持续）示意图 ::
+::image center 059.jpg 时间序列表达模式的两种常见趋势（脉冲/持续）示意图 ::
 
 9. 单细胞转录组学
 
@@ -1797,15 +1797,15 @@ PCR偏倚/偏差：PCR扩增过程中每个位点扩增效率并不是均匀的�
 
 SMART- seq（Switching Mechanism At the 5' end of RNA Template）：逆转录+模板转换（TS），使用MMLV逆转录酶（见前文逆转录PCR）
 
-::image center images/003/060.jpg SMART-seq单细胞转录组建库原理 ::
+::image center 060.jpg SMART-seq单细胞转录组建库原理 ::
 
 Smart- seq2在原先的基础上引入了Tn5转座酶。Tn5催化的转座是一种保守型转座，即在转座前后不涉及复制的发生。在体外可以预先让Tn5接头序列，形成转座复合体，其可以随机结合在DNA的大沟上，随后发挥内切酶的活性，形成片段化的含接头DNA。这样可以进一步片段化，打成更小的测序片段来测序。
 
-::image center images/003/061.jpg Smart-seq2与Tn5转座酶片段化流程 ::
+::image center 061.jpg Smart-seq2与Tn5转座酶片段化流程 ::
 
 除了smart- seq还有一些类似的seq。例如cel- seq（Cell Expression by Linear amplification and Sequencing），引入T7- promotor，这是T7 RNA聚合酶特异性识别的启动子，用于线性扩增
 
-::image center images/003/062.jpg 几种单细胞RNA测序技术对比图 ::
+::image center 062.jpg 几种单细胞RNA测序技术对比图 ::
 
 SUPer- Seq从单个细胞中提取非poly(A)和poly(A)RNA序列。它特别设计用于映射环状RNA（circRNA）物种。
 
@@ -1817,7 +1817,7 @@ RNA样品从裂解的单细胞中与通用锚定序列（AnchorX- T15N6）的随
 
 依赖于数据集分析来识别circRNAs
 
-::image center images/003/063.jpg SUPer-Seq检测单细胞中circRNA的原理及优势 ::
+::image center 063.jpg SUPer-Seq检测单细胞中circRNA的原理及优势 ::
 
 ## 外源核酸的递送
 
@@ -1835,11 +1835,11 @@ RNA样品从裂解的单细胞中与通用锚定序列（AnchorX- T15N6）的随
 
 14.3 2023诺贝尔奖
 
-::image center images/003/064.jpg 2023年诺贝尔奖得主Katalin Kariko与Drew Weissman ::
+::image center 064.jpg 2023年诺贝尔奖得主Katalin Kariko与Drew Weissman ::
 
 mRNA疫苗直接在细胞质内发挥作用，消除了突变风险，同时不经过漫长的体外基因工程与纯化步骤。Kariko和Weissmann是mRNA疫苗的开发者，并发现mRNA的假原苷修饰可以降低免疫反应。助力了新冠疫情间的疫苗研发
 
-::image center images/003/065.jpg 基于mRNA的COVID-19疫苗工作原理示意图 ::
+::image center 065.jpg 基于mRNA的COVID-19疫苗工作原理示意图 ::
 
 ## 化学转染方法
 
@@ -1849,13 +1849,13 @@ mRNA疫苗直接在细胞质内发挥作用，消除了突变风险，同时不�
 
 聚乙烯亚胺（PEI）转染法：PEI是一种带正电的膜合物，可以与DNA结合形成复合物。该方法效率高，尤其适用于哺乳动物细胞。
 
-::image center images/003/066.jpg 脂质纳米粒结构示意图 ::
+::image center 066.jpg 脂质纳米粒结构示意图 ::
 
 不同来源的RNA可以影响TLR的激活与细胞因子的释放
 
-::image center images/003/067.jpg 不同来源RNA对TLR激活与细胞因子释放的影响示意图 ::
+::image center 067.jpg 不同来源RNA对TLR激活与细胞因子释放的影响示意图 ::
 
-::image center images/003/068.jpg 脂质纳米粒、聚合物纳米粒、无机纳米粒与类病毒纳米粒示意图 ::
+::image center 068.jpg 脂质纳米粒、聚合物纳米粒、无机纳米粒与类病毒纳米粒示意图 ::
 
 10. 特殊转染载体
 
@@ -1871,7 +1871,7 @@ T-DNA
 
 T-DNA是农杆菌侵染植物细胞时，从Ti质粒上切割下来转移至植物细胞的一段DNA序列，该片段上会有致瘤基因
 
-::image center images/003/069.jpg Ti质粒结构与T-DNA示意图 ::
+::image center 069.jpg Ti质粒结构与T-DNA示意图 ::
 
 Vir区
 
@@ -1893,7 +1893,7 @@ Vir与T-DNA从细菌转移至植物细胞的过程有关，使农杆菌表现出
 4. T-DNA转移：Ti质粒中的T-DNA在VirD2蛋白的帮助下被切割，并通过VirB/VirD系统转移到植物细胞内。
 5-7. T-DNA整合与表达：T-DNA进入植物细胞核并随机整合到植物基因组中。T-DNA中的基因表达，导致植物细胞增生，形成肿瘤。
 
-::image center images/003/070.jpg 农杆菌侵染植物细胞的过程示意图 ::
+::image center 070.jpg 农杆菌侵染植物细胞的过程示意图 ::
 
 Ti质粒缺点
 
@@ -1904,13 +1904,13 @@ Ti质粒缺点
 
 双元载体系统
 
-::image center images/003/071.jpg 双元载体系统结构示意图 ::
+::image center 071.jpg 双元载体系统结构示意图 ::
 
 慢病毒载体：
 
 HIV基因组：1. gag基因编码病毒的核心蛋白质，包括基质蛋白（MA）、衣壳蛋白（CA）、核衣壳蛋白（NC）和p6蛋白。2. pol基因编码逆转录酶（RT）、蛋白酶（PR）和整合酶（IN）3. env基因编码包膜蛋白。主要是gp120和gp41，负责病毒与CD4的结合并启动膜融合。4. rev基因调控病毒RNA的核输出和翻译。5. tat基因增强病毒RNA的转录，在HIV- 1致病性中发挥作用。6. 辅助基因（如ivif、vpr、vpu和nef）编码的蛋白质调控病毒的复制、免疫逃逸和病毒粒子的组装。
 
-::image center images/003/072.jpg HIV基因组结构示意图 ::
+::image center 072.jpg HIV基因组结构示意图 ::
 
 HIV其他关键元件
 启动子、增强子和转录终止信号。
@@ -1919,38 +1919,38 @@ HIV其他关键元件
 
 第一代慢病毒载体
 
-::image center images/003/073.jpg 第一代慢病毒载体系统示意图 ::
+::image center 073.jpg 第一代慢病毒载体系统示意图 ::
 
 第二代慢病毒载体
 删除了部分不必要的辅助基因
 
-::image center images/003/074.jpg 第二代慢病毒载体系统示意图 ::
+::image center 074.jpg 第二代慢病毒载体系统示意图 ::
 
 第三代慢病毒载体：
 
-::image center images/003/075.jpg 第三代慢病毒载体系统示意图 ::
+::image center 075.jpg 第三代慢病毒载体系统示意图 ::
 
 ## 13 细胞培养与免疫组化
 
-::image center images/003/076.jpg 细胞培养模型示意图 ::
+::image center 076.jpg 细胞培养模型示意图 ::
 
 抗原修复：免疫组织化学（IHC）是一种利用抗体识别组织切片中目标蛋白，并通过可视化手段检测其在组织内表达位置和水平的技术。该方法广泛应用于肿瘤标记物的检测和临床病理分析中。实验通常以固定后的组织为起点，首先将组织用福尔马林等固定剂处理，以保持细胞和组织结构，然后进行石蜡包埋并切片，将厚度约4- 6微米的组织切片贴附在载玻片上。接下来，通过二甲苯脱蜡及梯度酒精水化，使组织重新处于水环境中，为抗体反应做好准备。
 
 在抗体孵育前，由于固定过程中抗原表位可能发生变性或交联，导致抗体无法识别，所以需要进行抗原修复。常用的抗原修复方式包括热修复（如高温柠檬酸缓冲液处理）和酶修复，如加入蛋白酶消化组织切片中某些结构，从而暴露被遮挡的抗原位点，提高抗体结合效率。此外，为了减少背景噪音，通常需要用BSA或正常血清封闭非特异性位点，防止抗体随机结合。之后进行一抗孵育，即加入识别目标蛋白（如TTF- 1）的特异性抗体，孵育一段时间使其结合到组织中的目标抗原上。随后加入二抗，二抗通常带有酶（如HRP）或荧光染料，用于结合一抗并放大信号。在酶标系统中，进一步加入底物（如DAB）发生显色反应，生成棕色沉淀，使目标蛋白可视化。最后对切片进行复染（如用苏木精染核）和封片处理，以便显微镜下观察蛋白在组织中的表达情况和定位。
 
-::image center images/003/077.jpg 免疫组织化学完整流程示意图 ::
+::image center 077.jpg 免疫组织化学完整流程示意图 ::
 
-::image center images/003/078.jpg 免疫组化染色结果分级示意图 ::
+::image center 078.jpg 免疫组化染色结果分级示意图 ::
 
 ## 14 附录-一些染色与图像分析
 
-::image center images/003/079.jpg ROC曲线、生存曲线与UMAP图解读示意图 ::
+::image center 079.jpg ROC曲线、生存曲线与UMAP图解读示意图 ::
 
 36种病理特殊染色汇总
 
 ## 五、肌肉组织
 
-::image center images/003/080.jpg PTAH自然氧化法染色结果示意图 ::
+::image center 080.jpg PTAH自然氧化法染色结果示意图 ::
 
 PTAH自然氧化法
 
@@ -1978,5 +1978,4 @@ PTAH染色法专用于横纹肌的区分，能够明确区分心肌和骨骼肌�
 2. Bielschowsky神经纤维染色法神经纤维黑色；背景紫色
 3. VonBraunmühl神经纤维、阳起、老年斑染色法神经纤维黑色；老年斑黑色；背景浅灰色
 4. Eager退变神经纤维染色法退变神经纤维黑色；背景浅棕
-
 
