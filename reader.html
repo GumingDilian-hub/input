@@ -104,6 +104,16 @@
                 display: inline-block !important;
             }
         }
+
+        /* ⭐ 搜索高亮样式（黑底白字，圆角） */
+        .search-highlight {
+            background: #000 !important;
+            color: #fff !important;
+            border-radius: 3px;
+            padding: 0 4px;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
@@ -176,6 +186,8 @@
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
     <script>
+        // 注意：toggleSearchPanel 在 reader.js 中已有定义，会覆盖下面这个，但功能一致
+        // 这里保留以供 HTML 内联调用，实际执行会使用 reader.js 的版本（包含清除高亮）
         function toggleSearchPanel() {
             var panel = document.getElementById('search-panel');
             if (panel.classList.contains('panel-visible')) {
