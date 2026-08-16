@@ -1,4 +1,4 @@
-/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配 + 搜索高亮) ========== */
+/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配 + 搜索高亮 + 目录折叠仅控制TOC) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -285,13 +285,18 @@ function initSidebar() {
         if (w > 180 && w < 600) sidebar.style.width = w + 'px';
     });
     document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
+    
+    // ⭐ 修复：expandAll / collapseAll 只控制目录树，不影响正文
     window.expandAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display = '');
         $$('.toc-toggle').forEach(t => t.textContent = '▼');
         $$('.toc-item[data-parent]').forEach(i => i.style.display = '');
+        // 同时展开所有父级
+        $$('.toc-item.toc-h1, .toc-item.toc-h2').forEach(i => {
+            const toggle = i.querySelector('.toc-toggle');
+            if (toggle) toggle.textContent = '▼';
+        });
     };
     window.collapseAll = () => {
-        $$('.section-wrapper').forEach(w => w.style.display = 'none');
         $$('.toc-toggle').forEach(t => t.textContent = '▶');
         $$('.toc-item[data-parent]').forEach(i => i.style.display = 'none');
     };
@@ -317,7 +322,11 @@ function buildTOC() {
         if (level <= 2) {
             const toggle = document.createElement('span');
             toggle.className = 'toc-toggle'; toggle.textContent = '▼';
-            toggle.addEventListener('click', e => { e.stopPropagation(); toggleSectionVisibility(h.id, toggle); });
+            // ⭐ 点击 toggle 仅控制目录子项折叠，不影响正文
+            toggle.addEventListener('click', e => { 
+                e.stopPropagation(); 
+                toggleTOCChildren(h.id, toggle); 
+            });
             item.appendChild(toggle);
         } else {
             const spacer = document.createElement('span');
@@ -333,40 +342,38 @@ function buildTOC() {
     });
 }
 
-function toggleSectionVisibility(headingId, toggleEl) {
-    const target = document.getElementById(headingId);
-    if (!target) return;
-    let wrapper = target.closest('.section-wrapper');
-    if (!wrapper) {
-        let node = target.nextElementSibling;
-        const nodes = [];
-        while (node && !/H1|H2|H3/.test(node.tagName)) {
-            nodes.push(node);
-            node = node.nextElementSibling;
+// ⭐ 新函数：仅控制 TOC 子项的折叠/展开，不影响正文
+function toggleTOCChildren(headingId, toggleEl) {
+    const children = $$(`.toc-item[data-parent="${headingId}"]`);
+    if (children.length === 0) return;
+    const isCollapsed = children[0].style.display === 'none';
+    const newDisplay = isCollapsed ? '' : 'none';
+    children.forEach(child => {
+        child.style.display = newDisplay;
+        // 如果折叠，也折叠其下所有后代
+        if (newDisplay === 'none') {
+            const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
+            subChildren.forEach(sub => sub.style.display = 'none');
+            const subToggle = child.querySelector('.toc-toggle');
+            if (subToggle) subToggle.textContent = '▶';
+        } else {
+            // 展开时，只显示直接子项，但不自动展开更深层（保持折叠状态）
+            // 但为了保持一致性，将子项的 toggle 设为 ▶（折叠）
+            const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
+            subChildren.forEach(sub => sub.style.display = 'none');
+            const subToggle = child.querySelector('.toc-toggle');
+            if (subToggle) subToggle.textContent = '▶';
         }
-        const visible = nodes.length > 0 && nodes[0].style.display !== 'none';
-        nodes.forEach(n => n.style.display = visible ? 'none' : '');
-        if (toggleEl) toggleEl.textContent = visible ? '▶' : '▼';
-        return;
-    }
-    const visible = wrapper.style.display !== 'none';
-    if (visible) {
-        wrapper.style.display = 'none'; if (toggleEl) toggleEl.textContent = '▶';
-        hideTOCChildren(headingId);
-    } else {
-        wrapper.style.display = ''; if (toggleEl) toggleEl.textContent = '▼';
-        showTOCChildren(headingId);
+    });
+    if (toggleEl) {
+        toggleEl.textContent = isCollapsed ? '▼' : '▶';
     }
 }
-function hideTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) c.style.display = 'none'; }); }
-function showTOCChildren(parentId) { $$('.toc-item').forEach(c => { if (c.getAttribute('data-parent') === parentId) { if (isParentVisible(c)) c.style.display = ''; }}); }
-function isParentVisible(child) {
-    const pid = child.getAttribute('data-parent');
-    if (!pid) return true;
-    const p = document.getElementById(pid);
-    if (!p) return true;
-    const pw = p.closest('.section-wrapper');
-    return !(pw && pw.style.display === 'none');
+
+// ⭐ 旧的 toggleSectionVisibility 已被废弃，但保留以防其他地方调用（重定向到新函数）
+function toggleSectionVisibility(headingId, toggleEl) {
+    // 直接调用新的 toggleTOCChildren，避免影响正文
+    toggleTOCChildren(headingId, toggleEl);
 }
 
 /* ========== 搜索功能（含高亮） ========== */
