@@ -1,4 +1,4 @@
-/* ========== reader.js (最终稳定版：全文搜索 + 标题查找 + 目录折叠修复) ========== */
+/* ========== reader.js (最终稳定版：全文搜索 + closest标题查找) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -367,27 +367,21 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（全文搜索 + 标题查找） ========== */
+/* ========== 搜索功能（全文搜索 + closest 标题查找） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 核心：向上查找最近的标题（h1/h2/h3），优先最近，若找不到则返回总标题
+    // ⭐ 使用 closest 查找最近的标题（h1/h2/h3）
     function findNearestHeading(node) {
-        let el = node.parentNode;
-        while (el && el !== document.body) {
-            const tag = el.tagName;
-            if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-                return el.textContent.trim();
-            }
-            el = el.parentNode;
-        }
-        // 若遍历完还没找到，尝试查找文章中的第一个 h1 作为总标题
+        if (!node.parentElement) return '未分类';
+        const heading = node.parentElement.closest('h1, h2, h3');
+        if (heading) return heading.textContent.trim();
+        // 如果还是没有，尝试查找文章总标题
         const h1 = document.querySelector('#article-body h1');
-        if (h1) return h1.textContent.trim();
-        return '未分类';
+        return h1 ? h1.textContent.trim() : '未分类';
     }
 
     // 辅助：提取上下文（前后各10字符，尽量按空格截断）
@@ -429,7 +423,6 @@ function initSearch() {
             NodeFilter.SHOW_TEXT,
             {
                 acceptNode: (node) => {
-                    // 跳过 style、script 和已经高亮的部分
                     if (node.parentElement.closest('style, script, .search-highlight')) 
                         return NodeFilter.FILTER_REJECT;
                     return NodeFilter.FILTER_ACCEPT;
@@ -449,7 +442,7 @@ function initSearch() {
                     start: match.index,
                     end: regex.lastIndex,
                     matchText: match[0],
-                    heading: findNearestHeading(node)   // 每个匹配项独立查找标题
+                    heading: findNearestHeading(node)   // 每个匹配项独立查找
                 });
             }
         }
