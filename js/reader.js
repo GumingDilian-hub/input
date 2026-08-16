@@ -1,4 +1,4 @@
-/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配 + 搜索高亮 + 目录折叠仅控制TOC) ========== */
+/* ========== reader.js (全文搜索 + 标题归属 + 精确定位 + 目录折叠修复) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -17,7 +17,7 @@ let state = {
     user: null,
     comments: {},
     scrollSpyActive: false,
-    likedComments: new Set()       // 记录已点赞的评论 ID
+    likedComments: new Set()
 };
 
 /* ========== 工具函数 ========== */
@@ -82,13 +82,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             injectCommentSections(body);
             setupGlobalCommentListeners();
         }
-        // ⭐ 新增：移动端侧边栏初始化
         initMobileSidebar();
-        // ⭐ 新增：搜索高亮清除（监听关闭按钮）
         const closeSearch = document.getElementById('close-search');
         if (closeSearch) {
             closeSearch.addEventListener('click', () => {
                 clearHighlight();
+                const results = $('#search-results');
+                if (results) results.innerHTML = '';
             });
         }
     } catch (e) {
@@ -286,11 +286,10 @@ function initSidebar() {
     });
     document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
     
-    // ⭐ 修复：expandAll / collapseAll 只控制目录树，不影响正文
+    // 只控制目录树，不影响正文
     window.expandAll = () => {
         $$('.toc-toggle').forEach(t => t.textContent = '▼');
         $$('.toc-item[data-parent]').forEach(i => i.style.display = '');
-        // 同时展开所有父级
         $$('.toc-item.toc-h1, .toc-item.toc-h2').forEach(i => {
             const toggle = i.querySelector('.toc-toggle');
             if (toggle) toggle.textContent = '▼';
@@ -322,7 +321,6 @@ function buildTOC() {
         if (level <= 2) {
             const toggle = document.createElement('span');
             toggle.className = 'toc-toggle'; toggle.textContent = '▼';
-            // ⭐ 点击 toggle 仅控制目录子项折叠，不影响正文
             toggle.addEventListener('click', e => { 
                 e.stopPropagation(); 
                 toggleTOCChildren(h.id, toggle); 
@@ -342,7 +340,7 @@ function buildTOC() {
     });
 }
 
-// ⭐ 新函数：仅控制 TOC 子项的折叠/展开，不影响正文
+// 仅控制 TOC 子项的折叠/展开，不影响正文
 function toggleTOCChildren(headingId, toggleEl) {
     const children = $$(`.toc-item[data-parent="${headingId}"]`);
     if (children.length === 0) return;
@@ -350,15 +348,12 @@ function toggleTOCChildren(headingId, toggleEl) {
     const newDisplay = isCollapsed ? '' : 'none';
     children.forEach(child => {
         child.style.display = newDisplay;
-        // 如果折叠，也折叠其下所有后代
         if (newDisplay === 'none') {
             const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
             subChildren.forEach(sub => sub.style.display = 'none');
             const subToggle = child.querySelector('.toc-toggle');
             if (subToggle) subToggle.textContent = '▶';
         } else {
-            // 展开时，只显示直接子项，但不自动展开更深层（保持折叠状态）
-            // 但为了保持一致性，将子项的 toggle 设为 ▶（折叠）
             const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
             subChildren.forEach(sub => sub.style.display = 'none');
             const subToggle = child.querySelector('.toc-toggle');
@@ -370,67 +365,140 @@ function toggleTOCChildren(headingId, toggleEl) {
     }
 }
 
-// ⭐ 旧的 toggleSectionVisibility 已被废弃，但保留以防其他地方调用（重定向到新函数）
+// 旧函数保留以防调用
 function toggleSectionVisibility(headingId, toggleEl) {
-    // 直接调用新的 toggleTOCChildren，避免影响正文
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（含高亮） ========== */
+/* ========== 搜索功能（全文搜索 + 标题归属 + 精确定位） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
-    let searchIndex = [];
-    function buildIndex() {
-        searchIndex = [];
-        $$('#article-body h3').forEach((h3, i) => {
-            if (!h3.id) h3.id = 'h3-' + i;
-            const title = h3.textContent.trim();
-            let ctx = '', node = h3.nextElementSibling;
-            while (node && !['H1', 'H2', 'H3'].includes(node.tagName)) {
-                if (node.textContent.trim()) ctx += node.textContent.trim() + ' ';
-                node = node.nextElementSibling;
-                if (ctx.length > 80) break;
+
+    // 辅助：向上查找最近的标题元素
+    function findNearestHeading(node) {
+        let el = node.parentElement;
+        while (el && el !== document.body) {
+            if (/^H[1-3]$/.test(el.tagName)) {
+                return el.textContent.trim();
             }
-            searchIndex.push({ title, titleLower: title.toLowerCase(), context: ctx.slice(0, 80).trim(), id: h3.id });
+            el = el.parentElement;
+        }
+        return '未分类';
+    }
+
+    // 辅助：提取上下文（前后各25字符，尽量按空格截断）
+    function extractContext(text, start, end, maxLen = 25) {
+        const fullLen = text.length;
+        let ctxStart = Math.max(0, start - maxLen);
+        let ctxEnd = Math.min(fullLen, end + maxLen);
+        // 尽量扩展到空格边界（如果可能）
+        if (ctxStart > 0) {
+            const spaceBefore = text.lastIndexOf(' ', start);
+            if (spaceBefore > 0 && start - spaceBefore < maxLen) {
+                ctxStart = spaceBefore + 1;
+            }
+        }
+        if (ctxEnd < fullLen) {
+            const spaceAfter = text.indexOf(' ', end);
+            if (spaceAfter > 0 && spaceAfter - end < maxLen) {
+                ctxEnd = spaceAfter;
+            }
+        }
+        let prefix = text.slice(ctxStart, start);
+        let match = text.slice(start, end);
+        let suffix = text.slice(end, ctxEnd);
+        // 如果上下文被截断，添加省略号
+        if (ctxStart > 0) prefix = '…' + prefix;
+        if (ctxEnd < fullLen) suffix = suffix + '…';
+        return { prefix, match, suffix };
+    }
+
+    function performSearch(term) {
+        results.innerHTML = '';
+        if (!term || !term.trim()) {
+            clearHighlight();
+            return;
+        }
+        clearHighlight();
+        const body = document.getElementById('article-body');
+        if (!body) return;
+        const walker = document.createTreeWalker(
+            body,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: (node) => {
+                    if (node.parentElement.closest('style, script, .search-highlight')) 
+                        return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+        const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
+        const matches = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            const text = node.textContent;
+            let match;
+            regex.lastIndex = 0;
+            while ((match = regex.exec(text)) !== null) {
+                matches.push({
+                    textNode: node,
+                    start: match.index,
+                    end: regex.lastIndex,
+                    matchText: match[0],
+                    heading: findNearestHeading(node)
+                });
+            }
+        }
+        if (matches.length === 0) {
+            const empty = document.createElement('div');
+            empty.style.color = '#999';
+            empty.textContent = '没有找到匹配内容';
+            results.appendChild(empty);
+            return;
+        }
+        // 构建结果列表
+        matches.forEach((m, idx) => {
+            const fullText = m.textNode.textContent;
+            const ctx = extractContext(fullText, m.start, m.end, 25);
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            // 显示所属标题
+            const headingDiv = document.createElement('div');
+            headingDiv.className = 'result-heading';
+            headingDiv.textContent = '📌 ' + m.heading;
+            headingDiv.style.fontWeight = 'bold';
+            headingDiv.style.color = '#88b4e6';
+            headingDiv.style.fontSize = '0.85rem';
+            headingDiv.style.marginBottom = '2px';
+            div.appendChild(headingDiv);
+            // 显示上下文（用特殊标记突出匹配词）
+            const contextDiv = document.createElement('div');
+            contextDiv.className = 'result-context';
+            contextDiv.style.fontSize = '0.85rem';
+            contextDiv.style.color = '#ccc';
+            // 用 【】 包裹匹配词
+            const displayText = ctx.prefix + '【' + ctx.match + '】' + ctx.suffix;
+            contextDiv.textContent = displayText;
+            div.appendChild(contextDiv);
+            // 点击时高亮全部匹配并滚动到该匹配
+            div.addEventListener('click', () => {
+                highlightSearchTerm(term.trim(), idx);
+                // 可选关闭面板
+                // toggleSearchPanel();
+            });
+            results.appendChild(div);
         });
     }
-    setTimeout(buildIndex, 1000);
+
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
+        const q = input.value.trim();
         debounceTimer = setTimeout(() => {
-            const q = input.value.trim().toLowerCase();
-            results.innerHTML = '';
-            // 清空搜索框时清除高亮
-            if (!q) {
-                clearHighlight();
-                return;
-            }
-            // 输入新词时清除旧高亮（避免混乱）
-            clearHighlight();
-            searchIndex.filter(i => i.titleLower.includes(q) || i.context.toLowerCase().includes(q)).forEach(i => {
-                const div = document.createElement('div');
-                div.className = 'search-result-item';
-                const title = document.createElement('div'); title.className = 'title'; title.textContent = i.title;
-                const ctx = document.createElement('div'); ctx.className = 'context'; ctx.textContent = i.context;
-                div.appendChild(title); div.appendChild(ctx);
-                // ⭐ 点击结果：跳转并高亮关键词
-                div.addEventListener('click', () => {
-                    const el = document.getElementById(i.id);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        // 延迟执行高亮，等待滚动完成后突出显示
-                        setTimeout(() => {
-                            highlightSearchTerm(input.value.trim());
-                        }, 300);
-                        // 可选：点击后自动关闭搜索面板（取消注释即可启用）
-                        // toggleSearchPanel();
-                    }
-                });
-                results.appendChild(div);
-            });
+            performSearch(q);
         }, 300);
     });
 }
@@ -438,27 +506,31 @@ function initSearch() {
 function toggleSearchPanel() {
     const panel = $('#search-panel');
     if (panel) panel.classList.toggle('panel-visible');
-    // 如果面板关闭，清除高亮
     if (!panel.classList.contains('panel-visible')) {
         clearHighlight();
+        const results = $('#search-results');
+        if (results) results.innerHTML = '';
     }
 }
 
-/* ========== 搜索高亮（黑底白字，圆角） ========== */
+/* ========== 搜索高亮（黑底白字，圆角，支持指定匹配索引） ========== */
+let currentHighlights = [];
+
 function clearHighlight() {
     const highlights = document.querySelectorAll('.search-highlight');
     highlights.forEach(span => {
         const parent = span.parentNode;
         parent.replaceChild(document.createTextNode(span.textContent), span);
-        parent.normalize(); // 合并相邻文本节点
+        parent.normalize();
     });
+    currentHighlights = [];
 }
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function highlightSearchTerm(term) {
+function highlightSearchTerm(term, targetIndex = 0) {
     if (!term || !term.trim()) {
         clearHighlight();
         return;
@@ -471,22 +543,21 @@ function highlightSearchTerm(term) {
         NodeFilter.SHOW_TEXT,
         {
             acceptNode: (node) => {
-                // 跳过 style、script、已高亮区域
                 if (node.parentElement.closest('style, script, .search-highlight')) 
                     return NodeFilter.FILTER_REJECT;
                 return NodeFilter.FILTER_ACCEPT;
             }
         }
     );
+    const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
     const textNodes = [];
     let node;
     while ((node = walker.nextNode())) textNodes.push(node);
-    const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
-    let firstMatch = null;
+    const highlights = [];
     textNodes.forEach(textNode => {
         const text = textNode.textContent;
         if (!regex.test(text)) return;
-        regex.lastIndex = 0; // 重置
+        regex.lastIndex = 0;
         const frag = document.createDocumentFragment();
         let lastIndex = 0;
         let match;
@@ -497,17 +568,19 @@ function highlightSearchTerm(term) {
             span.className = 'search-highlight';
             span.textContent = match[0];
             frag.appendChild(span);
+            highlights.push(span);
             lastIndex = regex.lastIndex;
-            if (!firstMatch) firstMatch = span;
         }
         if (lastIndex < text.length) {
             frag.appendChild(document.createTextNode(text.slice(lastIndex)));
         }
         textNode.parentNode.replaceChild(frag, textNode);
     });
-    // 滚动到第一个高亮位置（居中）
-    if (firstMatch) {
-        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    currentHighlights = highlights;
+    if (targetIndex >= 0 && targetIndex < highlights.length) {
+        highlights[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (highlights.length > 0) {
+        highlights[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
 
@@ -516,10 +589,11 @@ function initScrollSpy() {
     const tocItems = $$('.toc-item');
     const autoCheckbox = $('#auto-scroll-checkbox');
     const rootEl = $('#content');
-    const idToToc = new Map();
     tocItems.forEach(item => {
         const targetId = item.getAttribute('data-target');
-        if (targetId) idToToc.set(targetId, item);
+        if (targetId) {
+            // 预留
+        }
     });
     function highlightChain(targetId) {
         tocItems.forEach(i => i.classList.remove('active'));
@@ -942,7 +1016,7 @@ async function doLogin(sectionId) {
         try { window.profileUser = state.user; } catch (e) {}
         updateAuthUI(sectionId);
         fetchCommentsForSection(sectionId);
-        state.likedComments.clear();   // 清空点赞记录
+        state.likedComments.clear();
         document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
         alert('啊我死了');
@@ -1114,17 +1188,14 @@ document.addEventListener('profile-login', () => { try { restoreUserSession(); }
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
 
-/* ========== ⭐ 新增：移动端侧边栏适配 ========== */
+/* ========== 移动端侧边栏适配 ========== */
 function initMobileSidebar() {
-    // 点击内容区域关闭侧边栏（移动端）
     const content = document.getElementById('content');
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
-    
     if (content) {
         content.addEventListener('click', function(e) {
             if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
-                // 如果点击的是侧边栏内部或工具栏，不关闭
                 if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
                     sidebar.classList.remove('sidebar-open');
                     if (app) app.classList.remove('sidebar-active');
@@ -1132,8 +1203,6 @@ function initMobileSidebar() {
             }
         });
     }
-    
-    // 窗口尺寸变化时自动处理侧边栏状态
     function handleResize() {
         if (!sidebar || !app) return;
         if (window.innerWidth >= 768) {
@@ -1141,19 +1210,14 @@ function initMobileSidebar() {
             app.classList.remove('sidebar-active');
         }
     }
-    
-    // 监听 resize
     let resizeTimer;
     window.addEventListener('resize', function() {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(handleResize, 150);
     });
-    
-    // 初始化时执行一次
     handleResize();
 }
 
-// ⭐ 暴露 toggleSidebar 给全局（供 HTML 中的 onclick 调用）
 window.toggleSidebar = function() {
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
@@ -1162,5 +1226,4 @@ window.toggleSidebar = function() {
     if (app) app.classList.toggle('sidebar-active');
 };
 
-// ⭐ 暴露清除高亮给全局（便于 HTML 中调用）
 window.clearHighlight = clearHighlight;
