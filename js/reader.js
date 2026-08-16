@@ -377,10 +377,17 @@ function initSearch() {
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 修正：使用 closest 准确查找最近的标题
+    // ⭐ 修正：手动向上遍历 DOM 查找最近的 h1/h2/h3
     function findNearestHeading(node) {
-        const heading = node.parentElement.closest('h1, h2, h3');
-        return heading ? heading.textContent.trim() : '未分类';
+        let el = node.parentElement;
+        while (el && el !== document.body) {
+            if (el.tagName && el.tagName.match(/^H[1-3]$/)) {
+                return el.textContent.trim();
+            }
+            el = el.parentElement;
+        }
+        // 如果没找到任何标题，尝试查找最近的父级 section-wrapper 中是否有标题？不，直接返回“未分类”
+        return '未分类';
     }
 
     // 辅助：提取上下文（前后各25字符，尽量按空格截断）
@@ -404,7 +411,6 @@ function initSearch() {
         let prefix = text.slice(ctxStart, start);
         let match = text.slice(start, end);
         let suffix = text.slice(end, ctxEnd);
-        // 如果上下文被截断，添加省略号
         if (ctxStart > 0) prefix = '…' + prefix;
         if (ctxEnd < fullLen) suffix = suffix + '…';
         return { prefix, match, suffix };
@@ -460,7 +466,7 @@ function initSearch() {
             const ctx = extractContext(fullText, m.start, m.end, 25);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（去掉 emoji，改用 # 前缀）
+            // 显示所属标题（使用 # 前缀，无 emoji）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
             headingDiv.textContent = '# ' + m.heading;
@@ -469,12 +475,11 @@ function initSearch() {
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文（用特殊标记突出匹配词）
+            // 显示上下文（用 【】 突出匹配词）
             const contextDiv = document.createElement('div');
             contextDiv.className = 'result-context';
             contextDiv.style.fontSize = '0.85rem';
             contextDiv.style.color = '#ccc';
-            // 用 【】 包裹匹配词
             const displayText = ctx.prefix + '【' + ctx.match + '】' + ctx.suffix;
             contextDiv.textContent = displayText;
             div.appendChild(contextDiv);
