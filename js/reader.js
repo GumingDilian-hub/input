@@ -1,4 +1,4 @@
-/* ========== reader.js (全文搜索 + DOM标题定位 + 精确定位 + 目录折叠修复) ========== */
+/* ========== reader.js (全文搜索 + 稳健标题定位 + 精确定位 + 目录折叠修复) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -370,16 +370,16 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（全文搜索 + DOM标题定位 + 精确定位） ========== */
+/* ========== 搜索功能（全文搜索 + 稳健标题定位 + 精确定位） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 核心：通过文本节点在 DOM 中的位置查找最近的标题（优先 h3，其次 h2，最后 h1）
+    // ⭐ 稳健的标题查找函数
     function findHeadingByNode(textNode) {
-        // 1. 尝试向上查找最近的标题祖先（包括父级）
+        // 1. 向上查找最近的标题祖先（h1/h2/h3）
         let el = textNode.parentElement;
         while (el && el !== document.body) {
             if (/^H[1-3]$/.test(el.tagName)) {
@@ -388,43 +388,38 @@ function initSearch() {
             el = el.parentElement;
         }
 
-        // 2. 如果没有祖先标题，则通过所在的 section-wrapper 查找前面的标题
+        // 2. 如果没找到，则从所在 .section-wrapper 中向前查找最近的标题
         const wrapper = textNode.closest('.section-wrapper');
         if (wrapper) {
-            // 获取 wrapper 内所有标题元素
+            // 获取 wrapper 中所有标题（按 DOM 顺序）
             const headings = wrapper.querySelectorAll('h1, h2, h3');
-            // 找到在文档位置中位于该文本节点之前的最近标题
+            // 从头到尾遍历，找到第一个位于文本节点之前的标题（即 compareDocumentPosition 返回 4）
             let nearest = null;
-            let nearestPos = -1;
-            headings.forEach(h => {
-                // 比较节点位置：如果标题在文本节点之前（即 compareDocumentPosition 包含 4：节点在给定节点之前）
+            for (const h of headings) {
                 if (h.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) {
-                    // 标题在文本节点之前，取最接近的（即位置相差最小的）
-                    // 我们获取标题在 wrapper 内的索引，选择最大的索引
-                    const idx = Array.from(wrapper.children).indexOf(h);
-                    if (idx > nearestPos) {
-                        nearestPos = idx;
-                        nearest = h;
-                    }
+                    nearest = h;
+                } else {
+                    // 一旦遇到在文本节点之后的标题，就停止，因为前面的已经记录
+                    break;
                 }
-            });
+            }
             if (nearest) return nearest.textContent.trim();
         }
 
-        // 3. 回退：查找全局中的 h1/h2/h3（可能不准确，但作为后备）
-        const globalHeadings = document.querySelectorAll('#article-body h1, #article-body h2, #article-body h3');
-        let nearestGlobal = null;
-        let nearestGlobalPos = -1;
-        globalHeadings.forEach(h => {
-            if (h.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) {
-                const idx = Array.from(document.querySelector('#article-body').children).indexOf(h);
-                if (idx > nearestGlobalPos) {
-                    nearestGlobalPos = idx;
-                    nearestGlobal = h;
+        // 3. 全局回退：查找整个 article-body 中前面的最近标题
+        const body = document.getElementById('article-body');
+        if (body) {
+            const allHeadings = body.querySelectorAll('h1, h2, h3');
+            let nearest = null;
+            for (const h of allHeadings) {
+                if (h.compareDocumentPosition(textNode) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                    nearest = h;
+                } else {
+                    break;
                 }
             }
-        });
-        if (nearestGlobal) return nearestGlobal.textContent.trim();
+            if (nearest) return nearest.textContent.trim();
+        }
 
         return '未分类';
     }
@@ -506,7 +501,6 @@ function initSearch() {
             const div = document.createElement('div');
             div.className = 'search-result-item';
 
-            // 使用 DOM 定位查找标题
             let heading = findHeadingByNode(m.textNode);
 
             // 显示所属标题（无 emoji）
@@ -543,7 +537,12 @@ function initSearch() {
         clearTimeout(debounceTimer);
         const q = input.value.trim();
         debounceTimer = setTimeout(() => {
-            performSearch(q);
+            try {
+                performSearch(q);
+            } catch (e) {
+                console.error('搜索出错:', e);
+                results.innerHTML = '<div style="color:#999;">搜索发生错误</div>';
+            }
         }, 300);
     });
 }
