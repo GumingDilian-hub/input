@@ -377,21 +377,21 @@ function initSearch() {
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 修正：手动向上遍历 DOM 查找最近的 h1/h2/h3
+    // ⭐ 修正：手动向上遍历查找最近的标题（h1/h2/h3）
     function findNearestHeading(node) {
         let el = node.parentElement;
         while (el && el !== document.body) {
-            if (el.tagName && el.tagName.match(/^H[1-3]$/)) {
+            const tag = el.tagName;
+            if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
                 return el.textContent.trim();
             }
             el = el.parentElement;
         }
-        // 如果没找到任何标题，尝试查找最近的父级 section-wrapper 中是否有标题？不，直接返回“未分类”
         return '未分类';
     }
 
-    // 辅助：提取上下文（前后各25字符，尽量按空格截断）
-    function extractContext(text, start, end, maxLen = 25) {
+    // 辅助：提取上下文（前后各10字符，尽量按空格截断）
+    function extractContext(text, start, end, maxLen = 10) {
         const fullLen = text.length;
         let ctxStart = Math.max(0, start - maxLen);
         let ctxEnd = Math.min(fullLen, end + maxLen);
@@ -463,10 +463,10 @@ function initSearch() {
         // 构建结果列表
         matches.forEach((m, idx) => {
             const fullText = m.textNode.textContent;
-            const ctx = extractContext(fullText, m.start, m.end, 25);
+            const ctx = extractContext(fullText, m.start, m.end, 10);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（使用 # 前缀，无 emoji）
+            // 显示所属标题（无 emoji，用 # 前缀）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
             headingDiv.textContent = '# ' + m.heading;
@@ -475,13 +475,14 @@ function initSearch() {
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文（用 【】 突出匹配词）
+            // 显示上下文，匹配词加粗（使用 innerHTML）
             const contextDiv = document.createElement('div');
             contextDiv.className = 'result-context';
             contextDiv.style.fontSize = '0.85rem';
             contextDiv.style.color = '#ccc';
-            const displayText = ctx.prefix + '【' + ctx.match + '】' + ctx.suffix;
-            contextDiv.textContent = displayText;
+            // 构建加粗显示：前缀 + 加粗匹配词 + 后缀
+            const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
+            contextDiv.innerHTML = displayHtml;
             div.appendChild(contextDiv);
             // 点击时高亮全部匹配并滚动到该匹配
             div.addEventListener('click', () => {
