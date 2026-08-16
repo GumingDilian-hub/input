@@ -1,4 +1,4 @@
-/* ========== reader.js (全文搜索 + 标题归属 + 精确定位 + 目录折叠修复) ========== */
+/* ========== reader.js (全文搜索 + 旧版标题索引 + 精确定位 + 目录折叠修复) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -370,32 +370,73 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（全文搜索 + 标题归属 + 精确定位） ========== */
+/* ========== 搜索功能（全文搜索 + 旧版标题索引 + 精确定位） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 修正：手动向上遍历查找最近的标题（h1/h2/h3）
-    function findNearestHeading(node) {
-        let el = node.parentElement;
-        while (el && el !== document.body) {
-            const tag = el.tagName;
-            if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-                return el.textContent.trim();
+    // ---------- 旧版标题索引构建（完全保留） ----------
+    let titleIndex = []; // 存储每个 h3 的标题和其涵盖的文本内容范围
+    function buildTitleIndex() {
+        titleIndex = [];
+        $$('#article-body h3').forEach((h3, i) => {
+            if (!h3.id) h3.id = 'h3-' + i;
+            const title = h3.textContent.trim();
+            let ctx = '';
+            let node = h3.nextElementSibling;
+            // 收集后续兄弟节点文本，直到遇到下一个标题
+            while (node && !['H1', 'H2', 'H3'].includes(node.tagName)) {
+                if (node.textContent.trim()) ctx += node.textContent.trim() + ' ';
+                node = node.nextElementSibling;
+                if (ctx.length > 200) break; // 限制长度避免过大
             }
-            el = el.parentElement;
-        }
-        return '未分类';
+            titleIndex.push({
+                id: h3.id,
+                title: title,
+                context: ctx.slice(0, 200).trim()
+            });
+        });
     }
 
+    // 页面加载后构建一次
+    setTimeout(buildTitleIndex, 1000);
+
+    // 辅助：根据文本内容查找所属标题（通过上下文匹配）
+    function findHeadingByContent(textSnippet) {
+        if (!textSnippet || textSnippet.length < 3) return '未分类';
+        // 尝试在 titleIndex 的 context 中查找
+        let bestMatch = null;
+        let bestScore = 0;
+        const snippet = textSnippet.trim().toLowerCase();
+        for (const item of titleIndex) {
+            const ctx = item.context.toLowerCase();
+            // 如果 snippet 在 context 中，直接返回
+            if (ctx.includes(snippet)) {
+                return item.title;
+            }
+            // 否则计算重叠度（简单的单词匹配）
+            const words = snippet.split(/\s+/);
+            let matchCount = 0;
+            for (const w of words) {
+                if (w.length > 2 && ctx.includes(w)) matchCount++;
+            }
+            if (matchCount > bestScore) {
+                bestScore = matchCount;
+                bestMatch = item.title;
+            }
+        }
+        return bestMatch || '未分类';
+    }
+
+    // ---------- 新版全文搜索 ----------
     // 辅助：提取上下文（前后各10字符，尽量按空格截断）
     function extractContext(text, start, end, maxLen = 10) {
         const fullLen = text.length;
         let ctxStart = Math.max(0, start - maxLen);
         let ctxEnd = Math.min(fullLen, end + maxLen);
-        // 尽量扩展到空格边界（如果可能）
+        // 尽量扩展到空格边界
         if (ctxStart > 0) {
             const spaceBefore = text.lastIndexOf(' ', start);
             if (spaceBefore > 0 && start - spaceBefore < maxLen) {
@@ -449,7 +490,8 @@ function initSearch() {
                     start: match.index,
                     end: regex.lastIndex,
                     matchText: match[0],
-                    heading: findNearestHeading(node)
+                    // 获取匹配文本前后一小段用于标题查找
+                    snippet: text.slice(Math.max(0, match.index - 10), Math.min(text.length, regex.lastIndex + 10))
                 });
             }
         }
@@ -460,36 +502,56 @@ function initSearch() {
             results.appendChild(empty);
             return;
         }
+
         // 构建结果列表
         matches.forEach((m, idx) => {
             const fullText = m.textNode.textContent;
             const ctx = extractContext(fullText, m.start, m.end, 10);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（无 emoji，用 # 前缀）
+
+            // 使用旧版索引查找标题
+            let heading = findHeadingByContent(m.snippet);
+            if (heading === '未分类') {
+                // 后备：尝试使用旧版 match 标题（基于 h3 索引，但可能不精确）
+                // 这里我们直接使用 findHeadingByContent 的结果
+                // 如果还是未分类，尝试从 DOM 向上查找
+                let el = m.textNode.parentElement;
+                while (el && el !== document.body) {
+                    if (el.tagName === 'H1' || el.tagName === 'H2' || el.tagName === 'H3') {
+                        heading = el.textContent.trim();
+                        break;
+                    }
+                    el = el.parentElement;
+                }
+            }
+
+            // 显示所属标题（无 emoji）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
-            headingDiv.textContent = '# ' + m.heading;
+            headingDiv.textContent = '# ' + heading;
             headingDiv.style.fontWeight = 'bold';
             headingDiv.style.color = '#88b4e6';
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文，匹配词加粗（使用 innerHTML）
+
+            // 显示上下文，匹配词加粗
             const contextDiv = document.createElement('div');
             contextDiv.className = 'result-context';
             contextDiv.style.fontSize = '0.85rem';
             contextDiv.style.color = '#ccc';
-            // 构建加粗显示：前缀 + 加粗匹配词 + 后缀
             const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
             contextDiv.innerHTML = displayHtml;
             div.appendChild(contextDiv);
+
             // 点击时高亮全部匹配并滚动到该匹配
             div.addEventListener('click', () => {
                 highlightSearchTerm(term.trim(), idx);
                 // 可选关闭面板
                 // toggleSearchPanel();
             });
+
             results.appendChild(div);
         });
     }
@@ -501,6 +563,9 @@ function initSearch() {
             performSearch(q);
         }, 300);
     });
+
+    // 暴露 rebuildIndex 以便需要时重新构建
+    window.rebuildTitleIndex = buildTitleIndex;
 }
 
 function toggleSearchPanel() {
