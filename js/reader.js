@@ -377,16 +377,10 @@ function initSearch() {
     if (!input || !results) return;
     let debounceTimer;
 
-    // 辅助：向上查找最近的标题元素
+    // ⭐ 修正：使用 closest 准确查找最近的标题
     function findNearestHeading(node) {
-        let el = node.parentElement;
-        while (el && el !== document.body) {
-            if (/^H[1-3]$/.test(el.tagName)) {
-                return el.textContent.trim();
-            }
-            el = el.parentElement;
-        }
-        return '未分类';
+        const heading = node.parentElement.closest('h1, h2, h3');
+        return heading ? heading.textContent.trim() : '未分类';
     }
 
     // 辅助：提取上下文（前后各25字符，尽量按空格截断）
@@ -466,10 +460,10 @@ function initSearch() {
             const ctx = extractContext(fullText, m.start, m.end, 25);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题
+            // 显示所属标题（去掉 emoji，改用 # 前缀）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
-            headingDiv.textContent = '📌 ' + m.heading;
+            headingDiv.textContent = '# ' + m.heading;
             headingDiv.style.fontWeight = 'bold';
             headingDiv.style.color = '#88b4e6';
             headingDiv.style.fontSize = '0.85rem';
