@@ -609,6 +609,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 #blog-comment-list .comment-item {
     border-bottom: 1px solid #333;
 }
+
 /* ========== ⭐ 移动端侧边栏适配 ========== */
 /* 汉堡按钮在宽屏下隐藏（由 JS 控制，但 CSS 保底） */
 #btn-hamburger {
@@ -724,16 +725,17 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         right: -100%;
     }
     .panel-visible {
-        /* 搜索高亮：黑底白字，圆角，与目录高亮呼应 */
-.search-highlight {
-  background: #000 !important;
-  color: #fff !important;
-  border-radius: 3px;
-  padding: 0 4px;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  transition: background 0.2s;
-}
         right: 0;
     }
+}
+
+/* ========== ⭐ 搜索高亮（黑底白字，圆角） ========== */
+/* 此样式已在 HTML head 中定义，但为防止 CSS 加载顺序问题，在这里也定义一次 */
+.search-highlight {
+    background: #000 !important;
+    color: #fff !important;
+    border-radius: 3px;
+    padding: 0 4px;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
