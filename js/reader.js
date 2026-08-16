@@ -1,4 +1,4 @@
-/* ========== reader.js (完整版：点赞防抖 + 单账号一次点赞 + 移动端适配 + 搜索高亮 + 目录折叠修复) ========== */
+/* ========== reader.js (最终完整版：全文搜索 + DOM标题查找 + 目录折叠修复) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -82,9 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             injectCommentSections(body);
             setupGlobalCommentListeners();
         }
-        // ⭐ 新增：移动端侧边栏初始化
         initMobileSidebar();
-        // ⭐ 新增：搜索高亮清除（监听关闭按钮）
         const closeSearch = document.getElementById('close-search');
         if (closeSearch) {
             closeSearch.addEventListener('click', () => {
@@ -288,11 +286,9 @@ function initSidebar() {
     });
     document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; });
     
-    // ⭐ 修复：expandAll / collapseAll 只控制目录树，不影响正文
     window.expandAll = () => {
         $$('.toc-toggle').forEach(t => t.textContent = '▼');
         $$('.toc-item[data-parent]').forEach(i => i.style.display = '');
-        // 同时展开所有父级
         $$('.toc-item.toc-h1, .toc-item.toc-h2').forEach(i => {
             const toggle = i.querySelector('.toc-toggle');
             if (toggle) toggle.textContent = '▼';
@@ -324,7 +320,6 @@ function buildTOC() {
         if (level <= 2) {
             const toggle = document.createElement('span');
             toggle.className = 'toc-toggle'; toggle.textContent = '▼';
-            // ⭐ 点击 toggle 仅控制目录子项折叠，不影响正文
             toggle.addEventListener('click', e => { 
                 e.stopPropagation(); 
                 toggleTOCChildren(h.id, toggle); 
@@ -344,7 +339,6 @@ function buildTOC() {
     });
 }
 
-// ⭐ 新函数：仅控制 TOC 子项的折叠/展开，不影响正文
 function toggleTOCChildren(headingId, toggleEl) {
     const children = $$(`.toc-item[data-parent="${headingId}"]`);
     if (children.length === 0) return;
@@ -352,14 +346,12 @@ function toggleTOCChildren(headingId, toggleEl) {
     const newDisplay = isCollapsed ? '' : 'none';
     children.forEach(child => {
         child.style.display = newDisplay;
-        // 如果折叠，也折叠其下所有后代
         if (newDisplay === 'none') {
             const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
             subChildren.forEach(sub => sub.style.display = 'none');
             const subToggle = child.querySelector('.toc-toggle');
             if (subToggle) subToggle.textContent = '▶';
         } else {
-            // 展开时，只显示直接子项，但不自动展开更深层（保持折叠状态）
             const subChildren = $$(`.toc-item[data-parent="${child.getAttribute('data-target')}"]`);
             subChildren.forEach(sub => sub.style.display = 'none');
             const subToggle = child.querySelector('.toc-toggle');
@@ -371,29 +363,22 @@ function toggleTOCChildren(headingId, toggleEl) {
     }
 }
 
-// ⭐ 旧的 toggleSectionVisibility 已被废弃，但保留以防其他地方调用（重定向到新函数）
 function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（含高亮 + DOM 标题查找） ========== */
+/* ========== 搜索功能（全文搜索 + DOM标题查找） ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 辅助：向上查找最近的标题（h1/h2/h3）
+    // 辅助：向上查找最近的标题（h1/h2/h3）
     function findNearestHeading(node) {
-        let el = node.parentElement;
-        while (el && el !== document.body) {
-            const tag = el.tagName;
-            if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-                return el.textContent.trim();
-            }
-            el = el.parentElement;
-        }
-        return '未分类';
+        // 使用 closest 方法，从父元素开始向上查找
+        const heading = node.parentElement.closest('h1, h2, h3');
+        return heading ? heading.textContent.trim() : '未分类';
     }
 
     // 辅助：提取上下文（前后各10字符，尽量按空格截断）
@@ -401,7 +386,6 @@ function initSearch() {
         const fullLen = text.length;
         let ctxStart = Math.max(0, start - maxLen);
         let ctxEnd = Math.min(fullLen, end + maxLen);
-        // 尽量扩展到空格边界（如果可能）
         if (ctxStart > 0) {
             const spaceBefore = text.lastIndexOf(' ', start);
             if (spaceBefore > 0 && start - spaceBefore < maxLen) {
@@ -436,6 +420,7 @@ function initSearch() {
             NodeFilter.SHOW_TEXT,
             {
                 acceptNode: (node) => {
+                    // 跳过 style、script 和已经高亮的部分
                     if (node.parentElement.closest('style, script, .search-highlight')) 
                         return NodeFilter.FILTER_REJECT;
                     return NodeFilter.FILTER_ACCEPT;
@@ -472,7 +457,7 @@ function initSearch() {
             const ctx = extractContext(fullText, m.start, m.end, 10);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（无 emoji，用 # 前缀）
+            // 显示所属标题（无 emoji）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
             headingDiv.textContent = '# ' + m.heading;
@@ -481,19 +466,18 @@ function initSearch() {
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文，匹配词加粗（使用 innerHTML）
+            // 显示上下文，匹配词加粗
             const contextDiv = document.createElement('div');
             contextDiv.className = 'result-context';
             contextDiv.style.fontSize = '0.85rem';
             contextDiv.style.color = '#ccc';
-            // 构建加粗显示：前缀 + 加粗匹配词 + 后缀
             const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
             contextDiv.innerHTML = displayHtml;
             div.appendChild(contextDiv);
             // 点击时高亮全部匹配并滚动到该匹配
             div.addEventListener('click', () => {
                 highlightSearchTerm(term.trim(), idx);
-                // 可选：点击后自动关闭搜索面板（取消注释即可启用）
+                // 可选关闭面板
                 // toggleSearchPanel();
             });
             results.appendChild(div);
@@ -512,7 +496,6 @@ function initSearch() {
 function toggleSearchPanel() {
     const panel = $('#search-panel');
     if (panel) panel.classList.toggle('panel-visible');
-    // 如果面板关闭，清除高亮并清空结果
     if (!panel.classList.contains('panel-visible')) {
         clearHighlight();
         const results = $('#search-results');
@@ -1022,7 +1005,7 @@ async function doLogin(sectionId) {
         try { window.profileUser = state.user; } catch (e) {}
         updateAuthUI(sectionId);
         fetchCommentsForSection(sectionId);
-        state.likedComments.clear();   // 清空点赞记录
+        state.likedComments.clear();
         document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
     } else {
         alert('啊我死了');
@@ -1194,17 +1177,14 @@ document.addEventListener('profile-login', () => { try { restoreUserSession(); }
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
 
-/* ========== ⭐ 新增：移动端侧边栏适配 ========== */
+/* ========== 移动端侧边栏适配 ========== */
 function initMobileSidebar() {
-    // 点击内容区域关闭侧边栏（移动端）
     const content = document.getElementById('content');
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
-    
     if (content) {
         content.addEventListener('click', function(e) {
             if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
-                // 如果点击的是侧边栏内部或工具栏，不关闭
                 if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
                     sidebar.classList.remove('sidebar-open');
                     if (app) app.classList.remove('sidebar-active');
@@ -1212,8 +1192,6 @@ function initMobileSidebar() {
             }
         });
     }
-    
-    // 窗口尺寸变化时自动处理侧边栏状态
     function handleResize() {
         if (!sidebar || !app) return;
         if (window.innerWidth >= 768) {
@@ -1221,19 +1199,14 @@ function initMobileSidebar() {
             app.classList.remove('sidebar-active');
         }
     }
-    
-    // 监听 resize
     let resizeTimer;
     window.addEventListener('resize', function() {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(handleResize, 150);
     });
-    
-    // 初始化时执行一次
     handleResize();
 }
 
-// ⭐ 暴露 toggleSidebar 给全局（供 HTML 中的 onclick 调用）
 window.toggleSidebar = function() {
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
@@ -1242,5 +1215,4 @@ window.toggleSidebar = function() {
     if (app) app.classList.toggle('sidebar-active');
 };
 
-// ⭐ 暴露清除高亮给全局（便于 HTML 中调用）
 window.clearHighlight = clearHighlight;
