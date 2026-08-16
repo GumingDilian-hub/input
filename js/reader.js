@@ -1,4 +1,4 @@
-/* ========== reader.js (最终稳定版：全文搜索 + closest标题查找) ========== */
+/* ========== reader.js (最终版：基于文档顺序的标题归属) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -367,19 +367,68 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能（全文搜索 + closest 标题查找） ========== */
+/* ========== 搜索功能：基于文档顺序的标题归属 ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // ⭐ 使用 closest 查找最近的标题（h1/h2/h3）
+    // 构建文本节点到标题的映射表（按文档顺序）
+    let textNodeMap = new WeakMap(); // 存储每个文本节点对应的标题文本
+
+    function buildHeadingMap() {
+        textNodeMap = new WeakMap();
+        const body = document.getElementById('article-body');
+        if (!body) return;
+        let currentHeading = '未分类';
+        // 遍历所有节点，按顺序记录
+        const walker = document.createTreeWalker(
+            body,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        let node;
+        while ((node = walker.nextNode())) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const tag = node.tagName;
+                if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
+                    currentHeading = node.textContent.trim();
+                }
+                // 如果是评论区或其他无关元素，可以跳过但这里保留
+            } else if (node.nodeType === Node.TEXT_NODE) {
+                // 只记录非空文本节点
+                if (node.textContent.trim()) {
+                    textNodeMap.set(node, currentHeading);
+                }
+            }
+        }
+        // 如果没有任何标题，使用文章第一个 h1 作为默认
+        if (currentHeading === '未分类') {
+            const h1 = document.querySelector('#article-body h1');
+            if (h1) {
+                const defaultHeading = h1.textContent.trim();
+                // 将所有未分类的改为默认
+                // 但为了简单，我们直接设置一个全局默认，在查找时处理
+            }
+        }
+    }
+
+    // 在页面加载完成后构建一次映射
+    setTimeout(buildHeadingMap, 500);
+
+    // 查找标题函数：如果映射中有则返回，否则回退到默认
     function findNearestHeading(node) {
-        if (!node.parentElement) return '未分类';
-        const heading = node.parentElement.closest('h1, h2, h3');
-        if (heading) return heading.textContent.trim();
-        // 如果还是没有，尝试查找文章总标题
+        if (textNodeMap.has(node)) {
+            return textNodeMap.get(node);
+        }
+        // 如果映射中没有（可能是动态新增的），尝试用 closest 兜底
+        if (node.parentElement) {
+            const heading = node.parentElement.closest('h1, h2, h3');
+            if (heading) return heading.textContent.trim();
+        }
+        // 最终回退到文章第一个 h1
         const h1 = document.querySelector('#article-body h1');
         return h1 ? h1.textContent.trim() : '未分类';
     }
@@ -416,6 +465,8 @@ function initSearch() {
             return;
         }
         clearHighlight();
+        // 重新构建一次映射，确保最新（因为可能页面内容有变化）
+        buildHeadingMap();
         const body = document.getElementById('article-body');
         if (!body) return;
         const walker = document.createTreeWalker(
@@ -442,7 +493,7 @@ function initSearch() {
                     start: match.index,
                     end: regex.lastIndex,
                     matchText: match[0],
-                    heading: findNearestHeading(node)   // 每个匹配项独立查找
+                    heading: findNearestHeading(node)   // 使用映射
                 });
             }
         }
@@ -493,6 +544,9 @@ function initSearch() {
             performSearch(q);
         }, 300);
     });
+
+    // 暴露重建映射函数，以便动态调用
+    window.rebuildHeadingMap = buildHeadingMap;
 }
 
 function toggleSearchPanel() {
