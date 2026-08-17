@@ -64,7 +64,10 @@ async function safeFetch(url, options = {}) {
 /* ========== 初始化入口 ========== */
 document.addEventListener('DOMContentLoaded', async () => {
     const overlay = $('#loading-overlay');
-    await loadAllContent();
+    window.contentRenderComplete = false;
+    window.contentRenderPromise = loadAllContent();
+    await window.contentRenderPromise;
+    window.contentRenderComplete = true;
     if (overlay) {
         overlay.classList.add('hidden');
         setTimeout(() => overlay.remove(), 500);
@@ -119,11 +122,18 @@ async function loadAllContent() {
     renderVersionInfo(results);
     if (progressText) progressText.textContent = '少女祈祷中...';
     body.innerHTML = '';
+
+    // 分时渲染循环，每个章节渲染后让步，避免长时间阻塞主线程
+    const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
+
     for (let i = 0; i < results.length; i++) {
         const chunk = results[i].content;
         if (!chunk) continue;
         const sectionDiv = document.createElement('div');
         sectionDiv.className = 'section-wrapper clearfix';
+        // 使用 content-visibility 优化不可见区域渲染性能
+        sectionDiv.style.contentVisibility = 'auto';
+        sectionDiv.style.containIntrinsicSize = 'auto 500px';
         try {
             sectionDiv.innerHTML = marked.parse(chunk);
         } catch (e) {
@@ -136,7 +146,8 @@ async function loadAllContent() {
         });
         body.appendChild(sectionDiv);
         if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-        if (i % 3 === 2) await new Promise(r => requestAnimationFrame(r));
+        // 让出主线程，确保 UI 响应
+        await yieldToMain();
     }
     renderMath();
     buildTOC();
@@ -458,7 +469,11 @@ function initSearch() {
         return { prefix, match, suffix };
     }
 
-    function performSearch(term) {
+    async function performSearch(term) {
+        // 如果内容尚未完全渲染，等待渲染完成以确保搜索全面
+        if (!window.contentRenderComplete && window.contentRenderPromise) {
+            await window.contentRenderPromise;
+        }
         results.innerHTML = '';
         if (!term || !term.trim()) {
             clearHighlight();
@@ -541,7 +556,7 @@ function initSearch() {
         clearTimeout(debounceTimer);
         const q = input.value.trim();
         debounceTimer = setTimeout(() => {
-            performSearch(q);
+            performSearch(q).catch(e => console.error(e));
         }, 300);
     });
 
