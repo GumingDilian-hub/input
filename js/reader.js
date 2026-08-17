@@ -1,4 +1,5 @@
-/* ========== reader.js (最终版：基于文档顺序的标题归属) ========== */
+/* ========== reader.js (优化版：中心向外渐进渲染) ========== */
+
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -10,7 +11,9 @@ const CONFIG = {
         'notes/016/index.md', 'notes/017/index.md', 'notes/018/index.md', 'notes/019/index.md'
     ],
     AUTHOR_MD: 'notes/000/index.md',
-    DEFAULT_AVATAR: 'images/0721.png'
+    DEFAULT_AVATAR: 'images/0721.png',
+    INITIAL_RADIUS: 2,          // 初始渲染半径（前后各2章）
+    LAZY_LOAD_COUNT: 3          // 每次懒加载的章节数
 };
 
 let state = {
@@ -61,89 +64,354 @@ async function safeFetch(url, options = {}) {
     }
 }
 
+/* ========== 全局状态 ========== */
+let fullChapterData = [];          // 存储所有章节的元数据 + 原始内容（未解析）
+let loadedIndices = new Set();     // 已渲染的章节索引
+let chapterPositions = [];         // 缓存各章节的 offsetTop（用于定位）
+let headingMap = {};              // 标题文本 → 章节索引
+
 /* ========== 初始化入口 ========== */
 document.addEventListener('DOMContentLoaded', async () => {
     const overlay = $('#loading-overlay');
-    await loadAllContent();
+    // 1. 预加载所有章节（仅 fetch 原始文本）
+    await preloadAllChapters();
+    // 2. 构建标题映射（用于搜索和跳转）
+    buildHeadingMapFromData();
+    // 3. 确定目标章节索引
+    const targetIndex = determineTargetIndex();
+    // 4. 计算初始渲染范围
+    const range = getInitialRange(targetIndex);
+    // 5. 渲染首批章节
+    await renderChapters(range);
+    // 6. 恢复滚动位置
+    restoreScrollPosition();
+    // 7. 隐藏加载遮罩
     if (overlay) {
         overlay.classList.add('hidden');
         setTimeout(() => overlay.remove(), 500);
     }
-    try {
-        initSidebar();
-        initSearch();
-        initScrollSpy();
-        initProgress();
-        initAuthorPanel();
-        initChapterSelect();
-        restoreUserSession();
-        const body = $('#article-body');
-        if (body) {
-            injectCommentSections(body);
-            setupGlobalCommentListeners();
-        }
-        initMobileSidebar();
-        const closeSearch = document.getElementById('close-search');
-        if (closeSearch) {
-            closeSearch.addEventListener('click', () => {
-                clearHighlight();
-                const results = $('#search-results');
-                if (results) results.innerHTML = '';
-            });
-        }
-    } catch (e) {
-        console.error("Init Error:", e);
+    // 8. 初始化其余 UI 组件
+    initSidebar();
+    initSearch();          // 基于预解析索引
+    initScrollSpy();
+    initProgress();
+    initAuthorPanel();
+    initChapterSelect();
+    restoreUserSession();
+    const body = $('#article-body');
+    if (body) {
+        injectCommentSections(body);
+        setupGlobalCommentListeners();
     }
+    initMobileSidebar();
+    const closeSearch = document.getElementById('close-search');
+    if (closeSearch) {
+        closeSearch.addEventListener('click', () => {
+            clearHighlight();
+            const results = $('#search-results');
+            if (results) results.innerHTML = '';
+        });
+    }
+    // 9. 设置懒加载哨兵
+    setupLazyLoading();
+    // 10. 处理 URL hash 跳转（如果目标未包含在初始范围，则滚动到最近已渲染的）
+    handleHashJump();
 });
 
-/* ========== 核心内容加载 ========== */
-async function loadAllContent() {
-    const body = $('#article-body');
-    const progressText = $('#progress-text');
-    if (!body) return;
-    const total = CONFIG.CHAPTERS.length;
-    const fetchPromises = CONFIG.CHAPTERS.map((path) =>
+/* ========== 1. 预加载所有章节 ========== */
+async function preloadAllChapters() {
+    const fetchPromises = CONFIG.CHAPTERS.map(path =>
         fetch(path)
-            .then(resp => resp.ok ? resp.text() : Promise.reject(new Error('404')))
-            .then(text => processMarkdown(text, path))
-            .catch(err => {
-                console.warn(`Load failed: ${path}`, err);
-                return { meta: null, content: '', chapterNum: 'unknown' };
-            })
+            .then(resp => resp.ok ? resp.text() : '')
+            .catch(() => '')
     );
-    const settled = await Promise.allSettled(fetchPromises);
-    const results = settled.map((s, i) => {
-        if (s.status === 'fulfilled') return s.value;
-        return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
+    const rawTexts = await Promise.all(fetchPromises);
+    fullChapterData = rawTexts.map((text, i) => {
+        const { meta, content } = extractAndRemoveFrontMatter(text);
+        const chapterNum = CONFIG.CHAPTERS[i].split('/')[1] || '000';
+        const headings = extractHeadings(content);
+        return {
+            meta,
+            content,        // 原始内容（未解析）
+            chapterNum,
+            headings,       // [{level, text}]
+            rendered: false
+        };
     });
-    renderVersionInfo(results);
-    if (progressText) progressText.textContent = '少女祈祷中...';
-    body.innerHTML = '';
-    for (let i = 0; i < results.length; i++) {
-        const chunk = results[i].content;
-        if (!chunk) continue;
-        const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'section-wrapper clearfix';
-        try {
-            sectionDiv.innerHTML = marked.parse(chunk);
-        } catch (e) {
-            sectionDiv.innerHTML = `<p>[少女折寿中]</p>`;
-        }
-        postProcessImages(sectionDiv, results[i].chapterNum);
-        postProcessFigure(sectionDiv);
-        sectionDiv.querySelectorAll('pre code').forEach(b => {
-            try { hljs.highlightElement(b); } catch (e) { }
-        });
-        body.appendChild(sectionDiv);
-        if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-        if (i % 3 === 2) await new Promise(r => requestAnimationFrame(r));
-    }
-    renderMath();
-    buildTOC();
-    if (progressText) progressText.parentElement.classList.add('hidden');
+    // 读取缓存的章节位置（如果有）
+    try {
+        const cached = localStorage.getItem('iwp-chapter-positions');
+        if (cached) chapterPositions = JSON.parse(cached);
+        else chapterPositions = [];
+    } catch(e) { chapterPositions = []; }
 }
 
-/* ========== Markdown 预处理 ========== */
+function extractHeadings(markdown) {
+    const headingRegex = /^(#{1,3})\s+(.*)$/gm;
+    const headings = [];
+    let match;
+    while ((match = headingRegex.exec(markdown)) !== null) {
+        headings.push({ level: match[1].length, text: match[2].trim() });
+    }
+    return headings;
+}
+
+/* ========== 2. 构建标题映射 ========== */
+function buildHeadingMapFromData() {
+    headingMap = {};
+    fullChapterData.forEach((data, idx) => {
+        // 从 meta 中获取标题
+        if (data.meta && data.meta.title) {
+            headingMap[data.meta.title] = idx;
+        }
+        // 从一级标题中提取
+        data.headings.forEach(h => {
+            if (h.level === 1) {
+                headingMap[h.text] = idx;
+            }
+        });
+    });
+}
+
+/* ========== 3. 确定目标章节 ========== */
+function determineTargetIndex() {
+    // 优先：URL hash 中的标题文本
+    const hash = window.location.hash;
+    if (hash) {
+        const id = decodeURIComponent(hash.replace('#', ''));
+        if (headingMap[id] !== undefined) {
+            return headingMap[id];
+        }
+        // 如果 hash 是 #h-xxx 形式，尝试匹配章节内标题的 id（但尚未渲染，我们只能依靠标题文本映射）
+        // 更精确的做法：解析 hash 中的数字，但这里简化
+    }
+    // 其次：localStorage 滚动位置
+    const savedScrollTop = parseInt(localStorage.getItem('iwp-progress')) || 0;
+    if (savedScrollTop > 0 && chapterPositions.length === fullChapterData.length) {
+        for (let i = 0; i < chapterPositions.length; i++) {
+            if (chapterPositions[i] > savedScrollTop) {
+                return Math.max(0, i - 1);
+            }
+        }
+        return chapterPositions.length - 1;
+    }
+    return 0; // 默认第一章
+}
+
+/* ========== 4. 计算初始渲染范围 ========== */
+function getInitialRange(target) {
+    const total = fullChapterData.length;
+    const start = Math.max(0, target - CONFIG.INITIAL_RADIUS);
+    const end = Math.min(total - 1, target + CONFIG.INITIAL_RADIUS);
+    return { start, end };
+}
+
+/* ========== 5. 渲染指定范围的章节 ========== */
+async function renderChapters({ start, end }) {
+    const body = $('#article-body');
+    if (!body) return;
+    // 如果 body 为空，清空；否则追加
+    if (loadedIndices.size === 0) {
+        body.innerHTML = '';
+    }
+    // 按顺序渲染
+    for (let i = start; i <= end; i++) {
+        if (!loadedIndices.has(i)) {
+            await renderSingleChapter(i);
+        }
+    }
+    // 重新构建 TOC（基于当前渲染的标题）
+    buildTOC();
+    // 渲染数学公式（整个 body）
+    renderMath();
+    // 保存章节位置映射（如果全部渲染完则保存完整，否则后续会更新）
+    if (loadedIndices.size === fullChapterData.length) {
+        saveChapterPositions();
+    }
+}
+
+function renderSingleChapter(index) {
+    return new Promise((resolve) => {
+        const data = fullChapterData[index];
+        if (!data || !data.content) { resolve(); return; }
+        // 解析 Markdown（只解析这一次）
+        const processed = processMarkdown(data.content, `notes/${data.chapterNum}/index.md`);
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'section-wrapper clearfix';
+        sectionDiv.setAttribute('data-chapter', data.chapterNum);
+        try {
+            sectionDiv.innerHTML = marked.parse(processed.content);
+        } catch(e) {
+            sectionDiv.innerHTML = `<p>[少女折寿中]</p>`;
+        }
+        postProcessImages(sectionDiv, data.chapterNum);
+        postProcessFigure(sectionDiv);
+        // 代码高亮延迟（使用 requestIdleCallback 或 setTimeout）
+        const codeBlocks = sectionDiv.querySelectorAll('pre code');
+        if (codeBlocks.length > 0) {
+            requestIdleCallback ? requestIdleCallback(() => {
+                codeBlocks.forEach(b => { try { hljs.highlightElement(b); } catch(e) {} });
+            }) : setTimeout(() => {
+                codeBlocks.forEach(b => { try { hljs.highlightElement(b); } catch(e) {} });
+            }, 50);
+        }
+        // 插入到正确的位置（按章节顺序）
+        const body = $('#article-body');
+        // 找到第一个未渲染的后续章节，在其前面插入
+        let insertBefore = null;
+        for (let i = index + 1; i < fullChapterData.length; i++) {
+            if (loadedIndices.has(i)) {
+                // 找到已渲染的后续章节的 DOM 元素
+                const existing = body.querySelector(`.section-wrapper[data-chapter="${fullChapterData[i].chapterNum}"]`);
+                if (existing) { insertBefore = existing; break; }
+            }
+        }
+        if (insertBefore) {
+            body.insertBefore(sectionDiv, insertBefore);
+        } else {
+            body.appendChild(sectionDiv);
+        }
+        loadedIndices.add(index);
+        data.rendered = true;
+        // 为标题生成 id（便于锚点跳转）
+        sectionDiv.querySelectorAll('h1, h2, h3').forEach(h => {
+            if (!h.id) {
+                const text = h.textContent.trim();
+                h.id = 'h-' + text.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+            }
+        });
+        // 延迟一点点让浏览器渲染
+        setTimeout(resolve, 10);
+    });
+}
+
+/* ========== 6. 保存章节位置映射 ========== */
+function saveChapterPositions() {
+    const wrappers = $$('#article-body .section-wrapper');
+    if (wrappers.length === fullChapterData.length) {
+        const positions = wrappers.map(w => w.offsetTop);
+        localStorage.setItem('iwp-chapter-positions', JSON.stringify(positions));
+        chapterPositions = positions;
+    }
+}
+
+/* ========== 7. 恢复滚动位置 ========== */
+function restoreScrollPosition() {
+    const content = $('#content');
+    if (!content) return;
+    const hash = window.location.hash;
+    if (hash) {
+        const targetEl = document.getElementById(hash.replace('#', ''));
+        if (targetEl) {
+            setTimeout(() => targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+            return;
+        }
+    }
+    const savedScrollTop = parseInt(localStorage.getItem('iwp-progress')) || 0;
+    if (savedScrollTop > 0) {
+        content.scrollTop = savedScrollTop;
+    }
+}
+
+/* ========== 8. 懒加载设置 ========== */
+function setupLazyLoading() {
+    const body = $('#article-body');
+    if (!body) return;
+    const total = fullChapterData.length;
+    // 如果全部已加载，则无需哨兵
+    if (loadedIndices.size === total) return;
+    // 移除旧的哨兵
+    document.querySelectorAll('.lazy-sentinel').forEach(el => el.remove());
+    // 计算已渲染的最小和最大索引
+    const sorted = Array.from(loadedIndices).sort((a,b) => a-b);
+    const minLoaded = sorted[0];
+    const maxLoaded = sorted[sorted.length - 1];
+    // 上方哨兵（向前加载）
+    if (minLoaded > 0) {
+        const topSentinel = document.createElement('div');
+        topSentinel.className = 'lazy-sentinel top-sentinel';
+        topSentinel.style.height = '1px';
+        topSentinel.style.visibility = 'hidden';
+        body.prepend(topSentinel);
+        observeSentinel(topSentinel, 'up');
+    }
+    // 下方哨兵（向后加载）
+    if (maxLoaded < total - 1) {
+        const bottomSentinel = document.createElement('div');
+        bottomSentinel.className = 'lazy-sentinel bottom-sentinel';
+        bottomSentinel.style.height = '1px';
+        bottomSentinel.style.visibility = 'hidden';
+        body.appendChild(bottomSentinel);
+        observeSentinel(bottomSentinel, 'down');
+    }
+}
+
+function observeSentinel(sentinel, direction) {
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+            const total = fullChapterData.length;
+            const sorted = Array.from(loadedIndices).sort((a,b) => a-b);
+            let minLoaded = sorted[0];
+            let maxLoaded = sorted[sorted.length - 1];
+            let newStart, newEnd;
+            if (direction === 'down') {
+                newStart = maxLoaded + 1;
+                newEnd = Math.min(total - 1, maxLoaded + CONFIG.LAZY_LOAD_COUNT);
+            } else {
+                newStart = Math.max(0, minLoaded - CONFIG.LAZY_LOAD_COUNT);
+                newEnd = minLoaded - 1;
+            }
+            if (newStart <= newEnd) {
+                renderChapters({ start: newStart, end: newEnd }).then(() => {
+                    // 重新设置哨兵
+                    sentinel.remove();
+                    setupLazyLoading();
+                    // 如果全部加载完成，更新章节位置缓存
+                    if (loadedIndices.size === total) {
+                        saveChapterPositions();
+                    }
+                });
+            } else {
+                observer.disconnect();
+                sentinel.remove();
+            }
+        }
+    }, { root: $('#content'), rootMargin: '200px' }); // 提前触发
+    observer.observe(sentinel);
+}
+
+/* ========== 9. 处理 URL hash 跳转 ========== */
+function handleHashJump() {
+    const hash = window.location.hash;
+    if (hash) {
+        const targetId = hash.replace('#', '');
+        // 尝试直接滚动到已渲染的元素
+        const el = document.getElementById(targetId);
+        if (el) {
+            setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+        } else {
+            // 如果未渲染，可能是标题文本，尝试查找映射
+            const decoded = decodeURIComponent(targetId);
+            if (headingMap[decoded] !== undefined) {
+                const idx = headingMap[decoded];
+                if (!loadedIndices.has(idx)) {
+                    // 渲染该章节及其周围
+                    const range = getInitialRange(idx);
+                    renderChapters(range).then(() => {
+                        setupLazyLoading();
+                        // 再次尝试滚动
+                        const newEl = document.getElementById(targetId);
+                        if (newEl) newEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    });
+                }
+            }
+        }
+    }
+}
+
+/* ========== 以下为原有函数，基本保持不变 ========== */
+
+/* ---------- Markdown 预处理 ---------- */
 function processMarkdown(md, path) {
     const { meta, content } = extractAndRemoveFrontMatter(md);
     const chapterNum = path.split('/')[1] || '000';
@@ -196,7 +464,7 @@ function extractAndRemoveFrontMatter(md) {
     return { content, meta };
 }
 
-/* ========== 图片与图表后处理 ========== */
+/* ---------- 图片与图表后处理 ---------- */
 function postProcessImages(container, chapterNum) {
     container.querySelectorAll('img').forEach(img => {
         img.onerror = function () {
@@ -241,7 +509,7 @@ function postProcessFigure(container) {
     });
 }
 
-/* ========== 渲染数学公式 ========== */
+/* ---------- 渲染数学公式 ---------- */
 function renderMath() {
     const body = $('#article-body');
     if (body && typeof renderMathInElement === 'function') {
@@ -255,7 +523,7 @@ function renderMath() {
     }
 }
 
-/* ========== 版本信息渲染 ========== */
+/* ---------- 版本信息 ---------- */
 function renderVersionInfo(results) {
     let versionMeta = null;
     for (const r of results) {
@@ -272,7 +540,7 @@ function renderVersionInfo(results) {
     }
 }
 
-/* ========== UI 功能、TOC、搜索、ScrollSpy 等 ========== */
+/* ---------- UI 功能、TOC、搜索、ScrollSpy 等 ---------- */
 function initSidebar() {
     const resizer = $('#resizer');
     const sidebar = $('#sidebar');
@@ -363,180 +631,85 @@ function toggleTOCChildren(headingId, toggleEl) {
     }
 }
 
-function toggleSectionVisibility(headingId, toggleEl) {
-    toggleTOCChildren(headingId, toggleEl);
-}
-
-/* ========== 搜索功能：基于文档顺序的标题归属 ========== */
+/* ---------- 搜索功能（基于预解析全文索引） ---------- */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
-    let debounceTimer;
-
-    // 构建文本节点到标题的映射表（按文档顺序）
-    let textNodeMap = new WeakMap(); // 存储每个文本节点对应的标题文本
-
-    function buildHeadingMap() {
-        textNodeMap = new WeakMap();
-        const body = document.getElementById('article-body');
-        if (!body) return;
-        let currentHeading = '未分类';
-        // 遍历所有节点，按顺序记录
-        const walker = document.createTreeWalker(
-            body,
-            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-        let node;
-        while ((node = walker.nextNode())) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                const tag = node.tagName;
-                if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-                    currentHeading = node.textContent.trim();
-                }
-                // 如果是评论区或其他无关元素，可以跳过但这里保留
-            } else if (node.nodeType === Node.TEXT_NODE) {
-                // 只记录非空文本节点
-                if (node.textContent.trim()) {
-                    textNodeMap.set(node, currentHeading);
-                }
-            }
-        }
-        // 如果没有任何标题，使用文章第一个 h1 作为默认
-        if (currentHeading === '未分类') {
-            const h1 = document.querySelector('#article-body h1');
-            if (h1) {
-                const defaultHeading = h1.textContent.trim();
-                // 将所有未分类的改为默认
-                // 但为了简单，我们直接设置一个全局默认，在查找时处理
-            }
-        }
-    }
-
-    // 在页面加载完成后构建一次映射
-    setTimeout(buildHeadingMap, 500);
-
-    // 查找标题函数：如果映射中有则返回，否则回退到默认
-    function findNearestHeading(node) {
-        if (textNodeMap.has(node)) {
-            return textNodeMap.get(node);
-        }
-        // 如果映射中没有（可能是动态新增的），尝试用 closest 兜底
-        if (node.parentElement) {
-            const heading = node.parentElement.closest('h1, h2, h3');
-            if (heading) return heading.textContent.trim();
-        }
-        // 最终回退到文章第一个 h1
-        const h1 = document.querySelector('#article-body h1');
-        return h1 ? h1.textContent.trim() : '未分类';
-    }
-
-    // 辅助：提取上下文（前后各10字符，尽量按空格截断）
-    function extractContext(text, start, end, maxLen = 10) {
-        const fullLen = text.length;
-        let ctxStart = Math.max(0, start - maxLen);
-        let ctxEnd = Math.min(fullLen, end + maxLen);
-        if (ctxStart > 0) {
-            const spaceBefore = text.lastIndexOf(' ', start);
-            if (spaceBefore > 0 && start - spaceBefore < maxLen) {
-                ctxStart = spaceBefore + 1;
-            }
-        }
-        if (ctxEnd < fullLen) {
-            const spaceAfter = text.indexOf(' ', end);
-            if (spaceAfter > 0 && spaceAfter - end < maxLen) {
-                ctxEnd = spaceAfter;
-            }
-        }
-        let prefix = text.slice(ctxStart, start);
-        let match = text.slice(start, end);
-        let suffix = text.slice(end, ctxEnd);
-        if (ctxStart > 0) prefix = '…' + prefix;
-        if (ctxEnd < fullLen) suffix = suffix + '…';
-        return { prefix, match, suffix };
-    }
+    // 构建全文索引（从 fullChapterData 中提取）
+    let searchIndex = [];
+    fullChapterData.forEach((data, idx) => {
+        const text = data.content; // 原始 Markdown
+        const heading = data.meta?.title || data.headings.find(h => h.level === 1)?.text || `第${idx+1}章`;
+        searchIndex.push({
+            index: idx,
+            heading: heading,
+            content: text,
+        });
+    });
 
     function performSearch(term) {
         results.innerHTML = '';
-        if (!term || !term.trim()) {
+        if (!term.trim()) {
             clearHighlight();
             return;
         }
-        clearHighlight();
-        // 重新构建一次映射，确保最新（因为可能页面内容有变化）
-        buildHeadingMap();
-        const body = document.getElementById('article-body');
-        if (!body) return;
-        const walker = document.createTreeWalker(
-            body,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode: (node) => {
-                    if (node.parentElement.closest('style, script, .search-highlight')) 
-                        return NodeFilter.FILTER_REJECT;
-                    return NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
         const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
         const matches = [];
-        let node;
-        while ((node = walker.nextNode())) {
-            const text = node.textContent;
+        searchIndex.forEach(item => {
+            const content = item.content;
             let match;
-            regex.lastIndex = 0;
-            while ((match = regex.exec(text)) !== null) {
+            while ((match = regex.exec(content)) !== null) {
                 matches.push({
-                    textNode: node,
+                    index: item.index,
+                    heading: item.heading,
                     start: match.index,
                     end: regex.lastIndex,
                     matchText: match[0],
-                    heading: findNearestHeading(node)   // 使用映射
+                    context: extractContext(content, match.index, regex.lastIndex, 10)
                 });
             }
-        }
+        });
         if (matches.length === 0) {
-            const empty = document.createElement('div');
-            empty.style.color = '#999';
-            empty.textContent = '没有找到匹配内容';
-            results.appendChild(empty);
+            results.innerHTML = '<div style="color:#999;">没有找到匹配内容</div>';
             return;
         }
-        // 构建结果列表
-        matches.forEach((m, idx) => {
-            const fullText = m.textNode.textContent;
-            const ctx = extractContext(fullText, m.start, m.end, 10);
+        // 按章节分组显示
+        const grouped = {};
+        matches.forEach(m => {
+            if (!grouped[m.index]) grouped[m.index] = [];
+            grouped[m.index].push(m);
+        });
+        for (const [idx, ms] of Object.entries(grouped)) {
+            const heading = ms[0].heading;
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（无 emoji）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
-            headingDiv.textContent = '# ' + m.heading;
+            headingDiv.textContent = '# ' + heading;
             headingDiv.style.fontWeight = 'bold';
             headingDiv.style.color = '#88b4e6';
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文，匹配词加粗
-            const contextDiv = document.createElement('div');
-            contextDiv.className = 'result-context';
-            contextDiv.style.fontSize = '0.85rem';
-            contextDiv.style.color = '#ccc';
-            const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
-            contextDiv.innerHTML = displayHtml;
-            div.appendChild(contextDiv);
-            // 点击时高亮全部匹配并滚动到该匹配
+            // 显示前两个匹配上下文
+            ms.slice(0, 2).forEach(m => {
+                const ctxDiv = document.createElement('div');
+                ctxDiv.className = 'result-context';
+                ctxDiv.style.fontSize = '0.85rem';
+                ctxDiv.style.color = '#ccc';
+                const ctx = m.context;
+                ctxDiv.innerHTML = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
+                div.appendChild(ctxDiv);
+            });
             div.addEventListener('click', () => {
-                highlightSearchTerm(term.trim(), idx);
-                // 可选关闭面板
-                // toggleSearchPanel();
+                jumpToChapter(parseInt(idx), term);
             });
             results.appendChild(div);
-        });
+        }
     }
 
+    let debounceTimer;
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         const q = input.value.trim();
@@ -544,9 +717,92 @@ function initSearch() {
             performSearch(q);
         }, 300);
     });
+    // 暴露重建映射（其实没必要）
+    window.rebuildHeadingMap = () => {};
+}
 
-    // 暴露重建映射函数，以便动态调用
-    window.rebuildHeadingMap = buildHeadingMap;
+function jumpToChapter(index, term) {
+    // 如果章节未渲染，先渲染它及其周围
+    if (!loadedIndices.has(index)) {
+        const range = getInitialRange(index);
+        renderChapters(range).then(() => {
+            setupLazyLoading();
+            highlightAndScroll(index, term);
+        });
+    } else {
+        highlightAndScroll(index, term);
+    }
+}
+
+function highlightAndScroll(index, term) {
+    // 找到对应章节的 DOM
+    const wrappers = $$('#article-body .section-wrapper');
+    const targetWrapper = wrappers[index]; // 假设顺序一致
+    if (!targetWrapper) return;
+    clearHighlight();
+    const walker = document.createTreeWalker(
+        targetWrapper,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                if (node.parentElement.closest('style, script, .search-highlight')) 
+                    return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+    const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
+    let textNode;
+    const highlights = [];
+    while ((textNode = walker.nextNode())) {
+        const text = textNode.textContent;
+        if (!regex.test(text)) continue;
+        regex.lastIndex = 0;
+        const frag = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const before = text.slice(lastIndex, match.index);
+            if (before) frag.appendChild(document.createTextNode(before));
+            const span = document.createElement('span');
+            span.className = 'search-highlight';
+            span.textContent = match[0];
+            frag.appendChild(span);
+            highlights.push(span);
+            lastIndex = regex.lastIndex;
+        }
+        if (lastIndex < text.length) {
+            frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+        textNode.parentNode.replaceChild(frag, textNode);
+    }
+    if (highlights.length > 0) {
+        highlights[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function extractContext(text, start, end, maxLen = 10) {
+    const fullLen = text.length;
+    let ctxStart = Math.max(0, start - maxLen);
+    let ctxEnd = Math.min(fullLen, end + maxLen);
+    if (ctxStart > 0) {
+        const spaceBefore = text.lastIndexOf(' ', start);
+        if (spaceBefore > 0 && start - spaceBefore < maxLen) {
+            ctxStart = spaceBefore + 1;
+        }
+    }
+    if (ctxEnd < fullLen) {
+        const spaceAfter = text.indexOf(' ', end);
+        if (spaceAfter > 0 && spaceAfter - end < maxLen) {
+            ctxEnd = spaceAfter;
+        }
+    }
+    let prefix = text.slice(ctxStart, start);
+    let match = text.slice(start, end);
+    let suffix = text.slice(end, ctxEnd);
+    if (ctxStart > 0) prefix = '…' + prefix;
+    if (ctxEnd < fullLen) suffix = suffix + '…';
+    return { prefix, match, suffix };
 }
 
 function toggleSearchPanel() {
@@ -559,7 +815,7 @@ function toggleSearchPanel() {
     }
 }
 
-/* ========== 搜索高亮（黑底白字，圆角，支持指定匹配索引） ========== */
+/* ---------- 搜索高亮工具 ---------- */
 let currentHighlights = [];
 
 function clearHighlight() {
@@ -577,10 +833,8 @@ function escapeRegExp(string) {
 }
 
 function highlightSearchTerm(term, targetIndex = 0) {
-    if (!term || !term.trim()) {
-        clearHighlight();
-        return;
-    }
+    // 原有逻辑保留，但 jumpToChapter 中已使用自定义高亮，此处保持兼容
+    if (!term || !term.trim()) { clearHighlight(); return; }
     clearHighlight();
     const body = document.getElementById('article-body');
     if (!body) return;
@@ -630,16 +884,11 @@ function highlightSearchTerm(term, targetIndex = 0) {
     }
 }
 
-/* ========== 滚动追踪 ========== */
+/* ---------- 滚动追踪 ---------- */
 function initScrollSpy() {
     const tocItems = $$('.toc-item');
     const autoCheckbox = $('#auto-scroll-checkbox');
     const rootEl = $('#content');
-    const idToToc = new Map();
-    tocItems.forEach(item => {
-        const targetId = item.getAttribute('data-target');
-        if (targetId) idToToc.set(targetId, item);
-    });
     function highlightChain(targetId) {
         tocItems.forEach(i => i.classList.remove('active'));
         let current = $(`.toc-item[data-target="${targetId}"]`);
@@ -738,20 +987,25 @@ function initAuthorPanel() {
 function initChapterSelect() {
     const select = $('#chapter-select');
     if (!select) return;
-    $$('#article-body h1').forEach(h1 => {
-        if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2, 8);
+    // 清空原有选项
+    select.innerHTML = '';
+    // 从 fullChapterData 中获取所有一级标题
+    fullChapterData.forEach((data, idx) => {
+        const heading = data.headings.find(h => h.level === 1)?.text || data.meta?.title || `第${idx+1}章`;
         const opt = document.createElement('option');
-        opt.value = h1.id;
-        opt.textContent = h1.textContent.trim();
+        opt.value = idx; // 使用索引
+        opt.textContent = heading;
         select.appendChild(opt);
     });
     select.addEventListener('change', () => {
-        const el = document.getElementById(select.value);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const idx = parseInt(select.value);
+        if (!isNaN(idx)) {
+            jumpToChapter(idx, ''); // 跳转并确保渲染
+        }
     });
 }
 
-/* ========== 评论区系统 ========== */
+/* ---------- 评论区系统（保持不变） ---------- */
 function injectCommentSections(body) {
     const h2s = body.querySelectorAll('h2');
     h2s.forEach((h2, index) => {
@@ -968,7 +1222,7 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
     });
 }
 
-/* ========== 登录、注册、回复、点赞 ========== */
+/* ---------- 登录、注册、回复、点赞 ---------- */
 function restoreUserSession() {
     try {
         if (typeof getProfileUser === 'function') {
@@ -1102,7 +1356,6 @@ function doLogout() {
     document.dispatchEvent(new CustomEvent('profile-logout'));
 }
 
-/* ========== 评论发送/回复/点赞 ========== */
 async function submitComment(sectionId) {
     if (!state.user) return alert('别骗我');
     const input = document.getElementById(`comment-input-${sectionId}`);
@@ -1181,7 +1434,6 @@ async function doReply(parentId, sectionId) {
     }
 }
 
-// 点赞防抖 + 单账号一次点赞
 const likeDebounceMap = new Map();
 async function likeComment(commentId, sectionId) {
     if (!state.user) {
@@ -1208,7 +1460,7 @@ async function likeComment(commentId, sectionId) {
     }
 }
 
-/* ========== 绑定与同步 ========== */
+/* ---------- 绑定与同步 ---------- */
 function setupGlobalCommentListeners() {
     window.toggleCommentSection = toggleCommentSection;
     window.submitComment = submitComment;
@@ -1233,7 +1485,7 @@ document.addEventListener('profile-login', () => { try { restoreUserSession(); }
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
 
-/* ========== 移动端侧边栏适配 ========== */
+/* ---------- 移动端侧边栏 ---------- */
 function initMobileSidebar() {
     const content = document.getElementById('content');
     const sidebar = document.getElementById('sidebar');
