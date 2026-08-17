@@ -31,6 +31,7 @@
 ## 阅读须知
 
 - 要是需要Word版，请访问，尽量使用金山文档，避免排版问题，无论如何也要使用金山系软件打开，edge，chorme，Firefox大概率有问题。更新不及时是必然的，想看什么私信我即可，这个网站大概率我会一直用到研究生毕业
+- 其实我在网页预留了下载按钮，但是可能响应时间比较长，谁要是有时间就下下来吧，奥赛教室电脑挂一宿也就下来了（bushi）Word版不会很全，甚至根本不全lol
 - **金山文档**  [![WPS文档](https://img.shields.io/badge/📄-WPS云盘-F8B8C8?style=flat&logo=wps&logoColor=white)](https://www.kdocs.cn/l/cpfoz8aFZG1W)
 - **微软云盘**  [![Word文档](https://img.shields.io/badge/📄-OneDrive-F8B8C8?style=flat&logo=microsoftword&logoColor=white)](https://1drv.ms/w/c/E80A9C3926A748E4/IQDY1QmwfksZTLGkeJNP5R2aAQp-wJraOPEXENFudMulza4)
 - **百度网盘**  [![百度网盘](https://img.shields.io/badge/📄-百度网盘-F8B8C8?style=flat&logo=link&logoColor=white)](https://pan.baidu.com/s/1OkC4QJYL8HxJoa-0FbjfBw) 提取码:7i0f
