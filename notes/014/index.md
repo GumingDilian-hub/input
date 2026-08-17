@@ -1,10 +1,16 @@
 # 生物信息学附录
 ## 附录1：科学上网
+
 使用fCLASH（x）/hiddify进行科学上网，由于这玩意可能违法，我不多说
+
 fCLASHx下载：github.com/chen08209/FlClash/releases
+
 fCLASHx使用：github.com/clashbk/clash/wiki/clashx
+
 hiddify官网：hiddify.com
+
 hiddify有还不错的免费节点，而CLASH需要自己从“机场”买节点，推荐扬帆云
+
 这里最难的一步是别乱传，别天天就往社交平台发布外网信息，使用这个的目的是使用更强劲的ChatGPT和Gemini（Claude暂时无法使用）以及访问被封禁的NCBI和Wikipedia维基百科，耗子尾汁吧
 ## 附录 2
 
@@ -5740,3 +5746,7570 @@ source ~/.bashrc   # 立即生效
 14. 用 `tar -xzvf mydata.tar.gz` 解压到当前目录（先移到别处测试）。
 
 15. 用 `history | tail -10` 查看最近 10 条历史命令。
+
+### 第二课：文本编辑、软件包管理、用户与组、环境配置、定时任务
+
+本课目标：
+
+- 掌握两种文本编辑器：nano（新手友好）和 vim（专业必备，三种模式）
+
+- 会用 apt 包管理器安装、更新、卸载软件
+
+- 理解用户和组的概念，会添加/删除用户和组
+
+- 配置全局和用户级环境变量（/etc/profile, ~/.bashrc）
+
+- 创建和管理别名（alias）简化常用命令
+
+- 掌握 crontab 定时任务（分钟、小时、天、月、周）
+
+---
+
+#### 1. 文本编辑器 —— nano（最简单，适合新手）
+
+nano 是 Ubuntu 默认安装的轻量编辑器，所有操作都有底部提示。
+
+**打开/创建文件**：
+
+```bash
+nano 文件名
+nano script.sh
+```
+
+**常用快捷键（底部 `^` 表示 Ctrl 键）**：
+
+| 快捷键 | 作用 |
+|--------|------|
+| `Ctrl + O` | 保存文件（然后按 Enter 确认文件名） |
+| `Ctrl + X` | 退出（如果有未保存修改会提示是否保存） |
+| `Ctrl + K` | 剪切当前行 |
+| `Ctrl + U` | 粘贴（取消剪切） |
+| `Ctrl + W` | 查找文本 |
+| `Ctrl + A` | 跳到行首 |
+| `Ctrl + E` | 跳到行尾 |
+| `Alt + A` | 设置标记（开始选择） |
+| `Alt + 6` | 复制选中部分 |
+| `Ctrl + G` | 显示帮助（所有快捷键列表） |
+
+**适用场景**：快速修改配置文件、写短脚本。
+
+---
+
+#### 2. 文本编辑器 —— vim（功能强大，必须掌握基础）
+
+vim 是 Linux 最强大的编辑器之一，但学习曲线较陡。只需要学会三种模式和基本操作即可。
+
+**安装 vim**（若未安装）：
+
+```bash
+sudo apt install vim -y
+```
+
+**打开/创建文件**：
+
+```bash
+vim 文件名
+```
+
+**三种模式（核心概念）**：
+
+| 模式 | 说明 | 进入方式 | 退出方式 |
+|------|------|----------|----------|
+| **普通模式（Normal）** | 默认，用于移动光标、删除、复制、粘贴 | 按 `Esc`（任何模式按 Esc 回到普通） | - |
+| **插入模式（Insert）** | 输入文字（类似记事本） | 按 `i`（光标前插入）、`a`（光标后插入）、`o`（下一行插入） | 按 `Esc` 回到普通模式 |
+| **命令行模式（Cmdline）** | 保存、退出、搜索、替换 | 在普通模式按 `:` | 按 `Enter` 执行，按 `Esc` 取消 |
+
+**普通模式常用操作（光标移动）**：
+
+| 按键 | 作用 |
+|------|------|
+| `h` | 左移一格 |
+| `j` | 下移一行 |
+| `k` | 上移一行 |
+| `l` | 右移一格 |
+| `0` | 跳到行首 |
+| `$` | 跳到行尾 |
+| `gg` | 跳到文件开头 |
+| `G` | 跳到文件末尾 |
+| `Ctrl + f` | 向下翻页 |
+| `Ctrl + b` | 向上翻页 |
+
+**普通模式常用操作（编辑）**：
+
+| 按键 | 作用 |
+|------|------|
+| `x` | 删除光标所在字符 |
+| `dd` | 删除当前行 |
+| `yy` | 复制当前行 |
+| `p` | 粘贴到光标下一行 |
+| `u` | 撤销（undo） |
+| `Ctrl + r` | 重做（redo） |
+| `v` | 进入可视模式（选择文本），然后 `y` 复制，`d` 删除 |
+
+**命令行模式（按 `:` 后输入）**：
+
+| 命令 | 作用 |
+|------|------|
+| `:w` | 保存 |
+| `:q` | 退出 |
+| `:wq` | 保存并退出 |
+| `:q!` | 强制退出（不保存） |
+| `:w 新文件名` | 另存为 |
+| `:/关键词` | 向下搜索关键词（按 `n` 下一个，`N` 上一个） |
+| `:?关键词` | 向上搜索 |
+| `:%s/旧/新/g` | 全文替换所有匹配 |
+| `:set nu` | 显示行号 |
+| `:set nonu` | 隐藏行号 |
+
+**vim 速记口诀**：`i` 插入，`Esc` 退出，`:` 命令，`wq` 保存退出。
+
+---
+
+#### 3. 软件包管理 —— apt（Ubuntu 的核心包管理）
+
+apt 是 Debian/Ubuntu 系列的包管理器，从软件源中安装、更新、卸载软件。
+
+**更新软件源列表**（每次安装前建议执行）：
+
+```bash
+sudo apt update
+```
+
+**升级所有已安装的软件包**：
+
+```bash
+sudo apt upgrade -y          # -y 表示自动确认
+sudo apt full-upgrade -y     # 更彻底升级（会处理依赖变更）
+```
+
+**搜索软件包**：
+
+```bash
+apt search 关键词
+apt search python
+```
+
+**查看软件包信息**：
+
+```bash
+apt show 包名
+```
+
+**安装软件包**：
+
+```bash
+sudo apt install 包名 -y
+sudo apt install python3-pip git vim -y
+```
+
+**卸载软件包**：
+
+```bash
+sudo apt remove 包名          # 卸载但保留配置文件
+sudo apt purge 包名           # 完全卸载（删除配置文件）
+sudo apt autoremove           # 清理不再需要的依赖包
+```
+
+**查看已安装的包**：
+
+```bash
+apt list --installed | grep 关键词
+dpkg -l | grep 关键词
+```
+
+**apt 常用组合速查表**：
+
+| 操作 | 命令 |
+|------|------|
+| 更新源列表 | `sudo apt update` |
+| 升级所有包 | `sudo apt upgrade -y` |
+| 安装软件 | `sudo apt install 包名` |
+| 卸载 | `sudo apt remove 包名` |
+| 搜索 | `apt search 关键词` |
+| 查看信息 | `apt show 包名` |
+| 清理依赖 | `sudo apt autoremove` |
+
+---
+
+#### 4. 用户和组管理
+
+Linux 是多用户系统，每个用户有自己的家目录和权限。
+
+**用户管理常用命令**：
+
+| 命令 | 作用 | 示例 |
+|------|------|------|
+| `whoami` | 显示当前用户 | `whoami` |
+| `id` | 显示用户 ID 和组 ID | `id` → uid=1000(user) gid=1000(user) |
+| `useradd -m 用户名` | 创建新用户（同时创建家目录） | `sudo useradd -m john` |
+| `passwd 用户名` | 设置/修改用户密码 | `sudo passwd john` |
+| `usermod -aG 组 用户` | 将用户添加到组（追加） | `sudo usermod -aG sudo john` |
+| `userdel -r 用户名` | 删除用户（连同家目录） | `sudo userdel -r john` |
+| `su - 用户名` | 切换到该用户 | `su - john` |
+| `exit` | 退出当前用户 | `exit` |
+
+**组管理常用命令**：
+
+| 命令 | 作用 | 示例 |
+|------|------|------|
+| `groupadd 组名` | 创建组 | `sudo groupadd bio` |
+| `groupdel 组名` | 删除组 | `sudo groupdel bio` |
+| `groups 用户名` | 查看用户所属组 | `groups john` |
+| `gpasswd -d 用户 组` | 从组中移除用户 | `sudo gpasswd -d john bio` |
+
+**常见系统组**：
+
+| 组名 | 权限 |
+|------|------|
+| `sudo` | 可以使用 sudo 执行管理员命令 |
+| `root` | 最高权限组（慎用） |
+| `adm` | 可读取系统日志 |
+| `www-data` | Web 服务器组 |
+| `docker` | 允许运行 Docker 命令 |
+
+**切换到 root（慎用）**：
+
+```bash
+sudo -i          # 进入 root 交互式 shell
+# 提示符会从 $ 变成 #
+exit             # 退出 root
+```
+
+---
+
+#### 5. 环境配置 —— /etc/profile 与 ~/.bashrc
+
+**两个重要文件**：
+
+| 文件 | 作用范围 | 生效时机 |
+|------|----------|----------|
+| `/etc/profile` | 系统全局（所有用户） | 用户登录时 |
+| `~/.bashrc` | 当前用户（每个用户独立） | 每次打开新终端（非登录 shell） |
+| `~/.profile` | 当前用户 | 登录时（比 .bashrc 早） |
+
+**修改 ~/.bashrc 添加自定义环境变量和别名**：
+
+```bash
+nano ~/.bashrc
+```
+
+在文件末尾添加：
+
+```bash
+# 自定义别名
+alias ll='ls -la'
+alias gs='git status'
+alias gpl='git pull'
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# 环境变量
+export MY_DATA="/home/user/data"
+export PATH="$PATH:/home/user/my_scripts"
+
+# 自定义提示符（可选）
+export PS1="\u@\h \w \$ "   # user@hostname 当前路径
+```
+
+**使修改生效**（无需重新登录）：
+
+```bash
+source ~/.bashrc
+# 或
+. ~/.bashrc
+```
+
+**查看所有环境变量**：
+
+```bash
+env
+echo $PATH
+echo $MY_DATA
+```
+
+**添加自定义脚本目录到 PATH**：
+
+```bash
+mkdir -p ~/bin
+# 将脚本放入 ~/bin，然后加到 PATH
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+之后放在 `~/bin` 下的可执行脚本可以直接输入文件名运行。
+
+---
+
+#### 6. 别名（alias）速查表
+
+| 命令 | 作用 |
+|------|------|
+| `alias` | 查看当前所有别名 |
+| `alias 名字='命令'` | 临时设置别名（仅当前终端） |
+| `unalias 名字` | 删除别名 |
+
+**常用实用别名（建议加进 ~/.bashrc）**：
+
+```bash
+alias ll='ls -alh'
+alias la='ls -A'
+alias l='ls -CF'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias grep='grep --color=auto'
+alias mkdir='mkdir -p'
+alias rm='rm -i'          # 删除前确认
+alias cp='cp -i'          # 覆盖前确认
+alias mv='mv -i'
+alias df='df -h'
+alias du='du -h'
+alias free='free -m'
+alias psg='ps aux | grep'
+```
+
+---
+
+#### 7. 定时任务 —— crontab
+
+crontab 是 Linux 的定时任务调度器，可以按分钟、小时、天、周、月执行命令。
+
+**编辑当前用户的定时任务**：
+
+```bash
+crontab -e
+```
+
+第一次运行会提示选择编辑器（选 nano 或 vim）。
+
+**查看当前用户的定时任务**：
+
+```bash
+crontab -l
+```
+
+**删除所有定时任务**：
+
+```bash
+crontab -r
+```
+
+**crontab 时间格式（5 个字段）**：
+
+```
+分钟 小时 日 月 周 命令
+ *    *   *  *  *  command
+```
+
+| 字段 | 取值范围 | 说明 |
+|------|----------|------|
+| 分钟 | 0-59 | - |
+| 小时 | 0-23 | - |
+| 日 | 1-31 | - |
+| 月 | 1-12 | - |
+| 周 | 0-7（0 和 7 都表示周日） | - |
+
+**特殊符号**：
+
+| 符号 | 含义 | 示例 |
+|------|------|------|
+| `*` | 任意值 | `* * * * *`（每分钟） |
+| `,` | 列举多个值 | `1,15,30 * * * *`（每小时的第1、15、30分钟） |
+| `-` | 范围 | `1-5 * * * *`（每小时的第1到5分钟） |
+| `/n` | 每隔 n 单位 | `*/5 * * * *`（每5分钟） |
+| `@reboot` | 系统启动时执行一次 | `@reboot /path/to/script` |
+
+**常用 crontab 示例**：
+
+| 需求 | 表达式 |
+|------|--------|
+| 每天凌晨 2:30 备份 | `30 2 * * * /home/user/backup.sh` |
+| 每周一早上 8:00 清理日志 | `0 8 * * 1 /home/user/clean_logs.sh` |
+| 每小时的第 15 分钟运行 | `15 * * * * /path/to/script` |
+| 每 10 分钟运行一次 | `*/10 * * * * /path/to/script` |
+| 每月 1 日凌晨 3:00 统计 | `0 3 1 * * /path/to/stats.sh` |
+| 每天上午 9:00 到 17:00 每半小时运行 | `*/30 9-17 * * * /path/to/script` |
+
+**crontab 日志查看**（确认任务是否执行）：
+
+```bash
+grep CRON /var/log/syslog | tail -20
+# 或在 Ubuntu 20.04+ 用 journalctl
+sudo journalctl -u cron | tail -20
+```
+
+**crontab 注意事项**：
+
+- 命令必须使用**绝对路径**（如 `/usr/bin/python3` 而非 `python3`）
+- 脚本要有执行权限（`chmod +x`）
+- 可以在 crontab 中设置 PATH：`PATH=/usr/local/bin:/usr/bin:/bin`
+- 输出会发送到邮箱（默认）/dev/null 丢弃：`* * * * * /path/script > /dev/null 2>&1`
+
+---
+
+#### 8. 实用组合：定时备份脚本 + crontab
+
+创建备份脚本 `~/backup.sh`：
+
+```bash
+#!/bin/bash
+# 备份家目录下的 Documents 文件夹
+DATE=$(date +%Y%m%d_%H%M%S)
+tar -czf /tmp/backup_$DATE.tar.gz /home/user/Documents
+echo "备份完成: /tmp/backup_$DATE.tar.gz"
+```
+
+赋予执行权限：
+
+```bash
+chmod +x ~/backup.sh
+```
+
+添加到 crontab（每天凌晨 3:00 执行）：
+
+```bash
+crontab -e
+# 添加一行
+0 3 * * * /home/user/backup.sh > /dev/null 2>&1
+```
+
+---
+
+#### 9. 常用系统服务管理（systemctl）
+
+Ubuntu 使用 systemd 管理服务（后台守护进程）。
+
+| 操作 | 命令 |
+|------|------|
+| 查看所有服务状态 | `systemctl status` |
+| 查看特定服务状态 | `systemctl status ssh` |
+| 启动服务 | `sudo systemctl start ssh` |
+| 停止服务 | `sudo systemctl stop ssh` |
+| 重启服务 | `sudo systemctl restart ssh` |
+| 设置开机自启 | `sudo systemctl enable ssh` |
+| 禁用开机自启 | `sudo systemctl disable ssh` |
+| 查看所有已启用服务 | `systemctl list-unit-files --type=service --state=enabled` |
+
+---
+
+#### 10. 常见错误及解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `sudo: command not found` | 在非 Debian 系统或未安装 sudo | 用 `su -` 切换到 root 执行 |
+| `useradd: user 'xxx' already exists` | 用户已存在 | 用 `id xxx` 检查，或用 `userdel` 删除 |
+| `Permission denied (publickey)` | SSH 密钥认证失败 | 检查 `~/.ssh/authorized_keys` 或使用密码登录 |
+| `crontab: no crontab for user` | 用户没有 crontab | 用 `crontab -e` 创建 |
+| `Command not found` 在 crontab 中 | 环境变量不同，PATH 不同 | 命令写绝对路径，或在 crontab 开头设置 `PATH=...` |
+| `E212: Can't open file for writing` | vim 中文件只读或无权限 | 用 `:w !sudo tee %` 保存（需 sudo） |
+| apt 安装时 `Unable to lock directory` | 有其他 apt 进程运行 | 等一会，或 `sudo rm /var/lib/dpkg/lock-frontend`（慎用） |
+
+---
+
+#### 11. 本课核心命令速记表
+
+| 类别 | 命令 |
+|------|------|
+| 编辑（nano） | `nano 文件`, `Ctrl+O` 保存, `Ctrl+X` 退出 |
+| 编辑（vim） | `vim 文件`, `i` 插入, `Esc`, `:wq` 保存退出 |
+| 包管理 | `sudo apt update`, `sudo apt install 包`, `sudo apt remove 包` |
+| 用户管理 | `sudo useradd -m 用户`, `sudo passwd 用户`, `sudo userdel -r 用户` |
+| 组管理 | `sudo groupadd 组`, `usermod -aG 组 用户` |
+| 环境配置 | `nano ~/.bashrc`, `source ~/.bashrc`, `export PATH=...` |
+| 别名 | `alias 名字='命令'`, `unalias` |
+| 定时任务 | `crontab -e`, `crontab -l`, `crontab -r` |
+| 服务管理 | `systemctl status/start/stop/enable/disable` |
+
+---
+
+#### 12. 本课小结
+
+- **nano**：新手首选，底部有快捷键提示
+
+- **vim**：三种模式（普通/插入/命令行），掌握 `i` / `Esc` / `:wq` 即可起步
+
+- **apt**：`update` 更新索引，`install` 安装，`remove` 卸载
+
+- **用户和组**：`useradd -m`、`passwd`、`usermod -aG`、`userdel -r`
+
+- **环境配置**：`~/.bashrc` 存放别名和 PATH，修改后 `source`
+
+- **定时任务**：crontab 格式 `分 时 日 月 周 命令`，用绝对路径
+
+---
+
+#### 13. 课后练习
+
+1. 用 nano 创建 `hello.txt`，输入 "Hello Linux"，保存退出，再用 cat 查看内容。
+
+2. 用 vim 创建 `script.sh`，内容为 `#!/bin/bash` + `echo "Hello from vim"`，保存退出，用 `chmod +x` 使其可执行，运行它。
+
+3. 用 `apt search htop` 搜索 htop，然后用 `sudo apt install htop -y` 安装，运行 `htop` 查看进程（按 q 退出）。
+
+4. 创建一个新用户 `student`，设置密码，然后切换到该用户（`su - student`），查看当前路径。
+
+5. 将 `student` 用户添加到 `sudo` 组，切换回去测试 `sudo apt update` 是否能执行。
+
+6. 在 `~/.bashrc` 中添加别名 `ll='ls -alh'`，执行 `source ~/.bashrc`，输入 `ll` 验证。
+
+7. 设置一个 crontab 任务，每分钟向 `/tmp/log.txt` 追加当前时间（用 `date` 命令），观察 3 分钟，然后用 `crontab -l` 查看任务，最后删除该任务。
+
+8. 用 `tar` 将 `/home/student` 目录压缩为 `backup.tar.gz`，存放到 `/tmp`。
+
+
+### 第三课：Shell 脚本编程、进程管理进阶、网络配置与 SSH 远程连接
+
+本课目标：
+
+- 编写 Shell 脚本（shebang、变量、特殊变量、算术运算）
+
+- 掌握条件判断（test 命令、[ ]、if / elif / else、case）
+
+- 掌握三种循环（for、while、until）
+
+- 定义和调用 Shell 函数
+
+- 理解进程后台运行（nohup、disown、&）
+
+- 使用 screen 或 tmux 管理长期运行的任务
+
+- 配置网络（查看 IP、测试连通性、下载文件）
+
+- 使用 SSH 远程连接服务器，配置免密登录（ssh-keygen）
+
+---
+
+#### 1. Shell 脚本基础（第一行必须写 shebang）
+
+**shebang（#!）** 指定脚本的解释器路径。
+
+```bash
+#!/bin/bash
+# 这是注释，以 # 开头
+echo "Hello World"
+```
+
+**创建并运行脚本的完整步骤**：
+
+```bash
+nano myscript.sh
+# 写入上面的内容
+chmod +x myscript.sh
+./myscript.sh          # 或 bash myscript.sh
+```
+
+**脚本中的变量**：
+
+| 变量类型 | 写法 | 示例 |
+|----------|------|------|
+| 用户自定义变量 | `变量名=值`（等号两边不能有空格） | `name="BRCA1"` |
+| 引用变量 | `$变量名` 或 `${变量名}` | `echo $name` |
+| 命令输出赋值 | `变量=$(命令)` 或 `变量=`命令`` | `date=$(date)` |
+| 环境变量 | `export 变量名=值` | `export PATH=$PATH:/opt/bin` |
+
+**特殊变量（脚本运行时自动获得）**：
+
+| 变量 | 含义 | 示例 |
+|------|------|------|
+| `$0` | 脚本本身的名称 | `./myscript.sh` |
+| `$1, $2, ...` | 第 1、2... 个参数 | `./myscript.sh arg1 arg2` 则 `$1=arg1` |
+| `$#` | 参数个数 | `2` |
+| `$@` | 所有参数（每个独立） | `"arg1" "arg2"` |
+| `$*` | 所有参数（合并为一个字符串） | `"arg1 arg2"` |
+| `$?` | 上一条命令的退出状态（0=成功，非0=失败） | `echo $?` |
+| `$$` | 当前脚本的进程 ID（PID） | 打印 `1234` |
+
+**算术运算（$(( ))）**：
+
+```bash
+a=10
+b=20
+sum=$((a + b))
+echo $sum   # 30
+
+# 其他运算符：+ - * / %（取余） **（幂）
+echo $((5 * 6))   # 30
+echo $((10 / 3))  # 3（整除）
+echo $((10 % 3))  # 1
+```
+
+**字符串操作**：
+
+| 操作 | 语法 | 示例 |
+|------|------|------|
+| 拼接 | 直接放在一起 | `str="Hello"` + `str2="$str World"` |
+| 长度 | `${#变量}` | `echo ${#str}` → 5 |
+| 切片 | `${变量:起始:长度}` | `echo ${str:1:3}` → `ell` |
+| 替换 | `${变量/旧/新}`（首次）或 `${变量//旧/新}`（全部） | `echo ${str/H/h}` → `hello` |
+
+---
+
+#### 2. 条件判断（test 和 [ ]）
+
+**test 命令**（等价于 `[ ]`）：
+
+```bash
+test 条件
+# 或
+[ 条件 ]   # 注意 [ 和 ] 两边必须有空格
+```
+
+**文件测试（常用）**：
+
+| 条件 | 含义 | 示例 |
+|------|------|------|
+| `-e 文件` | 文件存在 | `[ -e /etc/passwd ]` |
+| `-f 文件` | 是普通文件 | `[ -f myscript.sh ]` |
+| `-d 目录` | 是目录 | `[ -d /home ]` |
+| `-r 文件` | 可读 | `[ -r file.txt ]` |
+| `-w 文件` | 可写 | `[ -w file.txt ]` |
+| `-x 文件` | 可执行 | `[ -x script.sh ]` |
+| `-s 文件` | 文件非空 | `[ -s log.txt ]` |
+
+**数值比较**：
+
+| 条件 | 含义 | 示例 |
+|------|------|------|
+| `$a -eq $b` | 等于 | `[ $a -eq 10 ]` |
+| `$a -ne $b` | 不等于 | `[ $a -ne 5 ]` |
+| `$a -gt $b` | 大于 | `[ $a -gt 3 ]` |
+| `$a -ge $b` | 大于等于 | `[ $a -ge 4 ]` |
+| `$a -lt $b` | 小于 | `[ $a -lt 8 ]` |
+| `$a -le $b` | 小于等于 | `[ $a -le 6 ]` |
+
+**字符串比较**：
+
+| 条件 | 含义 | 示例 |
+|------|------|------|
+| `"$str1" = "$str2"` | 相等（等号两边有空格） | `[ "$name" = "BRCA1" ]` |
+| `"$str1" != "$str2"` | 不等 | `[ "$name" != "TP53" ]` |
+| `-z "$str"` | 字符串为空 | `[ -z "$var" ]` |
+| `-n "$str"` | 字符串非空 | `[ -n "$var" ]` |
+
+**逻辑组合**：
+
+| 操作符 | 含义 | 示例 |
+|--------|------|------|
+| `!` | 非 | `[ ! -f file.txt ]` |
+| `-a`（或用 `&&`） | 且（AND） | `[ $a -gt 5 -a $a -lt 10 ]` |
+| `-o`（或用 `||`） | 或（OR） | `[ $a -eq 0 -o $a -eq 1 ]` |
+
+在 `[ ]` 中用 `&&` 和 `||` 需用双括号 `[[ ]]`（bash 扩展）：
+
+```bash
+[[ $a -gt 5 && $a -lt 10 ]]
+```
+
+---
+
+#### 3. if / elif / else 结构
+
+```bash
+if 条件; then
+    命令块1
+elif 条件2; then
+    命令块2
+else
+    命令块3
+fi
+```
+
+**示例**：
+
+```bash
+#!/bin/bash
+read -p "输入 GC 含量: " gc
+if [ -z "$gc" ]; then
+    echo "您没有输入任何值"
+elif [ $gc -ge 60 ]; then
+    echo "高 GC 序列"
+elif [ $gc -ge 40 ]; then
+    echo "中等 GC 序列"
+else
+    echo "低 GC 序列"
+fi
+```
+
+**简写形式（一行 if）**：
+
+```bash
+[ -f file.txt ] && echo "文件存在"     # 条件为真时执行
+[ -f file.txt ] || echo "文件不存在"   # 条件为假时执行
+```
+
+---
+
+#### 4. case 语句（多分支匹配）
+
+```bash
+case $变量 in
+    模式1)
+        命令块1
+        ;;
+    模式2)
+        命令块2
+        ;;
+    *)
+        默认命令块
+        ;;
+esac
+```
+
+**示例**：
+
+```bash
+#!/bin/bash
+read -p "输入基因名: " gene
+case $gene in
+    BRCA1|BRCA2)
+        echo "乳腺癌相关基因"
+        ;;
+    TP53)
+        echo "肿瘤抑制基因"
+        ;;
+    *)
+        echo "其他基因"
+        ;;
+esac
+```
+
+---
+
+#### 5. 循环（for / while / until）
+
+**for 循环（遍历列表）**：
+
+```bash
+# 遍历固定列表
+for i in 1 2 3 4 5; do
+    echo "数字: $i"
+done
+
+# 遍历序列（用 {起始..结束}）
+for i in {1..10}; do
+    echo $i
+done
+
+# 遍历文件
+for file in *.txt; do
+    echo "找到: $file"
+done
+
+# C 风格 for（步长）
+for ((i=0; i<10; i+=2)); do
+    echo $i   # 0 2 4 6 8
+done
+```
+
+**while 循环（条件为真时执行）**：
+
+```bash
+count=0
+while [ $count -lt 5 ]; do
+    echo "计数: $count"
+    count=$((count + 1))
+done
+```
+
+**until 循环（条件为假时执行，直到为真）**：
+
+```bash
+count=0
+until [ $count -ge 5 ]; do
+    echo "计数: $count"
+    count=$((count + 1))
+done
+```
+
+**循环控制**：`break`（跳出循环），`continue`（跳过本次）。
+
+---
+
+#### 6. Shell 函数
+
+**定义与调用**：
+
+```bash
+# 定义
+函数名() {
+    命令块
+    return 返回值   # 可选，0-255
+}
+
+# 调用
+函数名
+函数名 参数1 参数2   # 在函数内用 $1, $2 接收
+```
+
+**示例**：
+
+```bash
+#!/bin/bash
+calc_gc() {
+    seq=$1
+    g=$(echo $seq | grep -o 'G' | wc -l)
+    c=$(echo $seq | grep -o 'C' | wc -l)
+    gc=$(( (g + c) * 100 / ${#seq} ))
+    echo $gc
+}
+
+# 调用
+result=$(calc_gc "ATCGATCG")
+echo "GC 含量: $result%"
+```
+
+**函数变量作用域**：默认全局。用 `local` 声明局部变量：
+
+```bash
+my_func() {
+    local temp_var="只在函数内可见"
+    echo $temp_var
+}
+```
+
+---
+
+#### 7. 进程后台运行（&、nohup、disown）
+
+**& —— 后台运行**：
+
+```bash
+python long_task.py &
+# 输出 [1] 1234（[job_id] PID）
+```
+
+后台进程会随终端关闭而终止。
+
+**nohup —— 忽略挂断信号（终端关闭后继续运行）**：
+
+```bash
+nohup python long_task.py &
+# 输出 nohup.out 保存所有输出
+nohup python long_task.py > output.log 2>&1 &
+```
+
+`2>&1` 表示将错误输出合并到标准输出。
+
+**disown —— 将后台进程从当前 Shell 的作业列表中移除（防止 Ctrl+D 退出时终止）**：
+
+```bash
+python long_task.py &
+disown %1   # 或 disown PID
+```
+
+**jobs —— 查看当前 Shell 的后台作业**：
+
+```bash
+jobs -l
+# 输出 [1] 1234 Running python long_task.py &
+```
+
+**fg / bg —— 前后台切换**：
+
+```bash
+fg %1      # 将作业 1 调回前台
+bg %1      # 将暂停的作业 1 放到后台继续运行
+```
+
+**kill —— 终止进程**：
+
+```bash
+kill PID          # 正常终止（SIGTERM）
+kill -9 PID       # 强制终止（SIGKILL）
+kill -15 PID      # 同默认
+kill -STOP PID    # 暂停进程
+kill -CONT PID    # 恢复暂停的进程
+```
+
+---
+
+#### 8. screen 和 tmux（终端复用器，SSH 断开后任务仍运行）
+
+**screen（老牌，默认预装较少，需安装）**：
+
+```bash
+sudo apt install screen -y
+```
+
+| 操作 | 命令 |
+|------|------|
+| 创建新 screen 会话 | `screen -S 会话名` |
+| 列出所有会话 | `screen -ls` |
+| 脱离当前会话（保留后台） | `Ctrl + A, 然后按 D`（先按 Ctrl+A，松开再按 D） |
+| 恢复会话 | `screen -r 会话名` |
+| 杀死会话 | `screen -X -S 会话名 quit` |
+| 在 screen 中滚屏 | `Ctrl + A, 然后按 Esc`（用上下方向键滚动，再按 Esc 退出） |
+
+**tmux（更现代，功能更强大）**：
+
+```bash
+sudo apt install tmux -y
+```
+
+| 操作 | 命令 |
+|------|------|
+| 创建新会话 | `tmux new -s 会话名` |
+| 列出会话 | `tmux ls` |
+| 脱离会话 | `Ctrl + B, 然后按 D` |
+| 恢复会话 | `tmux attach -t 会话名` |
+| 水平分屏 | `Ctrl + B, 然后按 %` |
+| 垂直分屏 | `Ctrl + B, 然后按 "` |
+| 切换窗格 | `Ctrl + B, 然后按方向键` |
+| 关闭当前窗格 | `Ctrl + B, 然后按 X`（或直接 `exit`） |
+| 杀死会话 | `tmux kill-session -t 会话名` |
+| 查看所有快捷键 | `Ctrl + B, 然后按 ?` |
+
+**screen/tmux 的典型工作流**：
+
+```bash
+# 通过 SSH 连接到服务器
+ssh user@server
+
+# 启动 tmux
+tmux new -s bio
+
+# 运行长时间任务（如 BLAST 或 Python 脚本）
+python large_analysis.py
+
+# 按 Ctrl+B, D 脱离会话，关闭 SSH 连接
+
+# 第二天重新 SSH 连接，恢复
+tmux attach -t bio
+# 任务仍在运行
+```
+
+---
+
+#### 9. 网络配置与查看
+
+**查看 IP 地址**：
+
+| 命令 | 说明 |
+|------|------|
+| `ip addr` | 现代推荐，显示所有网络接口 |
+| `ip a` | 简写 |
+| `ifconfig` | 旧命令（需安装 net-tools） |
+| `hostname -I` | 显示所有 IP 地址（仅数字） |
+
+**启用/禁用网络接口**：
+
+```bash
+sudo ip link set eth0 up      # 启用
+sudo ip link set eth0 down    # 禁用
+```
+
+**查看路由表**：
+
+```bash
+ip route
+# 或 route -n
+```
+
+**测试网络连通性**：
+
+```bash
+ping -c 4 8.8.8.8           # 发送 4 个包
+ping -c 4 google.com
+```
+
+**查看端口监听**：
+
+```bash
+ss -tulpn                   # 显示所有 TCP/UDP 端口
+netstat -tulpn              # 传统命令
+```
+
+**下载文件**：
+
+```bash
+wget https://example.com/file.zip
+wget -O newname.zip https://example.com/file.zip   # 指定保存名
+curl -O https://example.com/file.zip               # -O 保存为原文件名
+curl -L https://example.com/download               # -L 跟随重定向
+```
+
+**发送 HTTP 请求（测试 API）**：
+
+```bash
+curl https://api.example.com/data
+curl -X POST -H "Content-Type: application/json" -d '{"id":"BRCA1"}' https://api.example.com/add
+```
+
+---
+
+#### 10. SSH 远程连接（远程登录其他 Linux 机器）
+
+**基本连接**：
+
+```bash
+ssh 用户名@IP地址
+ssh user@192.168.1.100
+ssh user@server.domain.com -p 2222   # 指定端口（默认 22）
+```
+
+**执行远程命令（不登录）**：
+
+```bash
+ssh user@server 'ls -la /home'
+```
+
+**安全拷贝（scp）**：
+
+```bash
+# 本地 → 远程
+scp local_file.txt user@server:/home/user/
+scp -r local_folder/ user@server:/home/user/   # 递归目录
+
+# 远程 → 本地
+scp user@server:/home/user/file.txt ./
+```
+
+**SSH 免密登录（ssh-keygen 生成密钥对）**：
+
+```bash
+# 1. 在客户端生成密钥对（一路回车，不设密码）
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+# 生成 ~/.ssh/id_rsa（私钥）和 ~/.ssh/id_rsa.pub（公钥）
+
+# 2. 将公钥复制到服务器
+ssh-copy-id user@server
+# 或手动复制（将 id_rsa.pub 内容追加到服务器 ~/.ssh/authorized_keys）
+
+# 3. 之后 ssh 登录不再需要密码
+ssh user@server
+```
+
+**SSH 配置文件（简化连接）**：创建 `~/.ssh/config`
+
+```
+Host myserver
+    HostName 192.168.1.100
+    User myname
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+```
+
+之后只需 `ssh myserver`。
+
+---
+
+#### 11. 防火墙基础（ufw）
+
+Ubuntu 默认使用 ufw（Uncomplicated Firewall）：
+
+```bash
+sudo ufw status                  # 查看状态
+sudo ufw enable                  # 启用防火墙
+sudo ufw disable                 # 禁用
+sudo ufw allow 22                # 允许 SSH 端口
+sudo ufw allow 80/tcp            # 允许 HTTP
+sudo ufw allow 443/tcp           # 允许 HTTPS
+sudo ufw allow from 192.168.1.0/24 to any port 22   # 只允许特定网段 SSH
+sudo ufw delete allow 80         # 删除规则
+```
+
+---
+
+#### 12. 常见错误及解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `./script.sh: Permission denied` | 脚本没有执行权限 | `chmod +x script.sh` |
+| `syntax error near unexpected token` | if/for 等语句语法错误（漏了 `;` 或 `then`） | 检查 `if [条件]; then`，注意分号 |
+| `command not found`（在 crontab 中） | 环境 PATH 不同 | 使用绝对路径，或在脚本开头 `source ~/.bashrc` |
+| SSH 连接超时 | 服务器防火墙阻挡或 IP 不通 | 检查 `ufw` 状态，确认端口开放 |
+| `Permission denied (publickey)` | 公钥未添加到服务器 | 运行 `ssh-copy-id` 或手动追加到 `~/.ssh/authorized_keys` |
+| screen: command not found | screen 未安装 | `sudo apt install screen -y` |
+| tmux: command not found | tmux 未安装 | `sudo apt install tmux -y` |
+| `bash: syntax error: unexpected end of file` | if 或 case 没有对应的 `fi` / `esac` | 检查结尾标记 |
+| 脚本中变量不生效 | 赋值时等号两边有空格 | 改为 `var=value`（无空格） |
+
+---
+
+#### 13. 本课核心命令速记表
+
+| 类别 | 命令/语法 |
+|------|-----------|
+| 脚本开头 | `#!/bin/bash` |
+| 变量赋值 | `var=value`，引用 `$var` |
+| 算术运算 | `$((a + b))` |
+| 条件测试 | `[ -f file ]`、`[ $a -eq $b ]`、`[ -z "$str" ]` |
+| if 结构 | `if [条件]; then ...; elif ...; else ...; fi` |
+| for 循环 | `for i in {1..10}; do ...; done` |
+| while 循环 | `while [条件]; do ...; done` |
+| 函数 | `func() { ...; }` |
+| 后台运行 | `命令 &`，`nohup 命令 &` |
+| screen | `screen -S name`、`Ctrl+A D`、`screen -r name` |
+| tmux | `tmux new -s name`、`Ctrl+B D`、`tmux attach -t name` |
+| SSH | `ssh user@host`、`scp`、`ssh-keygen`、`ssh-copy-id` |
+| 防火墙 | `sudo ufw allow 端口`、`sudo ufw enable` |
+
+---
+
+#### 14. 本课小结
+
+- Shell 脚本 = 将命令写进文件，加上 shebang 和权限即可运行
+
+- 条件判断用 `[ ]`（注意空格），循环用 `for`/`while`，函数用 `函数名() { }`
+
+- 后台运行：`&`（终端关闭会停），`nohup`（终端关闭不停），`screen`/`tmux`（可恢复会话）
+
+- SSH 是远程管理的核心工具，`ssh-keygen` + `ssh-copy-id` 实现免密登录
+
+- ufw 管理简单防火墙规则
+
+---
+
+#### 15. 课后练习
+
+1. 写一个 Shell 脚本 `greet.sh`，接受一个名字作为参数（`$1`），输出 "Hello, 名字"。
+
+2. 写一个脚本 `file_type.sh`，接受一个文件名作为参数，判断并输出：是普通文件、目录、还是不存在。
+
+3. 写一个 `sum_n.sh` 脚本，用 `for` 循环计算 1 到 100 的和，输出结果。
+
+4. 写一个函数 `reverse_seq`，接受 DNA 序列字符串作为参数，用 `rev` 命令（或手动循环）输出反向序列。
+
+5. 使用 `nohup` 运行一个睡眠命令 `sleep 300 &`，然后关闭终端再重新打开，用 `ps aux | grep sleep` 确认它还在运行。
+
+6. 安装 tmux，创建一个名为 `test` 的会话，在其中运行 `top`，然后脱离，重新连接确认会话恢复。
+
+7. 生成 SSH 密钥对（`ssh-keygen`），然后将公钥添加到本机的 `~/.ssh/authorized_keys`（模拟免密登录本机），测试 `ssh localhost` 是否免密。
+
+8. 用 `scp` 将本机的一个文件复制到远程服务器（如果有条件），或从远程下载一个文件到本地。
+
+### 第四课：AidLux —— 在安卓平板/手机上运行原生 Ubuntu
+
+本课目标：
+
+- 理解 AidLux 是什么（Android + Linux 融合系统）
+
+- 在安卓平板/手机上安装 AidLux
+
+- 完成首次启动配置
+
+- 进入 AidLux 的 Linux 终端
+
+- 使用 apt 安装软件（与 Ubuntu 完全一致）
+
+- 通过浏览器或 SSH 远程访问 AidLux
+
+- 掌握 AidLux 的默认账号密码、sudo 密码
+
+---
+
+#### 1. AidLux 是什么
+
+AidLux 是成都阿加犀智能科技开发的端侧 AI 开发平台[reference:0][reference:1]。它通过共享 Android 底层的 Linux 内核，在安卓设备上构建了一个**完整的原生 Linux 环境**（默认是 Ubuntu），与 Android 系统同时运行，**无需虚拟机，无需重启即可切换**[reference:2][reference:3][reference:4]。
+
+**一句话理解**：在平板上安装 AidLux App，打开后你就拥有了一台带图形界面的 Ubuntu 电脑。
+
+**核心特点**：
+
+| 特点 | 说明 |
+|------|------|
+| 原生 Linux 内核 | 基于 Android 底层 Linux kernel 构建，非虚拟机[reference:6] |
+| 图形化桌面 | 提供 Ubuntu 桌面环境（可通过触摸屏或浏览器访问）[reference:7] |
+| 完整命令行 | 支持 `apt`、`vim`、`ssh`、`git` 等所有 Ubuntu 命令[reference:8] |
+| AI 工具预装 | 预装 Python、OpenCV、PyTorch、TensorFlow 等[reference:9] |
+| 支持开发工具 | VSCode、Jupyter Notebook、PyCharm 等[reference:10] |
+
+---
+
+#### 2. 安装 AidLux
+
+**系统要求**：
+
+| 要求 | 最低配置 |
+|------|----------|
+| Android 版本 | ≥ 6.0.1[reference:11] |
+| CPU 架构 | arm64-v8a[reference:12][reference:13] |
+| 剩余存储空间 | > 3GB[reference:14] |
+
+**安装方式（三选一）**：
+
+| 方式 | 操作 |
+|------|------|
+| 应用商店 | 华为、联想、小米等应用商店搜索 "AidLux" 下载[reference:15][reference:16] |
+| 官网 APK | 从 AidLux 开发者社区下载 APK 安装[reference:17][reference:18] |
+| 开发板预装 | 部分开发板出厂已预装，无需安装[reference:19] |
+
+**安装步骤**：
+
+```bash
+# 1. 在应用商店搜索 "AidLux"，点击下载安装
+# 2. 若从官网下载 APK，在安卓设置中允许"未知来源应用"安装
+# 3. 安装完成后，桌面出现 AidLux 图标
+```
+
+> **注意**：若安装时提示 `Permission denied`，先卸载旧版本，重启手机后再安装[reference:20]。
+
+---
+
+#### 3. 首次启动与初始化
+
+1. 点击 AidLux 图标打开 App
+
+2. 可以不登录，同意协议后跳过[reference:21]
+
+3. App 会自动下载并解压 Linux 环境（约需几分钟，进度条到 100% 即完成）[reference:22]
+
+4. 初始化完成后，进入 AidLux 主界面
+
+**界面布局**：
+
+- 顶部：桌面环境（类似 Ubuntu 图形界面）
+
+- 底部：功能图标（终端、文件管理器、应用中心、设置等）
+
+---
+
+#### 4. 进入 Linux 终端（核心操作）
+
+AidLux 提供三种方式进入 Linux 终端：
+
+**方式一：App 内直接打开（最常用）**
+
+在 AidLux 主界面，点击底部第一个图标 **"终端"**，即可进入命令行[reference:23]。
+
+**方式二：浏览器远程访问（Web 桌面）**
+
+在平板或电脑的浏览器中输入：
+
+```
+http://平板的IP地址:8000
+```
+
+例如 `http://192.168.1.100:8000`[reference:24]。登录后点击桌面上的"终端"图标[reference:25]。
+
+**方式三：SSH 远程连接（从电脑连接平板）**
+
+确保平板和电脑在同一 Wi-Fi 下，在电脑终端执行：
+
+```bash
+ssh aidlux@平板的IP地址 -p 2222
+```
+
+例如：
+
+```bash
+ssh aidlux@192.168.1.100 -p 2222
+```
+
+默认密码：`aidlux`[reference:26][reference:27]。
+
+---
+
+#### 5. 默认账号密码（必须记住）
+
+| 项目 | 账号/密码 |
+|------|-----------|
+| 登录用户名 | `aidlux` |
+| 登录密码 | `aidlux`[reference:28] |
+| `sudo` 密码 | `aidlux`[reference:29] |
+| `su` 密码 | `P@ssw0rd4aidlux`[reference:30] |
+
+> **重要**：在终端输入密码时屏幕不会显示任何字符（包括 `*`），这是 Linux 的正常安全机制，**直接输入密码后按回车即可**[reference:31]。
+
+---
+
+#### 6. 终端操作体验（与 Ubuntu 完全一致）
+
+进入终端后，所有 Ubuntu 命令都可以使用：
+
+```bash
+# 查看当前用户
+whoami
+# 输出: aidlux
+
+# 查看系统信息
+uname -a
+
+# 查看 Ubuntu 版本
+lsb_release -a
+
+# 更新软件源
+sudo apt update
+
+# 安装软件（与 Ubuntu 完全相同）
+sudo apt install vim git python3-pip -y
+
+# 查看 IP 地址（用于远程访问）
+ip addr
+```
+
+**AidLux 终端的特殊优化**：
+
+- **Touch Bar**：底部提供 `Ctrl`、`Alt`、`Tab` 等虚拟按键，方便触屏操作
+
+- **多标签页**：支持同时开启多个终端标签页
+
+- **外接键盘**：连接蓝牙或 USB 键盘后自动适配[reference:34]
+
+---
+
+#### 7. 文件系统与路径
+
+AidLux 的 Linux 文件系统与 Ubuntu 一致，根目录是 `/`。
+
+**重要路径**：
+
+| 路径 | 说明 |
+|------|------|
+| `/home/aidlux` | 用户家目录（`~`） |
+| `/sdcard` | 安卓系统的内部存储（可访问平板文件） |
+| `/mnt` | 挂载点 |
+
+> **注意**：`/home/AidLux` 是 Web 远程桌面唯一有权限接收文件上传的目录[reference:35]。
+
+---
+
+#### 8. 图形化桌面环境
+
+AidLux 2.1.0 版本默认桌面环境从 Xfce 升级为 **Ubuntu-desktop**，提供更现代的 Linux 桌面体验[reference:37]。
+
+**桌面功能**：
+
+- 可通过触摸屏直接操作
+
+- 支持鼠标和键盘（USB 或蓝牙）
+
+- 可通过浏览器远程访问（`http://IP:8000`）
+
+- 内置应用中心，可安装常用软件
+
+---
+
+#### 9. 网络与远程访问
+
+**查看平板 IP 地址**：
+
+```bash
+ip addr
+# 或
+ifconfig
+```
+
+**从电脑浏览器访问 AidLux 桌面**：
+
+```
+http://平板IP:8000
+```
+
+默认用户名/密码：`aidlux`/`aidlux`[reference:39]。
+
+**从电脑 SSH 连接**：
+
+```bash
+ssh aidlux@平板IP -p 2222
+```
+
+密码：`aidlux`[reference:40]。
+
+**通过 ADB 连接（Windows）**：
+
+```bash
+adb root
+adb shell
+docker exec -it aidlux bash
+```
+
+然后即可进入 AidLux 的 Linux 终端[reference:41]。
+
+---
+
+#### 10. 常见问题与解决
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 安装时提示 `Permission denied` | 旧版本残留 | 卸载旧版，重启后重装[reference:42] |
+| 终端输入密码没反应 | Linux 正常安全机制 | 直接输入密码后回车[reference:43] |
+| `sudo` 密码错误 | 默认密码是 `aidlux` | 确认输入的是 `aidlux`[reference:44] |
+| Web 远程 8000 端口能访问但终端打不开 | nginx 服务异常 | 在终端执行 `sudo nginx`[reference:45] |
+| 无法访问 `/sdcard` | 权限问题 | 在安卓设置中授予 AidLux 存储权限[reference:46] |
+| 系统卡顿 | 资源占用高 | 关闭不必要的 Android 后台应用 |
+| 初始化进度卡住 | 网络问题或存储不足 | 检查 Wi-Fi 连接，确保有 >3GB 剩余空间[reference:47] |
+
+---
+
+#### 11. AidLux vs 原生 Ubuntu（对比）
+
+| 维度 | AidLux | 原生 Ubuntu（x86 PC） |
+|------|--------|----------------------|
+| 硬件 | 安卓手机/平板（ARM 架构） | x86 电脑 |
+| 安装方式 | 安装 APK | 制作启动盘安装 |
+| 图形界面 | 支持（Ubuntu-desktop） | 支持 |
+| 终端命令 | 完全一致 | 完全一致 |
+| `apt` 包管理 | ✅ | ✅ |
+| Python / pip | ✅ | ✅ |
+| 预装 AI 工具 | ✅（PyTorch、TensorFlow、OpenCV） | 需手动安装 |
+| 性能 | 受限于移动芯片 | 受限于 PC 硬件 |
+
+**结论**：AidLux 的终端体验与原生 Ubuntu **几乎完全一致**，附录 4 前三课的所有命令（`ls`、`cd`、`mkdir`、`apt`、`vim`、`chmod`、`crontab`、`ssh` 等）在 AidLux 中**全部通用**。
+
+---
+
+#### 12. 本课核心操作速查
+
+| 操作 | 命令/步骤 |
+|------|-----------|
+| 安装 AidLux | 应用商店搜索 "AidLux" 下载安装 |
+| 打开终端 | 点击 AidLux 桌面底部"终端"图标 |
+| 更新软件源 | `sudo apt update` |
+| 安装软件 | `sudo apt install 包名 -y` |
+| 查看 IP | `ip addr` |
+| 浏览器远程访问 | `http://平板IP:8000` |
+| SSH 远程连接 | `ssh aidlux@平板IP -p 2222` |
+| 默认密码 | `aidlux`（登录 + sudo） |
+| su 密码 | `P@ssw0rd4aidlux` |
+
+---
+
+#### 13. 本课小结
+
+- AidLux = 安卓 App + 原生 Ubuntu 环境，**非虚拟机，无性能损耗**
+
+- 终端命令与 Ubuntu **完全一致**，前三课所有内容通用
+
+- 三种进入终端的方式：App 内直接打开、浏览器 Web 桌面、SSH 远程
+
+- 默认账号密码：`aidlux`/`aidlux`，sudo 密码也是 `aidlux`
+
+- 支持 `apt` 安装任意 Linux 软件，与 PC 上的 Ubuntu 体验相同
+
+---
+
+#### 14. 课后练习
+
+1. 在你的安卓平板或手机上安装 AidLux（应用商店搜索下载）。
+
+2. 打开 AidLux，完成首次初始化（等待进度条到 100%）。
+
+3. 点击底部"终端"图标，进入命令行，执行 `whoami` 和 `pwd` 查看当前用户和目录。
+
+4. 执行 `sudo apt update && sudo apt install vim -y` 安装 vim。
+
+5. 用 `ip addr` 查看平板的 IP 地址。
+
+6. 在电脑浏览器中输入 `http://平板IP:8000`，用 `aidlux`/`aidlux` 登录 Web 桌面。
+
+7. 在 Web 桌面中打开终端，执行 `lsb_release -a` 查看 Ubuntu 版本。
+
+8. （选做）在电脑上用 SSH 连接平板：`ssh aidlux@平板IP -p 2222`。
+
+## 附录5
+
+### 第一课：人工智能原理 —— 从概率到智能
+
+本课目标：
+
+- 理解人工智能、机器学习、深度学习三者的层级关系
+
+- 掌握大语言模型的核心数学原理（概率、条件概率、贝叶斯）
+
+- 理解神经网络的基本结构（神经元、层、激活函数、反向传播）
+
+- 掌握大语言模型的训练流程（预训练、SFT、RLHF）
+
+- 理解 Transformer 的核心机制（注意力、位置编码）
+
+- 理解 Token、上下文窗口、参数量的概念
+
+- 掌握模型推理的基本过程（自回归生成）
+
+---
+
+#### 1. AI / ML / DL / LLM 层级关系
+
+| 层级 | 全称 | 说明 | 举例 |
+|------|------|------|------|
+| AI | 人工智能 | 让机器模拟人类智能的总称 | 所有智能系统 |
+| ML | 机器学习 | AI 的子集，从数据中学习规律 | 线性回归、决策树 |
+| DL | 深度学习 | ML 的子集，使用多层神经网络 | CNN、RNN、Transformer |
+| LLM | 大语言模型 | DL 在文本领域的特化应用 | ChatGPT、Qwen、DeepSeek |
+
+**一句话理解**：LLM ⊂ DL ⊂ ML ⊂ AI。
+
+---
+
+#### 2. 概率 —— 智能的数学基础
+
+智能的本质是**在不确定性下做决策**。概率就是描述不确定性的数学工具。
+
+**基本概率**：
+
+| 概念 | 公式 | 含义 |
+|------|------|------|
+| 概率 | P(A) = 事件A发生次数 / 总次数 | 某事件发生的可能性 |
+| 联合概率 | P(A,B) | A 和 B 同时发生 |
+| 条件概率 | P(A\|B) = P(A,B) / P(B) | 在 B 发生的条件下 A 发生的概率 |
+
+**示例**：在 DNA 序列中，P(A) = A 碱基出现的频率。P(G,C) 是 G 和 C 同时出现的概率。P(C\|G) 是在 G 后面出现 C 的概率。
+
+**大语言模型本质上是一个概率模型**：给定前文（上下文），预测下一个词（Token）的概率分布。
+
+```
+P(下一个词 | 前文) = ?
+```
+
+模型会为词汇表中每个词计算一个概率，然后选择概率最高的词（或按概率采样）。
+
+---
+
+#### 3. 条件概率与贝叶斯定理（LLM 的核心）
+
+**贝叶斯定理**：
+
+```
+P(A|B) = P(B|A) × P(A) / P(B)
+```
+
+**在 LLM 中的对应**：
+
+- P(下一个词 | 前文) —— 模型要计算的条件概率
+
+- 这本质上是贝叶斯推断：根据已有信息（前文）推断最可能的下一个词
+
+**链式法则（语言模型的基础）**：
+
+```
+P(w1, w2, ..., wn) = P(w1) × P(w2|w1) × P(w3|w1,w2) × ... × P(wn|w1,...,w_{n-1})
+```
+
+LLM 就是通过大量文本学习这些条件概率的模型。
+
+---
+
+#### 4. 神经网络基础 —— 神经元
+
+**单个神经元**：
+
+```
+输入 x1, x2, ..., xn
+权重 w1, w2, ..., wn
+偏置 b
+输出 = 激活函数( Σ(wi × xi) + b )
+```
+
+**激活函数（引入非线性）**：
+
+| 函数 | 公式 | 用途 |
+|------|------|------|
+| ReLU | max(0, x) | 隐藏层（最常用） |
+| Sigmoid | 1/(1+e^(-x)) | 二分类输出层 |
+| Softmax | e^xi / Σe^xj | 多分类输出层（LLM 输出层用这个） |
+
+**神经网络 = 多层神经元堆叠**：
+
+```
+输入层 → 隐藏层1 → 隐藏层2 → ... → 输出层
+```
+
+每层将上一层的输出通过权重矩阵变换后传入下一层。
+
+---
+
+#### 5. 训练 —— 模型如何学习
+
+**三步走**：
+
+| 阶段 | 名称 | 说明 |
+|------|------|------|
+| 1 | 前向传播 | 输入数据 → 网络 → 输出预测 |
+| 2 | 计算损失 | 比较预测与真实值，计算误差 |
+| 3 | 反向传播 | 将误差从输出层反向传回，更新权重 |
+
+**损失函数（衡量预测有多差）**：
+
+- 交叉熵损失（LLM 常用）：`Loss = -Σ y_true × log(y_pred)`
+
+**优化算法**：梯度下降（SGD、Adam 等），沿着损失函数下降的方向更新权重。
+
+---
+
+#### 6. Transformer —— 现代 LLM 的基石
+
+Transformer 是 2017 年提出的架构，所有主流 LLM 都基于它。
+
+**核心机制：自注意力（Self-Attention）**
+
+让模型在处理一个词时，能"关注"到句子中其他词的重要性。
+
+```
+Attention(Q, K, V) = softmax(Q × K^T / √d) × V
+```
+
+| 符号 | 含义 |
+|------|------|
+| Q（Query） | 当前词的"查询"向量 |
+| K（Key） | 所有词的"键"向量 |
+| V（Value） | 所有词的"值"向量 |
+| d | 向量维度（缩放因子） |
+
+**多头注意力**：同时运行多个注意力头，每个头关注不同的关系模式。
+
+**位置编码**：因为 Attention 本身不区分词序，需要额外加入位置信息。
+
+**Transformer 结构**：
+
+```
+输入 → 位置编码 → 多头注意力 → 残差连接 + 归一化 → 前馈网络 → 残差连接 + 归一化 → ...（重复 N 层）→ 输出
+```
+
+---
+
+#### 7. 大语言模型的训练流程（三阶段）
+
+| 阶段 | 名称 | 数据 | 目的 |
+|------|------|------|------|
+| 1 | 预训练（Pre-training） | 海量互联网文本（TB 级） | 学习语言的基本规律和世界知识 |
+| 2 | 监督微调（SFT） | 人工标注的问答对 | 让模型学会"对话"和"指令跟随" |
+| 3 | 人类反馈强化学习（RLHF） | 人类偏好排序数据 | 让模型的回答更符合人类期望 |
+
+---
+
+#### 8. Token、上下文、参数量（关键概念）
+
+**Token（词元）**：
+
+- 模型处理的基本单位，不一定是完整单词
+
+- 例如 "Artificial Intelligence" 可能被切分为 `["Art", "ificial", " Intelligence"]`
+
+- 计费按 Token 数量计算
+
+**上下文窗口（Context Window）**：
+
+- 模型一次能"记住"的最大 Token 数
+
+- 例如 100 万 Token ≈ 两本《三体》的体量
+
+**参数量（Parameters）**：
+
+- 神经网络中所有权重（w）和偏置（b）的总数
+
+- 参数量越大，模型理论上越"聪明"，但也更耗算力
+
+| 参数量级 | 代表模型 |
+|----------|----------|
+| 70亿（7B） | Qwen2.5-7B、Llama 3.1-8B |
+| 270亿（27B） | Qwen3.8-27B（开源稠密模型） |
+| 670亿（67B） | DeepSeek-V3 |
+| 7430亿（743B） | GLM-5.3 |
+| 2.4万亿（2.4T） | Qwen3.8-Max |
+| 2.8万亿（2.8T） | Kimi K3 |
+
+---
+
+#### 9. 推理 —— 模型如何生成回答
+
+**自回归生成（Autoregressive）**：
+
+1. 输入提示词（Prompt）
+
+2. 模型预测下一个 Token 的概率分布
+
+3. 采样选择一个 Token（选最高概率的，或按概率随机采样）
+
+4. 将新 Token 加入上下文
+
+5. 重复步骤 2-4，直到生成结束标记（EOS）或达到最大长度
+
+**温度（Temperature）控制创造性**：
+
+| 温度值 | 效果 |
+|--------|------|
+| 低（0.1） | 更确定、更保守，几乎总选最高概率词 |
+| 高（1.0） | 更随机、更有创造性 |
+
+**Top-p（核采样）**：只从累积概率达到 p 的最小词集中采样，过滤掉过低概率的词。
+
+---
+
+#### 10. 本课核心概念速查表
+
+| 概念 | 一句话解释 |
+|------|------------|
+| 概率 | 描述不确定性的数学工具 |
+| 条件概率 | 在已知某条件下某事发生的概率 |
+| 神经网络 | 多层神经元组成的可训练函数逼近器 |
+| Transformer | 基于自注意力的深度学习架构 |
+| 预训练 | 在海量文本上学习语言规律 |
+| SFT | 用人工标注数据让模型学会对话 |
+| RLHF | 用人类偏好优化模型输出 |
+| Token | 模型处理的最小文本单元 |
+| 上下文窗口 | 模型能"记住"的最大 Token 数 |
+| 参数量 | 模型中可训练参数的总数 |
+| 自回归 | 逐个 Token 生成回答的过程 |
+
+---
+
+#### 11. 本课小结
+
+- LLM 的本质是**条件概率模型**：P(下一个词 | 前文)
+
+- **神经网络**通过**反向传播**从数据中学习这些概率
+
+- **Transformer** 的**自注意力机制**让模型能关注上下文中的关键信息
+
+- 训练分三步：**预训练 → SFT → RLHF**
+
+- 推理是**自回归**过程，逐个 Token 生成
+
+---
+
+#### 12. 课后练习
+
+1. 用贝叶斯公式解释：已知一个序列中 A 的含量为 30%，在 A 后面出现 G 的条件概率为 40%，求 A 和 G 同时出现的概率。
+
+2. 阅读一篇关于 Transformer 的科普文章，用自己的话描述"注意力"是什么意思。
+
+3. 计算：一个模型有 700 亿参数，每个参数用 2 字节存储（FP16），需要多少 GB 显存？
+
+4. 解释为什么"上下文窗口"越大，模型能处理的任务就越复杂。
+
+5. 用温度的概念解释：为什么同一个 Prompt 每次回答可能不同？
+
+
+
+### 第二课：模型分类 —— 开源/闭源、稠密/MoE、本地/云端/半云端
+
+本课目标：
+
+- 理解开源模型与闭源模型的本质区别、各自的优劣势
+
+- 掌握稠密模型与 MoE（混合专家）架构的核心差异
+
+- 掌握本地部署、云端 API、半云端（WebGPU/浏览器端）三种使用方式的区分
+
+- 了解 2026 年 8 月主流模型的分类归属
+
+- 理解“一超多强”的全球大模型竞争格局
+
+---
+
+#### 1. 开源模型 vs 闭源模型
+
+**核心区别**：
+
+| 维度 | 开源模型（Open-weights） | 闭源模型（Closed/Proprietary） |
+|------|-------------------------|-------------------------------|
+| 权重是否公开 | ✅ 可下载 | ❌ 仅 API 调用 |
+| 可本地部署 | ✅ 是 | ❌ 否 |
+| 可自由微调 | ✅ 是 | ❌ 否 |
+| 数据隐私 | 数据不出本地 | 数据需上传云端 |
+| 成本结构 | 硬件成本 + 电费 | 按 Token 付费 |
+| 典型代表 | DeepSeek、Qwen、GLM、Kimi K3、Llama | Claude、GPT、Gemini |
+
+**开源模型的优势**：
+
+- 数据主权：敏感数据不需要上传到第三方服务器[reference:0]
+- 可定制：可以针对自己的数据微调模型
+- 成本可预测：硬件投入固定，不像 API 按量计费随使用量增长
+- 透明度：代码和权重公开，可审计
+
+**闭源模型的优势**：
+
+- 性能天花板更高：闭源厂商投入最大算力训练旗舰模型[reference:1]
+- 无需运维：开箱即用，不需要自己部署硬件
+- 持续更新：厂商会不断升级，用户无需自己操作
+- 企业级服务：有 SLA 保障和技术支持
+
+**2026 年 8 月的重要变化**：
+
+开源模型正在快速缩小与闭源旗舰的差距。GLM-5.2（开源）在 SWE-bench Pro 上以 62.1 分首次超过了 OpenAI 旗舰 GPT-5.5 的 58.6 分[reference:2]。GLM-5.2（91.9 分）在 tessl.io 的 1000 个真实编码场景评测中综合得分高于闭源 Claude Sonnet 4.6（90.8 分）[reference:3]。
+
+同时，阿里于 2026 年 8 月首次将原本闭源的 Max 旗舰系列开源[reference:4][reference:5]，标志着“最强模型就得闭源”的规则正在被打破[reference:6]。
+
+---
+
+#### 2. 稠密模型（Dense）vs MoE（混合专家）
+
+**一句话说清**：
+
+- **稠密模型**：来一个任务，模型的**全部参数一起上**，一个不落[reference:7]
+- **MoE**：把参数拆成若干“专家”组，配一个路由调度员，每个任务只激活**部分专家**[reference:8]
+
+**核心公式**：
+
+```
+稠密：总参数量 = 每次激活参数量（全参数参与每一次计算）
+MoE：总参数量 ≫ 每次激活参数量（动态路由按需激活部分"专家"子网络）
+[reference:9]
+```
+
+**直观类比**：
+
+| 场景 | 稠密模型 | MoE 模型 |
+|------|---------|----------|
+| 公司有 1000 人 | 任何问题都全员讨论 | 路由分配，只让相关专家组上 |
+| 写邮件 | 1000 人一起讨论 | 只叫“文案组” |
+| 设计登月方案 | 1000 人一起讨论 | 叫“物理组+工程组”[reference:10] |
+
+**实例对比**：
+
+| 模型 | 架构 | 总参数 | 激活参数 | 激活率 |
+|------|------|--------|---------|--------|
+| DeepSeek V4-Pro | MoE | 1.6T | 49B | ~3.1%[reference:11] |
+| Qwen3.8-27B | 稠密 | 27B | 27B | 100%[reference:12] |
+| Kimi K3 | MoE | 2.8T | 104B | ~3.7%[reference:13] |
+| Qwen3.8-2.4T | MoE | 2.4T | 95B | ~4.0%[reference:14] |
+
+**MoE 为什么受欢迎**：
+
+- 用 49B 参数的算力成本，撬动 1.6T 参数的知识容量[reference:15]
+- 推理成本远低于同总参数的稠密模型[reference:16]
+- 适合云端大规模部署
+
+**稠密模型为什么还没死**：
+
+- 部署简单，不需要复杂的路由逻辑
+- 推理延迟更稳定（没有路由开销）
+- 适合端侧设备（手机、平板、笔记本）
+- Qwen3.6-27B（稠密）在数学和代码评测中干翻了一众比它大得多的 MoE[reference:17]
+
+2026 年的趋势是**双轨并行**：MoE 主打云端降本，稠密坚守端侧与高可靠场景，二者并非替代，而是互补共存[reference:18]。
+
+---
+
+#### 3. 三种使用方式：本地 / 云端 / 半云端（WebGPU）
+
+| 方式 | 说明 | 硬件要求 | 典型工具 | 代表模型 |
+|------|------|---------|---------|---------|
+| **本地部署** | 模型权重下载到自己的服务器或电脑上运行 | GPU（消费级或企业级） | Ollama、llama.cpp、vLLM、SGLang[reference:19] | Qwen3.8-27B（家用显卡可跑）[reference:20] |
+| **云端 API** | 通过 HTTP 调用厂商提供的 API 接口 | 只需联网 | 各厂商 SDK、OpenRouter[reference:21] | Claude、GPT、DeepSeek API |
+| **半云端（WebGPU）** | 模型在浏览器中运行，利用 GPU 加速 | 支持 WebGPU 的浏览器 | llama.cpp WebGPU 后端、Sipp[reference:22] | 量化后的小型模型 |
+
+**本地部署的硬件门槛变化（2026 年）**：
+
+- 消费级硬件甜点从“8-14B 稠密模型”跃升为“30-35B-A3B 的 MoE 模型”（如 Qwen3.6-35B-A3B 在 24GB 显卡上可达 120 tok/s）[reference:23]
+- Qwen3.8-27B（270 亿参数）开源，家用显卡即可运行[reference:24]
+- 但真正的前沿开源模型（如 DeepSeek V4 Flash 284B）本地门槛仍然很高——最激进的 Q2_K 量化也需要 103GB VRAM[reference:25]
+
+**半云端（WebGPU）的前景**：
+
+- 在浏览器中直接运行 GGUF 格式的模型[reference:26]
+- 不需要安装任何软件，打开网页即可使用
+- 数据完全在本地浏览器中处理，隐私性好
+- 受限于浏览器内存和算力，目前只能运行小型量化模型
+
+---
+
+#### 4. 2026 年 8 月“一超多强”格局
+
+> 注：以下信息基于 2026 年 8 月中上旬公开数据，AI 模型格局以月为单位变动[reference:27]。
+
+**闭源阵营（付费 API）** [reference:28]：
+
+| 厂商 | 旗舰模型 | 发布时间 | 备注 |
+|------|---------|---------|------|
+| Anthropic | Claude Opus 5 | 2026-07-24[reference:29] | 定价 $5/$25 每百万 Token，接近 Fable 5 能力[reference:30] |
+| Anthropic | Claude Fable 5 | 2026 年 6 月 | 顶级旗舰，有安全分级机制[reference:31] |
+| OpenAI | GPT-5.6 Sol / Luna | 2026 年 8 月 | Sol 支持 Ultrafast 模式，速度提升 14 倍[reference:32] |
+| Google | Gemini 3.1 Pro / 3.7 Flash | 2026 年 2 月 / 8 月[reference:33][reference:34] | 支持 100 万 Token 上下文[reference:35] |
+
+**开源阵营（开放权重）** [reference:36]：
+
+| 模型 | 厂商 | 架构 | 总参数 | 激活参数 | 上下文 | 发布时间 |
+|------|------|------|--------|---------|--------|---------|
+| Qwen3.8-2.4T-A95B | 阿里 | MoE | 2.4T | 95B | 100 万[reference:37] | 2026-08[reference:38] |
+| Kimi K3 | 月之暗面 | MoE | 2.8T | 104B | 100 万[reference:39] | 2026-07[reference:40] |
+| GLM-5.3 | 智谱 | MoE | 7430 亿[reference:41] | — | 100 万[reference:42] | 2026-08-14[reference:43] |
+| DeepSeek V4-Pro-0813 | DeepSeek | MoE | 1.6T | 49B | 100 万[reference:44] | 2026-08-13[reference:45] |
+| Qwen3.8-27B | 阿里 | 稠密 | 27B | 27B | 26.2万→100万[reference:46] | 2026-08-14[reference:47] |
+
+**多模态/垂直领域代表**：
+
+| 模型 | 厂商 | 领域 | 说明 |
+|------|------|------|------|
+| MiniMax H3 | MiniMax | 视频生成 | 视频编辑能力全球第一[reference:48] |
+| MiniMax Music 3.0 | MiniMax | 音乐生成 | 一次生成完成作曲、编曲[reference:49] |
+| Grok 4.3 | xAI | 通用 | Grok 3 已于 2026 年 5 月弃用[reference:50] |
+
+**闭源与开源的实力对比（2026 年 8 月 ChatBench 排行榜）** [reference:51]：
+
+| 排名 | 模型 | 类型 | 得分 |
+|------|------|------|------|
+| 1 | DeepSeek V4 Flash 0731 (max) | 开源 | 74.1 |
+| 2 | Qwen3.8 Max | 开源 | 72.7 |
+| 3 | Claude Opus 5 (max) | 闭源 | 70.9 |
+| 4 | GPT-5.6 Luna (max) | 闭源 | 70.2 |
+| 8 | Kimi K3 (max) | 开源 | 68.7 |
+
+**格局总结**：
+
+- **“一超”** ：Anthropic（Claude 系列）在闭源领域仍被认为是能力天花板，但优势正在缩小
+- **“多强”** ：DeepSeek、Qwen、GLM、Kimi 等国产开源模型在 2026 年 8 月密集发布旗舰版本，在多项基准上逼近甚至超过闭源旗舰[reference:52]
+- **价格战**：DeepSeek V4-Pro 输出每百万 Token 仅 $0.87[reference:53]，远低于 Claude Opus 5 的 $25[reference:54]，成本降低约 57 倍[reference:55]
+
+---
+
+#### 5. 三种分类方式的交叉矩阵
+
+| 模型 | 开源/闭源 | 稠密/MoE | 本地/云端/半云端 |
+|------|----------|---------|-----------------|
+| Claude Opus 5 | 闭源 | MoE（推测） | 云端 API |
+| GPT-5.6 Sol | 闭源 | MoE（推测） | 云端 API |
+| DeepSeek V4-Pro | 开源 | MoE | 云端 API + 可本地（需巨量显存） |
+| Qwen3.8-2.4T | 开源 | MoE | 云端 API + 可本地（需巨量显存） |
+| Qwen3.8-27B | 开源 | 稠密 | 本地（家用显卡可跑）+ 云端 |
+| Kimi K3 | 开源 | MoE | 云端 API + 可本地（需巨量显存） |
+| GLM-5.3 | 开源 | MoE | 云端 API + 可本地 |
+| Grok 4.3 | 闭源 | MoE | 云端 API |
+
+---
+
+#### 6. 本课核心概念速查表
+
+| 概念 | 一句话解释 |
+|------|------------|
+| 开源模型 | 权重公开，可下载部署 |
+| 闭源模型 | 仅 API 调用，权重不公开 |
+| 稠密模型 | 每次推理全部参数都参与计算 |
+| MoE | 每次只激活部分“专家”，其余休眠 |
+| 本地部署 | 模型在自己硬件上运行 |
+| 云端 API | 通过 HTTP 调用厂商服务 |
+| 半云端（WebGPU） | 在浏览器中利用 GPU 运行模型 |
+| 激活参数 | 每次推理实际参与计算的参数数量 |
+
+---
+
+#### 7. 本课小结
+
+- **开源 vs 闭源**：开源提供数据主权和可定制性，闭源提供最高性能和免运维。2026 年开源正快速追赶闭源
+
+- **稠密 vs MoE**：稠密全部参数参与计算，简单稳定；MoE 只激活部分专家，总参数大但推理成本低。两者互补共存
+
+- **本地 vs 云端 vs 半云端**：本地保数据隐私但需硬件，云端最方便但按量付费，半云端（WebGPU）在浏览器中运行，是新兴方向
+
+- **2026 年 8 月格局**：DeepSeek、Qwen、GLM、Kimi 等国产开源模型密集发布，在多项基准上逼近甚至超过闭源旗舰，价格战进一步拉低了 AI 使用成本
+
+---
+
+#### 8. 课后练习
+
+1. 用自己的话解释稠密模型和 MoE 模型的核心区别（用“公司全员”和“专家组”的类比）。
+
+2. 查阅 Qwen3.8-27B 的硬件要求，判断你手头的电脑能否运行它。
+
+3. 列举 3 个闭源模型和 3 个开源模型（2026 年 8 月）。
+
+4. 解释为什么 MoE 模型的总参数可以远大于激活参数，这对成本有什么影响？
+
+5. 如果一个企业有严格的医疗数据隐私要求，应该选择本地部署还是云端 API？为什么？
+
+
+
+### 第三课：AidLux 上部署 Gemma 4 9B —— Ollama 实战
+
+本课目标：
+
+- 在 AidLux 中安装和配置 Ollama（ARM64 版本）
+
+- 使用 Ollama 拉取并运行 Gemma 4 9B 模型
+
+- 通过命令行与模型对话
+
+- 通过 REST API 调用模型
+
+- 部署 Web UI（Open WebUI）实现图形界面
+
+- 理解模型量化与硬件适配
+
+---
+
+#### 1. 为什么选择 AidLux + Ollama + Gemma 4
+
+| 组件 | 作用 | 说明 |
+|------|------|------|
+| AidLux | 在安卓设备上提供原生 Ubuntu 环境 | 基于 Linux 内核共享，非虚拟机[reference:0] |
+| Ollama | 大模型运行框架 | 支持 ARM64，一条命令拉取并运行模型[reference:1] |
+| Gemma 4 9B | Google 开源大模型 | 2026 年 4 月发布，Ollama v0.20.0 起原生支持[reference:2] |
+
+**硬件要求（Gemma 4 9B / E4B）** ：
+
+| 配置项 | 最低要求 | 推荐配置 |
+|--------|---------|---------|
+| 内存（RAM） | 10 GB | 16–24 GB[reference:3] |
+| 存储空间 | 9.6 GB（模型文件） | 16 GB+[reference:4] |
+| 架构 | ARM64 | ARM64 |
+
+AidLux 默认运行在高通平台（如 QCS8550 / QCS6490），支持 GGUF 格式模型[reference:5]。如果你的安卓设备有 8GB 以上内存（近三四年内发布的旗舰或中高端机型），即可尝试部署[reference:6]。
+
+> **注意**：如果设备内存不足 10GB，可以改用更小的 `gemma4:e2b`（7.2 GB，最低 8GB 内存）[reference:7][reference:8]。
+
+---
+
+#### 2. 准备工作：启动 AidLux 并进入终端
+
+**启动 AidLux**：
+
+1. 打开 AidLux App，等待初始化完成
+
+2. 点击底部「终端」图标进入命令行
+
+**或通过浏览器远程访问**：
+
+在电脑浏览器输入 `http://平板IP:8000`，用 `aidlux`/`aidlux` 登录[reference:9]。
+
+**检查系统信息**：
+
+```bash
+uname -a
+# 输出应包含 aarch64 或 ARM64
+
+cat /etc/os-release
+# 确认是 Ubuntu 系
+
+free -h
+# 查看可用内存
+```
+
+---
+
+#### 3. 安装 Ollama（两种方式）
+
+##### 方式一：一键安装脚本（推荐）
+
+Ollama 官方安装脚本同时支持 x86_64 和 ARM64[reference:10]：
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+安装完成后，Ollama 会自动以服务形式运行[reference:11]。
+
+##### 方式二：手动安装 ARM64 包
+
+如果一键脚本因网络问题失败，可以手动下载 ARM64 专用包[reference:12]：
+
+```bash
+# 下载 ARM64 版本
+curl -fsSL https://ollama.com/download/ollama-linux-arm64.tar.zst | sudo tar x -C /usr
+
+# 验证安装
+ollama --version
+```
+
+**启动 Ollama 服务**：
+
+```bash
+# 前台运行（调试用）
+ollama serve
+
+# 或后台运行
+nohup ollama serve > ollama.log 2>&1 &
+```
+
+**验证 Ollama 是否正常运行**：
+
+```bash
+ollama --version
+# 应显示 v0.20.0 或更高版本（Gemma 4 需要 v0.20.0+）[reference:13]
+
+curl http://localhost:11434
+# 应返回 "Ollama is running"
+```
+
+---
+
+#### 4. 拉取 Gemma 4 9B 模型
+
+Ollama 中 Gemma 4 的默认标签是 `gemma4:e4b`（9.6 GB，有效参数 4.5B）[reference:14]：
+
+```bash
+ollama pull gemma4
+```
+
+**等价于**：
+
+```bash
+ollama pull gemma4:e4b
+```
+
+**可用标签一览**[reference:15]：
+
+| 标签 | 磁盘大小 | 有效参数 | 适用场景 |
+|------|---------|---------|---------|
+| `gemma4:e2b` | 7.2 GB | 2.3B | 低内存设备（最低 8GB RAM） |
+| `gemma4:e4b`（默认） | 9.6 GB | 4.5B | 大多数设备，最佳起点 |
+| `gemma4:26b` | 18 GB | 3.8B（MoE） | 性价比最高，推理快 |
+| `gemma4:31b` | 20 GB | 30.7B | 最高质量，需 24GB+ 显存 |
+
+**拉取指定标签**：
+
+```bash
+ollama pull gemma4:e2b   # 轻量版，适合低内存设备
+```
+
+**查看已下载的模型**：
+
+```bash
+ollama list
+```
+
+---
+
+#### 5. 运行模型并对话
+
+**交互式对话**：
+
+```bash
+ollama run gemma4
+```
+
+输入问题后按回车，模型会生成回答。输入 `/bye` 退出。
+
+**单次查询（非交互式）** ：
+
+```bash
+ollama run gemma4 "请解释什么是 DNA 序列的 GC 含量"
+```
+
+**查看模型信息**：
+
+```bash
+ollama show gemma4
+```
+
+---
+
+#### 6. 通过 REST API 调用模型
+
+Ollama 默认在 `http://localhost:11434` 提供 REST API[reference:16]。
+
+**生成接口（/api/generate）** ：
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+  "model": "gemma4",
+  "prompt": "请用中文解释什么是基因",
+  "stream": false
+}'
+```
+
+**对话接口（/api/chat）** ：
+
+```bash
+curl http://localhost:11434/api/chat -d '{
+  "model": "gemma4",
+  "messages": [
+    {"role": "user", "content": "什么是 CRISPR？"}
+  ],
+  "stream": false
+}'
+```
+
+**Python 调用示例**：
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:11434/api/generate",
+    json={"model": "gemma4", "prompt": "解释一下中心法则", "stream": False}
+)
+print(response.json()["response"])
+```
+
+---
+
+#### 7. 部署 Web UI（图形界面）
+
+**方式一：Open WebUI（功能最全）**
+
+Open WebUI 提供类似 ChatGPT 的网页界面，支持对话历史、多模型切换等。
+
+```bash
+# 安装 Docker（如未安装）
+sudo apt install docker.io docker-compose -y
+
+# 拉取并运行 Open WebUI
+docker run -d -p 3000:8080 \
+  -v open-webui:/app/backend/data \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  --name open-webui \
+  ghcr.io/open-webui/open-webui:main
+```
+
+启动后，在浏览器访问 `http://平板IP:3000`。
+
+**方式二：Ollama WebUI（轻量级）**
+
+```bash
+# 安装 Node.js（如未安装）
+sudo apt install nodejs npm -y
+
+# 安装并运行 Ollama WebUI
+npx ollama-webui
+```
+
+---
+
+#### 8. 通过 Docker 一键部署（备选方案）
+
+如果直接安装 Ollama 遇到问题，可以使用 Docker 方案[reference:17]：
+
+```bash
+# 创建项目目录
+mkdir -p ~/ollama-docker
+cd ~/ollama-docker
+
+# 创建 docker-compose.yml
+cat > docker-compose.yml << 'EOF'
+version: '3'
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    restart: unless-stopped
+EOF
+
+# 启动
+docker-compose up -d
+
+# 进入容器拉取模型
+docker exec -it ollama ollama pull gemma4
+```
+
+---
+
+#### 9. 性能优化建议
+
+**内存不足时的应对方案**：
+
+1. 使用更小的模型：`ollama pull gemma4:e2b`（7.2 GB）[reference:18]
+
+2. 关闭其他 Android 后台应用释放内存
+
+3. 使用量化版本（Ollama 默认已使用 Q4 量化）
+
+**模型加载慢**：首次加载需要将模型从磁盘读入内存，耐心等待。之后再次运行会快一些。
+
+**推理速度慢**：AidLux 在 ARM 设备上主要依赖 CPU 推理，Gemma 4 E4B 在纯 CPU 上大约每秒 1–3 个 Token[reference:19]。这是正常现象，移动端算力有限。
+
+---
+
+#### 10. 常见错误及解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `ollama: command not found` | Ollama 未安装或未加入 PATH | 重新执行安装脚本，或手动将 `/usr/bin/ollama` 加入 PATH |
+| `Error: model "gemma4" not found` | 模型未下载 | 执行 `ollama pull gemma4` |
+| 拉取模型超时或失败 | 网络问题 | 使用代理，或换用 Docker 方案[reference:20] |
+| `Segmentation fault` 或加载卡在 99% | Ollama 版本过旧 | 更新到 v0.20.0+[reference:21][reference:22] |
+| 内存不足（OOM） | 设备 RAM 小于 10GB | 改用 `gemma4:e2b`[reference:23] |
+| `failed to get cpu info` | AidLux 环境问题 | 重启 AidLux App 后再试 |
+| Web UI 无法连接 Ollama | 端口未开放或地址不对 | 检查 `http://localhost:11434` 是否可访问 |
+
+---
+
+#### 11. 本课核心命令速查表
+
+| 操作 | 命令 |
+|------|------|
+| 安装 Ollama（一键） | `curl -fsSL https://ollama.com/install.sh \| sh` |
+| 安装 Ollama（ARM64） | `curl -fsSL https://ollama.com/download/ollama-linux-arm64.tar.zst \| sudo tar x -C /usr` |
+| 启动 Ollama 服务 | `ollama serve` 或 `nohup ollama serve &` |
+| 拉取 Gemma 4 默认版 | `ollama pull gemma4` |
+| 拉取轻量版 | `ollama pull gemma4:e2b` |
+| 交互式对话 | `ollama run gemma4` |
+| 单次查询 | `ollama run gemma4 "你的问题"` |
+| 查看已下载模型 | `ollama list` |
+| API 调用 | `curl http://localhost:11434/api/generate -d '{"model":"gemma4","prompt":"问题"}'` |
+| Docker 部署 | `docker-compose up -d` |
+
+---
+
+#### 12. 本课小结
+
+- **Ollama 是 AidLux 上部署大模型最简单的方式**，一条命令安装，一条命令拉取模型
+
+- **Gemma 4 9B（E4B）需要约 10GB 内存**，如果设备内存不足，改用 E2B（7.2GB）
+
+- **Ollama 提供 REST API**，可用 curl 或 Python 调用，方便集成到其他应用
+
+- **Web UI** 可通过 Open WebUI 或 Ollama WebUI 部署，获得图形化对话界面
+
+- **ARM64 设备性能有限**，纯 CPU 推理速度较慢，但足以用于学习和实验
+
+---
+
+#### 13. 课后练习
+
+1. 在 AidLux 终端中执行 `ollama --version`，确认版本是否 ≥ v0.20.0。
+
+2. 拉取 `gemma4:e2b` 轻量版模型，运行并问一个问题。
+
+3. 用 `curl` 调用 `/api/generate` 接口，让模型用 JSON 格式返回回答。
+
+4. 用 Python 的 `requests` 库写一个简单的对话脚本。
+
+5. （选做）部署 Open WebUI，在浏览器中通过图形界面与 Gemma 4 对话。
+
+
+### 第四课：云端 API 调用 —— 以 DeepSeek 为例
+
+本课目标：
+
+- 注册 DeepSeek 开放平台账号并获取 API Key
+
+- 理解 DeepSeek API 的兼容性（OpenAI 兼容）
+
+- 安装 OpenAI SDK 并配置 DeepSeek 端点
+
+- 实现基础对话、多轮对话和流式输出
+
+- 在 AidLux 中通过 Python 调用 DeepSeek API
+
+- 掌握核心参数（model、temperature、thinking 等）
+
+---
+
+#### 1. DeepSeek API 概览
+
+DeepSeek API 使用与 OpenAI 完全兼容的接口规范[reference:0][reference:1]，这意味着你可以直接用 OpenAI SDK 调用 DeepSeek 模型，只需修改 `base_url` 和 `api_key` 两个参数[reference:2][reference:3]。
+
+**核心信息**：
+
+| 项目 | 值 |
+|------|-----|
+| API Base URL | `https://api.deepseek.com`[reference:4][reference:5] |
+| Chat Completions 端点 | `https://api.deepseek.com/v1/chat/completions`[reference:6] |
+| 认证方式 | Bearer Token（API Key）[reference:7] |
+| 模型 ID | `deepseek-v4-pro`（旗舰版，1.6T 总参数/49B 激活）[reference:8] |
+| 模型 ID | `deepseek-v4-flash`（轻量版，284B 总参数/13B 激活）[reference:9] |
+| 上下文窗口 | 100 万 Token[reference:10] |
+
+**重要日期**：
+- 旧模型 ID `deepseek-chat` 和 `deepseek-reasoner` 已于 2026 年 7 月 24 日弃用[reference:11]
+- 2026 年 8 月 13 日起，V4-Pro 正式版已上线[reference:12]
+- 2026 年 8 月 16 日 16:00（UTC）起执行新的分时计费[reference:13]
+
+---
+
+#### 2. 注册与获取 API Key
+
+**步骤 1：注册账号**
+
+访问 [DeepSeek 开放平台](https://platform.deepseek.com)[reference:14][reference:15]。使用手机号或邮箱注册，并完成实名认证[reference:16]。未实名账号仅开放极小测试额度[reference:17]。
+
+**步骤 2：充值**
+
+调用 API 前，账户需有至少 $2 余额，否则返回 `402 Insufficient Balance`[reference:18]。
+
+**步骤 3：创建 API Key**
+
+1. 登录后点击右上角 **"API Keys"**[reference:19]
+2. 点击 **"Create new secret key"**[reference:20][reference:21]
+3. 输入名称（如 "chat"）[reference:22]
+4. 创建后 **立即保存**，Key 仅在创建时显示一次[reference:23]
+
+**安全建议**：
+- 使用项目级密钥（Project-scoped keys）而非账号级密钥[reference:24]
+- 将 API Key 设为环境变量，不要硬编码在代码中[reference:25]
+
+---
+
+#### 3. 安装与配置
+
+**安装 OpenAI SDK**：
+
+```bash
+pip install openai>=1.30.0
+```
+
+**设置环境变量**（推荐）：
+
+```bash
+export DEEPSEEK_API_KEY="sk-你的API密钥"
+```
+
+**验证配置**（curl 测试）：
+
+```bash
+curl https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-v4-pro",
+    "messages": [{"role": "user", "content": "用一句话解释什么是MoE"}]
+  }'
+```
+
+成功会返回包含 `choices[0].message.content` 的 JSON[reference:26]。
+
+---
+
+#### 4. Python 基础调用
+
+```python
+from openai import OpenAI
+
+# 初始化客户端（指向 DeepSeek 端点）
+client = OpenAI(
+    api_key="你的API密钥",  # 或 os.environ.get("DEEPSEEK_API_KEY")
+    base_url="https://api.deepseek.com"  # 关键：替换默认端点[reference:27]
+)
+
+# 发送对话请求
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",  # 或 deepseek-v4-flash
+    messages=[
+        {"role": "system", "content": "你是一个专业的生物信息学助手"},
+        {"role": "user", "content": "解释一下DNA的GC含量为什么重要"}
+    ],
+    temperature=1.0,  # DeepSeek 推荐值[reference:28]
+    top_p=1.0         # DeepSeek 推荐值[reference:29]
+)
+
+# 提取回复
+print(response.choices[0].message.content)
+```
+
+---
+
+#### 5. 多轮对话（上下文拼接）
+
+DeepSeek API 是**无状态**的，每次请求必须携带完整对话历史[reference:30]。
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="你的API密钥",
+    base_url="https://api.deepseek.com"
+)
+
+# 初始化消息列表
+messages = [
+    {"role": "system", "content": "你是一个基因科学助手"}
+]
+
+# 第一轮
+messages.append({"role": "user", "content": "什么是CRISPR？"})
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=messages
+)
+# 将模型回复加入历史[reference:32]
+messages.append(response.choices[0].message)
+
+# 第二轮（基于上一轮上下文）
+messages.append({"role": "user", "content": "它有哪些应用？"})
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=messages
+)
+messages.append(response.choices[0].message)
+
+print(response.choices[0].message.content)
+```
+
+---
+
+#### 6. 流式输出（Streaming）
+
+流式输出产生“打字机”效果，提升用户体验[reference:34]。
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="你的API密钥",
+    base_url="https://api.deepseek.com"
+)
+
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=[{"role": "user", "content": "写一段关于基因编辑的简介"}],
+    stream=True  # 开启流式[reference:35]
+)
+
+# 逐块接收
+for chunk in response:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+---
+
+#### 7. 核心参数详解
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `model` | string | `deepseek-v4-pro` 或 `deepseek-v4-flash`[reference:36] |
+| `messages` | array | 对话消息列表，role 为 `system`/`user`/`assistant` |
+| `temperature` | float (0-2) | 默认 1.0，越高越随机[reference:37] |
+| `top_p` | float (≤1) | 默认 1.0，核采样[reference:38] |
+| `max_tokens` | integer | 生成的最大 Token 数[reference:39] |
+| `stream` | boolean | 是否流式输出[reference:40] |
+| `thinking.reasoning_effort` | string | `low`/`high`/`max`，控制思考深度[reference:41] |
+| `user_id` | string | 用户标识，用于安全审查和缓存隔离[reference:42] |
+
+**thinking 模式说明**：
+
+- `low`：简单任务快速响应
+- `high`：日常 Agent 任务（默认）[reference:43]
+- `max`：复杂推理场景[reference:44]
+
+**注意**：`deepseek-v4-pro` 目前只支持 `high` 和 `max`，`low` 会被视为 `high`[reference:45]。
+
+---
+
+#### 8. 在 AidLux 中调用 DeepSeek API
+
+在 AidLux 终端中操作（与 Ubuntu 完全一致）：
+
+```bash
+# 1. 安装 OpenAI SDK
+pip install openai
+
+# 2. 设置 API Key（替换为你的密钥）
+export DEEPSEEK_API_KEY="sk-你的密钥"
+
+# 3. 创建 Python 脚本
+cat > deepseek_demo.py << 'EOF'
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ.get("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=[{"role": "user", "content": "AidLux是什么？"}]
+)
+print(response.choices[0].message.content)
+EOF
+
+# 4. 运行
+python3 deepseek_demo.py
+```
+
+**AidLux 上的注意事项**：
+- 确保平板已连接 Wi-Fi
+- API 调用不依赖本地算力，速度取决于网络
+- 比本地运行 Ollama 快得多（本地约 1 token/s，云端 API 快数十倍）[reference:46]
+
+---
+
+#### 9. 定价与成本优化（2026 年 8 月）
+
+DeepSeek V4 采用**分时计费**机制[reference:47]：
+
+| 时段 | 价格 |
+|------|------|
+| 高峰时段 | 标准价格 |
+| 低谷时段 | **半价**[reference:48] |
+
+新价格于 2026 年 8 月 16 日 16:00（UTC）生效[reference:49]。
+
+**成本优化技巧**：
+
+1. **Prompt Caching**：长 System Prompt 命中缓存后费用大幅降低[reference:50]
+2. **精简上下文**：只保留必要的对话历史[reference:51]
+3. **选择合适模型**：简单任务用 `deepseek-v4-flash`（更便宜）
+4. **批量任务低谷期运行**：离线任务安排在低谷时段[reference:52]
+
+---
+
+#### 10. 常见错误与解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `402 Insufficient Balance` | 账户余额不足 | 充值至少 $2[reference:53] |
+| `401 Unauthorized` | API Key 无效或过期 | 检查 Key 是否正确，重新生成 |
+| `Rate limit exceeded (429)` | 请求频率超限 | 实现指数退避重试[reference:54] |
+| 超时（Timeout） | 复杂推理耗时较长 | 设置 timeout ≥ 60s[reference:55] |
+| `model not found` | 使用了已弃用的模型名 | 改用 `deepseek-v4-pro` 或 `deepseek-v4-flash`[reference:56] |
+| `User not verified` | 未完成实名认证 | 完成实名认证[reference:57] |
+
+---
+
+#### 11. 本课核心命令速查表
+
+| 操作 | 命令/代码 |
+|------|-----------|
+| 安装 SDK | `pip install openai>=1.30.0` |
+| 设置环境变量 | `export DEEPSEEK_API_KEY="sk-..."` |
+| 初始化客户端 | `OpenAI(api_key=..., base_url="https://api.deepseek.com")` |
+| 基础对话 | `client.chat.completions.create(model="deepseek-v4-pro", messages=[...])` |
+| 流式输出 | 添加 `stream=True` 参数 |
+| curl 测试 | `curl https://api.deepseek.com/v1/chat/completions -H "Authorization: Bearer $KEY" -d '{...}'` |
+
+---
+
+#### 12. 本课小结
+
+- **DeepSeek API 兼容 OpenAI 格式**，用 OpenAI SDK 即可调用[reference:58]
+- **API Key 是调用凭证**，在 platform.deepseek.com 创建并妥善保存[reference:59]
+- **多轮对话需手动拼接历史**，API 本身无状态[reference:60]
+- **流式输出**提升用户体验，适合聊天应用[reference:61]
+- **分时计费**鼓励低谷期运行批量任务[reference:62]
+- **AidLux 中调用云端 API**比本地运行模型快得多[reference:63]
+
+---
+
+#### 13. 课后练习
+
+1. 注册 DeepSeek 开放平台，充值 $2，创建 API Key。
+
+2. 在 AidLux 终端中安装 OpenAI SDK，用 `curl` 测试 API 是否正常。
+
+3. 写一个 Python 脚本，让 DeepSeek 用中文解释“中心法则”。
+
+4. 实现多轮对话：第一轮问“什么是基因？”，第二轮追问“它和 DNA 有什么关系？”。
+
+5. 开启 `stream=True`，观察输出效果，对比非流式输出。
+
+6. 尝试切换 `model="deepseek-v4-flash"`，对比响应速度和回答质量。
+
+7. （选做）将 DeepSeek API 集成到之前写的基因浏览器中，替换本地模型。
+
+
+
+### 第五课：本地模型接入程序与云端 API 网关设计
+
+本课目标：
+
+- 将本地运行的 Ollama 模型封装为可调用的 Python/后端服务模块
+
+- 设计统一的 API 网关，实现本地模型与云端模型的无缝切换
+
+- 掌握适配器模式（本地适配器 / 云端适配器）
+
+- 设计健壮的 Chat Completions 风格端口（兼容 OpenAI 格式）
+
+- 理解超时、重试、流式转换等生产级细节
+
+- 简略带过半云端（WebGPU/浏览器本地推理）方案
+
+---
+
+#### 1. 整体架构：应用如何接入大模型
+
+无论本地还是云端，大模型接入程序的标准姿势是 **HTTP API**。
+
+```
+你的应用程序（Python/JS/Java）
+        ↓
+统一网关接口（/v1/chat/completions）
+        ↓
+   ┌────┴────┐
+本地适配器    云端适配器
+（Ollama）   （DeepSeek/OpenAI）
+```
+
+**核心原则**：
+- 程序不直接调 Ollama 或 DeepSeek，而是调自己设计的网关
+- 网关内部根据配置（或请求参数）路由到对应的适配器
+- 适配器负责请求格式转换 + 响应格式统一
+
+---
+
+#### 2. 封装本地 Ollama 为 Python 模块（接入程序的第一步）
+
+Ollama 已提供 HTTP API，我们只需要用 `requests` 封装即可。
+
+**最简封装（非流式）**：
+
+```python
+import requests
+import json
+
+class LocalOllamaClient:
+    def __init__(self, base_url="http://localhost:11434", model="gemma4"):
+        self.base_url = base_url
+        self.model = model
+
+    def chat(self, messages, stream=False, temperature=0.7):
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": stream,
+            "options": {"temperature": temperature}
+        }
+        resp = requests.post(
+            f"{self.base_url}/api/chat",
+            json=payload,
+            timeout=120  # 本地推理可能较慢
+        )
+        resp.raise_for_status()
+        if not stream:
+            return resp.json()["message"]["content"]
+        # 流式处理见下文
+        return resp
+```
+
+**调用示例**：
+
+```python
+client = LocalOllamaClient(model="gemma4:e4b")
+reply = client.chat([
+    {"role": "user", "content": "解释什么是基因"}
+])
+print(reply)
+```
+
+**流式封装（SSE 逐块输出）**：
+
+```python
+def chat_stream(self, messages):
+    payload = {"model": self.model, "messages": messages, "stream": True}
+    resp = requests.post(f"{self.base_url}/api/chat", json=payload, stream=True)
+    for line in resp.iter_lines():
+        if line:
+            chunk = json.loads(line.decode('utf-8'))
+            if "message" in chunk:
+                yield chunk["message"]["content"]
+```
+
+**集成到 Web 后端（FastAPI 示例）**：
+
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List
+
+app = FastAPI()
+llm = LocalOllamaClient()
+
+class ChatRequest(BaseModel):
+    messages: List[dict]
+    stream: bool = False
+
+@app.post("/v1/chat/completions")
+async def chat_endpoint(req: ChatRequest):
+    try:
+        if req.stream:
+            # 流式响应需用 StreamingResponse
+            return StreamingResponse(llm.chat_stream(req.messages), media_type="text/event-stream")
+        reply = llm.chat(req.messages)
+        return {"choices": [{"message": {"content": reply}}]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+```
+
+---
+
+#### 3. 统一网关设计（核心：支持本地 ↔ 云端无缝切换）
+
+**为什么需要网关**：
+
+| 需求 | 说明 |
+|------|------|
+| 切换模型 | 生产用云端（快），调试用本地（免费） |
+| 统一计费/审计 | 所有请求经过同一入口，便于日志和限流 |
+| 渐进式迁移 | 先上线本地，性能不够再切云端，程序无需改动 |
+| A/B 测试 | 部分流量走本地，部分走云端，对比效果 |
+
+**环境变量配置（切换开关）**：
+
+```bash
+# 在 AidLux 或服务器中设置
+export LLM_PROVIDER="local"      # 或 "cloud"
+export LOCAL_MODEL="gemma4:e4b"
+export CLOUD_MODEL="deepseek-v4-pro"
+export DEEPSEEK_API_KEY="sk-xxx"
+```
+
+**统一配置读取模块（config.py）**：
+
+```python
+import os
+
+class Config:
+    PROVIDER = os.getenv("LLM_PROVIDER", "local")
+    LOCAL_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    LOCAL_MODEL = os.getenv("LOCAL_MODEL", "gemma4")
+    CLOUD_BASE = os.getenv("CLOUD_BASE", "https://api.deepseek.com")
+    CLOUD_MODEL = os.getenv("CLOUD_MODEL", "deepseek-v4-pro")
+    CLOUD_KEY = os.getenv("DEEPSEEK_API_KEY")
+```
+
+---
+
+#### 4. 适配器模式（将不同后端标准化）
+
+**定义统一接口（抽象基类）**：
+
+```python
+from abc import ABC, abstractmethod
+
+class LLMAdapter(ABC):
+    @abstractmethod
+    def chat_completions(self, messages, stream=False, **kwargs):
+        pass
+```
+
+**本地适配器（Ollama）**：
+
+```python
+class OllamaAdapter(LLMAdapter):
+    def __init__(self, base_url, model):
+        self.base_url = base_url
+        self.model = model
+
+    def chat_completions(self, messages, stream=False, **kwargs):
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": stream,
+            "options": {k: v for k, v in kwargs.items() if k in ["temperature", "top_p"]}
+        }
+        resp = requests.post(f"{self.base_url}/api/chat", json=payload, stream=stream, timeout=180)
+        resp.raise_for_status()
+
+        if not stream:
+            return {"content": resp.json()["message"]["content"]}
+        else:
+            return self._stream_parse(resp)
+
+    def _stream_parse(self, response):
+        for line in response.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                if "message" in chunk:
+                    yield chunk["message"]["content"]
+```
+
+**云端适配器（DeepSeek / OpenAI）**：
+
+```python
+from openai import OpenAI
+
+class CloudAdapter(LLMAdapter):
+    def __init__(self, api_key, base_url, model):
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.model = model
+
+    def chat_completions(self, messages, stream=False, **kwargs):
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=stream,
+            temperature=kwargs.get("temperature", 1.0),
+            top_p=kwargs.get("top_p", 1.0)
+        )
+        if not stream:
+            return {"content": response.choices[0].message.content}
+        else:
+            return self._stream_parse(response)
+
+    def _stream_parse(self, response):
+        for chunk in response:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+```
+
+**工厂函数（根据配置返回适配器）**：
+
+```python
+def get_adapter(provider=None):
+    provider = provider or Config.PROVIDER
+    if provider == "local":
+        return OllamaAdapter(Config.LOCAL_URL, Config.LOCAL_MODEL)
+    elif provider == "cloud":
+        if not Config.CLOUD_KEY:
+            raise ValueError("Missing Cloud API Key")
+        return CloudAdapter(Config.CLOUD_KEY, Config.CLOUD_BASE, Config.CLOUD_MODEL)
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
+```
+
+---
+
+#### 5. 网关端口设计（RESTful 风格）
+
+**推荐路由设计（兼容 OpenAI 格式）**：
+
+| 方法 | 端点 | 功能 |
+|------|------|------|
+| POST | `/v1/chat/completions` | 对话补全（核心） |
+| GET | `/v1/models` | 列出可用模型 |
+| POST | `/v1/completions` | 旧版补全（可选） |
+
+**请求体结构（JSON）**：
+
+```json
+{
+  "model": "gemma4",          // 或 deepseek-v4-pro，由网关转发
+  "messages": [
+    {"role": "system", "content": "You are a biologist"},
+    {"role": "user", "content": "Explain PCR"}
+  ],
+  "stream": false,
+  "temperature": 0.7,
+  "max_tokens": 1024
+}
+```
+
+**响应体结构（统一）**：
+
+```json
+{
+  "id": "chatcmpl-xxx",
+  "model": "gemma4",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "PCR stands for..."},
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 10, "completion_tokens": 50, "total_tokens": 60}
+}
+```
+
+**FastAPI 完整网关实现**：
+
+```python
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse, JSONResponse
+import time
+import uuid
+
+app = FastAPI(title="LLM Gateway")
+
+@app.post("/v1/chat/completions")
+async def chat_completions(request: Request):
+    body = await request.json()
+    messages = body.get("messages", [])
+    stream = body.get("stream", False)
+    model_hint = body.get("model", Config.LOCAL_MODEL)
+    temperature = body.get("temperature", 0.7)
+
+    # 可根据 model_hint 动态选择 adapter，或固定使用环境变量
+    adapter = get_adapter()
+    try:
+        result = adapter.chat_completions(messages, stream=stream, temperature=temperature)
+        if stream:
+            # 将生成器转换为 SSE 流
+            return StreamingResponse(result, media_type="text/event-stream")
+        else:
+            # 组装 OpenAI 格式响应
+            resp_json = {
+                "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
+                "model": model_hint,
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": result["content"]}, "finish_reason": "stop"}
+                ],
+                "usage": {"total_tokens": 0}  # 可自行计算或省略
+            }
+            return JSONResponse(resp_json)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/v1/models")
+async def list_models():
+    return {
+        "object": "list",
+        "data": [
+            {"id": Config.LOCAL_MODEL, "object": "model", "type": "local"},
+            {"id": Config.CLOUD_MODEL, "object": "model", "type": "cloud"}
+        ]
+    }
+```
+
+---
+
+#### 6. 健壮性设计（超时、重试、熔断）
+
+| 问题 | 解决方案 | 实现 |
+|------|----------|------|
+| 本地模型卡死/超时 | 设置较长的 read_timeout（180s） | `requests.post(timeout=180)` |
+| 云端 API 限流（429） | 指数退避重试 | `retry` 库或 `tenacity` |
+| 本地 OOM 崩溃 | 捕获异常后 fallback 到云端 | try-except 中调用备用适配器 |
+| 流式断开 | 捕获生成器异常，记录日志 | `try/except` 包裹 yield |
+
+**重试示例（tenacity）**：
+
+```python
+from tenacity import retry, wait_exponential, stop_after_attempt
+
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
+def call_cloud_safe(adapter, messages):
+    return adapter.chat_completions(messages)
+```
+
+**本地故障自动降级云端**：
+
+```python
+def get_resilient_response(messages):
+    try:
+        local = OllamaAdapter(...)
+        return local.chat_completions(messages)
+    except Exception as e:
+        print(f"Local failed: {e}, falling back to cloud")
+        cloud = CloudAdapter(...)
+        return cloud.chat_completions(messages)
+```
+
+---
+
+#### 7. 使用统一网关启动服务（生产级命令）
+
+**在 AidLux 中启动网关**：
+
+```bash
+# 安装依赖
+pip install fastapi uvicorn requests openai tenacity
+
+# 设置环境变量
+export LLM_PROVIDER="local"
+export OLLAMA_URL="http://localhost:11434"
+export LOCAL_MODEL="gemma4:e4b"
+
+# 启动服务（监听 8000 端口）
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+**测试网关**：
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":false}'
+```
+
+**切换到云端（无需改代码）**：
+
+```bash
+export LLM_PROVIDER="cloud"
+export DEEPSEEK_API_KEY="sk-xxx"
+# 重启 uvicorn 即可
+```
+
+---
+
+#### 8. 半云端（WebGPU）带一嘴
+
+- **本质**：模型通过 WebGPU 在浏览器端运行（如 Transformers.js / WebLLM）
+- **适合场景**：离线轻量问答、隐私极度敏感场景（数据完全不出浏览器）
+- **局限**：模型大小受限于浏览器内存（通常 < 4B 量化版），推理速度不如云端
+- **接入方式**：前端 JS 直接调用，不走后端网关，作为网关的一种“边缘节点”补充
+
+**代码示意（前端）**：
+
+```javascript
+import { pipeline } from '@xenova/transformers';
+const pipe = await pipeline('text-generation', 'onnx-community/gemma4-e2b');
+const output = await pipe('What is DNA?', { max_new_tokens: 100 });
+```
+
+无需后端，完全前端推理。
+
+---
+
+#### 9. 本课核心设计模式速查表
+
+| 设计目标 | 实现手段 |
+|----------|----------|
+| 统一入口 | FastAPI 网关 + `/v1/chat/completions` |
+| 多后端支持 | 适配器模式（OllamaAdapter / CloudAdapter） |
+| 运行时切换 | 环境变量 `LLM_PROVIDER` |
+| 健壮性 | 超时（180s）+ 指数退避重试 + 故障降级 |
+| 兼容性 | 请求/响应格式对齐 OpenAI Chat Completions |
+
+---
+
+#### 10. 常见问题及解决
+
+| 问题 | 解决 |
+|------|------|
+| 本地 Ollama 未启动导致网关报错 | 启动前检查 `ollama ps`，或用 `try-except` 自动降级云端 |
+| 流式响应前端无法解析 | 网关需返回 `text/event-stream` 格式，每块以 `data: {json}\n\n` 分隔 |
+| 云端 Key 泄露风险 | 使用环境变量或 Vault，严禁硬编码 |
+| 切换 provider 后未生效 | 重启 uvicorn 或使用热重载配置（如 `watchfiles`） |
+| 多用户并发时本地模型排队 | 使用 `asyncio` 异步，或限制并发数（本地模型只适合单路或低并发） |
+
+---
+
+#### 11. 课后练习
+
+1. 基于本课代码，在 AidLux 中启动一个完整的 FastAPI 网关，让本地 Ollama 提供服务。
+
+2. 用 `curl` 测试 `/v1/chat/completions` 接口，观察流式和非流式的区别。
+
+3. 修改环境变量 `LLM_PROVIDER=cloud`，测试切换到 DeepSeek 云端。
+
+4. 在网关中增加日志中间件，记录每次请求的耗时和 Token 数。
+
+5. 在前端基因浏览器的 JS 中，将 `fetch` 目标从 Worker 改为这个本地网关的 `/v1/chat/completions`，实现“基因问答助手”功能。
+
+6. （选做）实现故障降级：优先调本地，本地失败自动调云端，并返回给前端哪个模型回复的。
+
+
+### 第六课：模型微调 —— 概念速览（只讲不练）
+
+本课目标：
+
+- 理解微调（Fine-tuning）是什么、为什么需要微调
+
+- 区分预训练、微调、指令微调、RLHF 的关系
+
+- 掌握全量微调与参数高效微调（PEFT/LoRA）的核心区别
+
+- 了解微调所需的数据格式（Alpaca / ShareGPT）
+
+- 熟悉常见的微调工具和框架名称
+
+- 清楚微调的基本流程（数据准备 → 加载 → 训练 → 评估）
+
+- 本课全程无代码实操，仅建立概念认知，为后续自学铺垫
+
+---
+
+#### 1. 预训练 vs 微调（核心区别）
+
+| 阶段 | 目标 | 数据量 | 算力成本 | 产出 |
+|------|------|--------|---------|------|
+| 预训练 | 学习通用语言规律和世界知识 | TB 级（全网文本） | 极高（千万级人民币） | 基座模型（Base Model） |
+| 微调 | 让模型适应特定任务或领域 | KB–GB 级（任务数据） | 低（单卡–多卡可跑） | 任务专用模型 |
+| 指令微调 | 让模型学会遵循指令进行对话 | 10 万–百万级高质量问答对 | 中 | 对话模型（Chat Model） |
+
+**一句话说清**：预训练是“读完大学所有教材”，微调是“专攻生物信息学方向，读完该领域文献”。
+
+---
+
+#### 2. 微调的分类（按数据量和方式）
+
+| 分类 | 说明 | 适用场景 |
+|------|------|----------|
+| 全量微调（Full Fine-tuning） | 更新模型所有参数 | 算力充裕、数据充足（数万条以上） |
+| 指令微调（Instruction Tuning） | 仅用指令-回复对训练，不更新知识库 | 提升对话能力和指令遵循能力 |
+| 领域微调（Domain Adaptation） | 用领域语料（如生物医学论文）继续预训练 | 让模型掌握专业术语和领域知识 |
+| 任务微调（Task-specific） | 用特定任务数据（如分类、摘要）微调 | 单一任务性能优化 |
+
+---
+
+#### 3. 参数高效微调（PEFT）—— 用 1% 成本做 90% 的事
+
+全量微调一个 7B 模型需要约 28GB 显存，27B 模型需要超 100GB。PEFT 只训练极少量参数，大幅降低门槛。
+
+| 方法 | 核心思想 | 训练参数占比 | 显存需求（7B） |
+|------|----------|-------------|----------------|
+| LoRA（Low-Rank Adaptation） | 在权重矩阵旁添加低秩旁路，只训练旁路 | ~0.1%–0.5% | ~16GB |
+| QLoRA | LoRA + 4-bit 量化基座 | ~0.1% | ~8GB（单卡可跑） |
+| Adapter | 在每层插入小型可训练网络 | ~1–3% | ~20GB |
+| Prefix Tuning | 在输入前添加可训练前缀向量 | <0.1% | ~14GB |
+
+**LoRA 原理公式**：
+
+```
+W_final = W_base + A × B
+```
+- `W_base`：原始预训练权重（冻结，不更新）
+- `A` 和 `B`：可训练的低秩矩阵（极小，替代全量更新）
+
+效果：用千分之一的参数量，达到全量微调 90%+ 的性能。
+
+---
+
+#### 4. 微调数据格式（如何准备数据）
+
+**Alpaca 格式（最通用）**：
+
+```json
+[
+  {
+    "instruction": "解释什么是DNA的GC含量",
+    "input": "",
+    "output": "GC含量是指DNA分子中鸟嘌呤（G）和胞嘧啶（C）所占的百分比..."
+  },
+  {
+    "instruction": "根据以下序列计算GC含量",
+    "input": "ATCGATCGATCG",
+    "output": "该序列长度为12，GC含量为50%"
+  }
+]
+```
+
+**ShareGPT 格式（多轮对话）**：
+
+```json
+[
+  {
+    "conversations": [
+      {"from": "human", "value": "什么是基因？"},
+      {"from": "gpt", "value": "基因是DNA分子上具有遗传效应的片段..."},
+      {"from": "human", "value": "它由什么组成？"},
+      {"from": "gpt", "value": "基因由A、T、C、G四种碱基组成..."}
+    ]
+  }
+]
+```
+
+**数据量级参考**：
+
+| 场景 | 推荐数据量 | 质量要求 |
+|------|-----------|----------|
+| 简单指令微调 | 5,000–50,000 条 | 高（需人工校验） |
+| 领域知识注入 | 50,000–200,000 条 | 中（可从论文/教材抽取） |
+| 复杂推理微调 | 10,000–30,000 条 | 极高（需详细思维链标注） |
+
+---
+
+#### 5. 微调基本流程（五步走）
+
+| 步骤 | 操作 | 输入 | 输出 |
+|------|------|------|------|
+| 1. 数据准备 | 收集/清洗/格式化数据 | 原始文本 | JSONL 格式数据集 |
+| 2. 加载基座模型 | 从 Hugging Face 或本地加载 | 模型 ID 或路径 | 加载进内存的模型对象 |
+| 3. 配置 LoRA | 指定 rank、alpha、目标模块 | 超参数 | LoRA 配置对象 |
+| 4. 训练 | 用 Trainer 或 SFTTrainer 跑训练 | 数据集 + 模型 | 保存 LoRA 权重（adapter 文件） |
+| 5. 评估与导出 | 在验证集评测，合并权重 | 基座模型 + LoRA | 完整微调模型 或 继续用 LoRA |
+
+---
+
+#### 6. 常用微调工具与框架（只列名字，不操作）
+
+| 工具 | 说明 | 适用场景 |
+|------|------|----------|
+| Hugging Face TRL（SFTTrainer） | 官方指令微调库，支持 LoRA | 通用，最主流 |
+| Unsloth | 极速微调库，2–5 倍速度提升 | 追求效率，商用友好 |
+| LlamaFactory | 国产 WebUI 微调平台 | 非程序员也可操作 |
+| Axolotl | YAML 配置驱动微调 | 大型实验管理 |
+| Firefly | 阿里开源中文微调框架 | 中文场景 |
+| QLoRA 原生实现 | 4-bit 量化 + LoRA 组合 | 消费级显卡跑 70B 模型 |
+
+---
+
+#### 7. 微调 vs RLHF vs 上下文学习（同场对比）
+
+| 方式 | 原理 | 成本 | 效果 | 适用 |
+|------|------|------|------|------|
+| 微调（Fine-tuning） | 更新模型权重 | 高（需算力） | 永久性改变模型行为 | 领域专精 |
+| RLHF | 基于人类偏好优化输出 | 极高（需标注排序） | 更自然、更安全 | 对话对齐 |
+| 上下文学习（In-Context Learning） | 在 Prompt 中给示例（Few-shot） | 低（仅 Token 成本） | 临时行为改变 | 快速适配、原型测试 |
+
+**决策建议**：
+- 能用 Few-shot 解决的，不微调
+- 需要模型永久掌握领域知识的，做微调
+- 需要“更懂人话”的，上 RLHF（需要大量标注）
+
+---
+
+#### 8. 微调的伦理与陷阱（知道就好）
+
+| 风险 | 说明 |
+|------|------|
+| 灾难性遗忘（Catastrophic Forgetting） | 微调后模型可能忘记通用能力（用混合通用数据+领域数据可缓解） |
+| 数据泄露 | 微调用到的数据若含敏感信息，模型可能“记住”并泄露 |
+| 安全对齐被破坏 | 过度微调可能削弱模型原有的安全护栏 |
+| 评估偏差 | 在微调数据分布上评估会高估实际泛化能力 |
+
+**最佳实践**：
+- 微调数据中混入 5–10% 通用指令数据，防止遗忘
+- 不在微调数据中使用真实个人隐私信息
+- 微调后在多维度基准（通用 + 领域）上测试
+
+---
+
+#### 9. 本课核心概念速查表
+
+| 概念 | 一句话解释 |
+|------|------------|
+| 微调 | 在预训练模型基础上用少量数据更新参数，适应特定任务 |
+| 全量微调 | 更新所有参数，效果好但贵 |
+| LoRA | 冻结原模型，只训练低秩旁路，用 1% 参数量达到 90% 性能 |
+| QLoRA | LoRA + 4-bit 量化，能在 8GB 显卡跑 7B 模型微调 |
+| Alpaca 格式 | 指令微调的标准 JSON 数据格式 |
+| SFTTrainer | Hugging Face 最主流的微调训练器 |
+| 灾难性遗忘 | 微调后丢失通用知识的现象 |
+| 上下文学习 | 不更新权重，仅靠 Prompt 示例完成新任务 |
+
+---
+
+#### 10. 本课小结
+
+- **微调让通用模型变“领域专家”**，本课只讲概念，不操作
+- **全量微调**效果好但吃算力，**LoRA/QLoRA** 是平民玩家的首选
+- **数据是微调的命脉**，Alpaca/ShareGPT 格式是最通用的结构
+- **工具链成熟**：TRL + Unsloth + LlamaFactory，选一个入门即可
+- **微调前先问自己**：Few-shot 够不够？不够才微调
+- **本附录（附录 5）至此完结**：从概率原理 → 模型分类 → 本地部署（Ollama + Gemma） → 云端 API（DeepSeek） → 网关封装 → 微调概念，覆盖了 AI 大模型的完整知识链路
+
+---
+
+#### 11. 课后练习（思考题，不写代码）
+
+1. 有一批 5,000 条生物医学问答数据，你想让模型掌握该领域知识。选择全量微调还是 LoRA？为什么？
+
+2. 微调和 Few-shot 上下文学习，你会在什么情况下优先选择后者？
+
+3. 若你的设备只有 8GB 显存，想微调 7B 模型，应该选择什么方案？
+
+4. 为什么微调数据中要混入一定比例的通用指令数据？
+
+5. 列举 3 个微调工具和 3 种微调数据格式。
+
+## 附录 6
+
+### 第一课：生物数据核心数据库与Python生态总览
+
+本课目标：
+
+- 认识三大生物信息学核心数据库：NCBI、UniProt、PDB
+
+- 理解各数据库的核心数据类型的区别
+
+- 掌握用 Biopython 与三大数据库交互的通用流程
+
+- 配置好 Python 环境与必要库
+
+- 理解 NCBI Entrez 的使用规范（邮箱、频率限制）
+
+---
+
+#### 1. 三大数据库概览
+
+| 数据库 | 全称 | 数据类型 | 典型用途 | 访问方式 |
+|--------|------|----------|----------|----------|
+| NCBI | 美国国家生物技术信息中心 | 核酸序列、蛋白序列、文献、基因组、SNP等 | 基因序列检索、BLAST比对、文献检索 | Entrez E-utilities (Biopython) |
+| UniProt | 通用蛋白质资源 | 蛋白质序列、功能注释、结构域、GO术语 | 蛋白质功能分析、序列注释 | REST API |
+| PDB | 蛋白质数据银行 | 三维结构（原子坐标） | 结构生物学、分子对接、药物设计 | REST API + FTP |
+
+**一句话总结**：
+- NCBI → **序列**（DNA/RNA/蛋白质）和**文献**
+- UniProt → **蛋白质功能**（注释、结构域、通路）
+- PDB → **三维结构**（原子坐标）
+
+---
+
+#### 2. Python 生态工具链
+
+| 库 | 用途 | 安装命令 |
+|----|------|----------|
+| `biopython` | NCBI Entrez 交互、序列处理、PDB解析 | `pip install biopython` |
+| `requests` | 通用HTTP请求（UniProt API、PDB API） | `pip install requests` |
+| `pandas` | 数据处理（TSV/CSV） | `pip install pandas` |
+
+**验证安装**：
+
+```python
+import Bio
+import requests
+import pandas as pd
+print(Bio.__version__)  # 应显示版本号
+```
+
+---
+
+#### 3. NCBI Entrez 使用规范（非常重要）
+
+NCBI 对编程访问有严格限制，必须遵守：
+
+| 规范 | 要求 |
+|------|------|
+| 设置邮箱 | 必须设置，用于问题追踪 |
+| 频率限制 | 无API Key：每秒3次请求；有API Key：每秒10次请求[reference:0] |
+| 重试机制 | Biopython自动处理，默认最多3次，间隔15秒[reference:1] |
+| 批量请求 | 用逗号分隔多个ID，减少请求次数 |
+
+**基础配置模板**：
+
+```python
+from Bio import Entrez
+
+# 必须设置（替换为真实邮箱）
+Entrez.email = "your_email@example.com"
+
+# 可选：设置API Key（在NCBI账号中申请）
+# Entrez.api_key = "your_api_key_here"
+
+# 可选：设置工具名称
+Entrez.tool = "MyBioinformaticsScript"
+```
+
+**注意**：`Entrez.email` 必须在所有 Entrez 调用之前设置，否则会报错[reference:2][reference:3]。
+
+---
+
+#### 4. Entrez 核心函数速查表
+
+| 函数 | 用途 | 示例 |
+|------|------|------|
+| `Entrez.esearch()` | 搜索数据库，返回ID列表[reference:4] | `Entrez.esearch(db="nucleotide", term="human insulin")` |
+| `Entrez.efetch()` | 根据ID获取完整记录[reference:5] | `Entrez.efetch(db="nucleotide", id="NM_000207", rettype="fasta")` |
+| `Entrez.esummary()` | 获取摘要信息[reference:6] | `Entrez.esummary(db="pubmed", id="12345")` |
+| `Entrez.elink()` | 查找相关链接[reference:7] | `Entrez.elink(dbfrom="protein", db="gene", id="P01308")` |
+| `Entrez.einfo()` | 获取数据库信息[reference:8] | `Entrez.einfo(db="nucleotide")` |
+| `Entrez.read()` | 解析XML结果为Python对象[reference:9] | `Entrez.read(handle)` |
+
+**可查询的数据库列表**：`pubmed`、`nucleotide`、`protein`、`gene`、`taxonomy`、`assembly`、`bioproject`、`sra` 等[reference:10]。
+
+---
+
+#### 5. 三种数据库的访问方式对比
+
+| 数据库 | 推荐方式 | 库/工具 |
+|--------|----------|---------|
+| NCBI | Biopython Entrez | `Bio.Entrez` |
+| UniProt | REST API (requests) | 直接调用 `rest.uniprot.org` |
+| PDB | Biopython PDBList / REST API | `Bio.PDB.PDBList` 或 `requests` |
+
+---
+
+#### 6. 本课小结
+
+- **NCBI** 用 `Bio.Entrez` 访问，需设置邮箱和遵守频率限制
+- **UniProt** 用 REST API，直接 `requests.get("https://rest.uniprot.org/...")`
+- **PDB** 用 `Bio.PDB.PDBList` 下载，或用 `requests` 直接获取
+- 三大数据库覆盖了**序列 → 功能 → 结构**的完整生物信息链条
+
+---
+
+#### 7. 课后练习
+
+1. 安装 Biopython、requests、pandas。
+
+2. 在 Python 中设置 `Entrez.email` 为你的邮箱。
+
+3. 用 `Entrez.einfo(db="nucleotide")` 查看核苷酸数据库的可用字段。
+
+4. 查询 NCBI 有多少条人类胰岛素基因的记录（用 `esearch` + `Count` 字段）。
+
+
+### 第二课：NCBI 数据库实战 —— 搜索、下载序列、解析 GenBank
+
+本课目标：
+
+- 掌握 Entrez.esearch 搜索数据库并获取 ID 列表
+
+- 掌握 Entrez.efetch 下载 FASTA 和 GenBank 格式
+
+- 解析 GenBank 文件提取序列、注释、CDS 特征
+
+- 批量处理多个 ID
+
+- 掌握历史服务器（history）处理大型查询
+
+- 学会在 AidLux 上运行这些代码
+
+---
+
+#### 1. 搜索数据库（Esearch）
+
+Esearch 返回符合条件的 ID 列表和总数。
+
+**搜索核苷酸数据库（关键字搜索）**：
+
+```python
+from Bio import Entrez
+
+Entrez.email = "your_email@example.com"
+
+# 搜索人类胰岛素基因（在 nucleotide 数据库中）
+handle = Entrez.esearch(
+    db="nucleotide",
+    term="human insulin[ORGANISM] AND insulin[GENE]",
+    retmax=10  # 最多返回 10 个 ID
+)
+result = Entrez.read(handle)
+handle.close()
+
+print(f"总记录数: {result['Count']}")
+print(f"ID 列表: {result['IdList']}")
+```
+
+**常见搜索字段**：
+
+| 字段 | 说明 | 示例 |
+|------|------|------|
+| `[ORGANISM]` | 物种名称 | `human[ORGANISM]` |
+| `[GENE]` | 基因名称 | `BRCA1[GENE]` |
+| `[PROTEIN]` | 蛋白质名称 | `p53[PROTEIN]` |
+| `[TITLE]` | 标题中包含 | `"complete genome"[TITLE]` |
+| `[AUTHOR]` | 作者 | `Smith[AUTHOR]` |
+| `[PDAT]` | 出版日期 | `2025[PDAT]` |
+
+**逻辑运算符**：
+
+| 运算符 | 说明 | 示例 |
+|--------|------|------|
+| `AND` | 同时满足 | `human AND insulin` |
+| `OR` | 满足之一 | `insulin OR glucagon` |
+| `NOT` | 排除 | `insulin NOT rat` |
+
+**搜索蛋白质数据库**：
+
+```python
+handle = Entrez.esearch(
+    db="protein",
+    term="BRCA1[GENE] AND human[ORGANISM]",
+    retmax=10
+)
+result = Entrez.read(handle)
+print(result['IdList'])
+```
+
+**搜索 Gene 数据库（获取基因信息）**：
+
+```python
+handle = Entrez.esearch(
+    db="gene",
+    term="BRCA1[GENE] AND Homo sapiens[ORGANISM]"
+)
+result = Entrez.read(handle)
+print(result['IdList'])
+```
+
+**搜索 PubMed 文献**：
+
+```python
+handle = Entrez.esearch(
+    db="pubmed",
+    term="CRISPR-Cas9[TI] AND 2024[PDAT]"
+)
+result = Entrez.read(handle)
+print(f"找到 {result['Count']} 篇文献")
+```
+
+---
+
+#### 2. 下载 FASTA 序列（Efetch）
+
+```python
+# 从 nucleotide 数据库下载 FASTA
+handle = Entrez.efetch(
+    db="nucleotide",
+    id="NM_000207",  # 人类胰岛素 mRNA
+    rettype="fasta",
+    retmode="text"
+)
+fasta_data = handle.read()
+handle.close()
+print(fasta_data)
+```
+
+**保存到文件**：
+
+```python
+with open("insulin.fasta", "w") as f:
+    f.write(fasta_data)
+```
+
+**从蛋白质数据库下载**：
+
+```python
+handle = Entrez.efetch(
+    db="protein",
+    id="P01308",  # 人胰岛素蛋白
+    rettype="fasta",
+    retmode="text"
+)
+protein_fasta = handle.read()
+handle.close()
+```
+
+**从 Gene 数据库下载（获取基因摘要）**：
+
+```python
+handle = Entrez.efetch(
+    db="gene",
+    id="672",  # BRCA1 的 Gene ID
+    rettype="gb",  # GenBank 格式
+    retmode="text"
+)
+gene_data = handle.read()
+handle.close()
+```
+
+---
+
+#### 3. 下载 GenBank 完整记录
+
+```python
+# 下载 GenBank 格式（完整注释 + 序列）
+handle = Entrez.efetch(
+    db="nucleotide",
+    id="NM_000207",
+    rettype="gb",  # GenBank
+    retmode="text"
+)
+gb_data = handle.read()
+handle.close()
+
+with open("insulin.gb", "w") as f:
+    f.write(gb_data)
+```
+
+**Efetch 参数速查表**：
+
+| 参数 | 说明 | 常用值 |
+|------|------|--------|
+| `db` | 数据库 | `nucleotide`, `protein`, `gene`, `pubmed` |
+| `id` | 单个 ID 或逗号分隔的 ID 列表 | `"NM_000207"` 或 `"ID1,ID2,ID3"` |
+| `rettype` | 返回类型 | `fasta`, `gb`（GenBank）, `gpc`（GPC）, `xml` |
+| `retmode` | 返回模式 | `text`（文本）, `xml`（XML） |
+
+---
+
+#### 4. 解析 GenBank 文件（SeqIO）
+
+```python
+from Bio import SeqIO
+
+# 读取 GenBank 文件
+record = SeqIO.read("insulin.gb", "genbank")
+
+# 基本信息
+print("ID:", record.id)
+print("描述:", record.description)
+print("序列长度:", len(record.seq))
+print("序列类型:", record.annotations.get("molecule_type", "N/A"))
+
+# 来源信息
+print("物种:", record.annotations.get("organism", "N/A"))
+
+# 所有注释
+print("注释键:", record.annotations.keys())
+```
+
+**提取特征（CDS、mRNA 等）**：
+
+```python
+for feature in record.features:
+    if feature.type == "CDS":
+        print("--- CDS 特征 ---")
+        print("位置:", feature.location)
+        # 提取翻译产物
+        translation = feature.qualifiers.get("translation", ["N/A"])[0]
+        print("翻译序列:", translation[:50] + "...")
+        # 提取蛋白 ID
+        protein_id = feature.qualifiers.get("protein_id", ["N/A"])[0]
+        print("蛋白 ID:", protein_id)
+        # 提取基因名
+        gene = feature.qualifiers.get("gene", ["N/A"])[0]
+        print("基因名:", gene)
+```
+
+**提取所有 CDS 的翻译产物**：
+
+```python
+cds_sequences = []
+for feature in record.features:
+    if feature.type == "CDS":
+        if "translation" in feature.qualifiers:
+            cds_sequences.append(feature.qualifiers["translation"][0])
+        elif "protein_id" in feature.qualifiers:
+            # 如果有蛋白 ID，但无 translation，可以进一步下载
+            print(f"CDS 有蛋白 ID: {feature.qualifiers['protein_id'][0]}")
+
+for i, seq in enumerate(cds_sequences[:5]):  # 只显示前5个
+    print(f"CDS {i+1}: {seq[:60]}...")
+```
+
+**从 GenBank 提取所有外显子位置**：
+
+```python
+exons = []
+for feature in record.features:
+    if feature.type == "exon":
+        start = int(feature.location.start) + 1  # 转为 1-based
+        end = int(feature.location.end)
+        exons.append((start, end))
+print("外显子位置:", exons)
+```
+
+---
+
+#### 5. 批量处理多个 ID（一次性获取多条）
+
+```python
+# 先搜索获取一批 ID
+handle = Entrez.esearch(
+    db="nucleotide",
+    term="BRCA1[GENE] AND human[ORGANISM]",
+    retmax=5
+)
+result = Entrez.read(handle)
+id_list = result['IdList']
+print("获取到 ID:", id_list)
+
+# 批量下载 FASTA（用逗号连接）
+id_str = ",".join(id_list)
+handle = Entrez.efetch(
+    db="nucleotide",
+    id=id_str,
+    rettype="fasta",
+    retmode="text"
+)
+fasta_data = handle.read()
+handle.close()
+
+with open("brca1_batch.fasta", "w") as f:
+    f.write(fasta_data)
+```
+
+**遍历多条 GenBank 记录**：
+
+```python
+handle = Entrez.efetch(
+    db="nucleotide",
+    id=id_str,
+    rettype="gb",
+    retmode="text"
+)
+
+for record in SeqIO.parse(handle, "genbank"):
+    print(f"ID: {record.id}")
+    print(f"长度: {len(record.seq)}")
+    # 提取 CDS 数量
+    cds_count = sum(1 for f in record.features if f.type == "CDS")
+    print(f"CDS 数量: {cds_count}")
+    print("---")
+
+handle.close()
+```
+
+---
+
+#### 6. 使用历史服务器（处理大型查询）
+
+当结果数量很大时，用历史服务器（WebEnv + query_key）避免重复搜索：
+
+```python
+# 第一次搜索：获取历史 key
+search_handle = Entrez.esearch(
+    db="nucleotide",
+    term="human[ORGANISM] AND mitochondrion[GENE]",
+    usehistory="y"  # 关键参数
+)
+search_result = Entrez.read(search_handle)
+search_handle.close()
+
+webenv = search_result["WebEnv"]
+query_key = search_result["QueryKey"]
+count = int(search_result["Count"])
+print(f"总共 {count} 条记录")
+
+# 分批获取（每次 100 条）
+batch_size = 100
+for start in range(0, min(count, 500), batch_size):
+    fetch_handle = Entrez.efetch(
+        db="nucleotide",
+        retstart=start,
+        retmax=batch_size,
+        webenv=webenv,
+        query_key=query_key,
+        rettype="fasta",
+        retmode="text"
+    )
+    data = fetch_handle.read()
+    fetch_handle.close()
+    print(f"已获取 {start+1} 到 {min(start+batch_size, count)}")
+    # 保存到文件
+    with open(f"batch_{start//batch_size}.fasta", "w") as f:
+        f.write(data)
+```
+
+---
+
+#### 7. 实战：搜索 BRCA1 基因的所有 mRNA 转录本
+
+```python
+from Bio import Entrez, SeqIO
+
+Entrez.email = "your_email@example.com"
+
+# 搜索 BRCA1 mRNA（refseq 数据库）
+handle = Entrez.esearch(
+    db="nucleotide",
+    term="BRCA1[GENE] AND human[ORGANISM] AND mRNA[FILTER] AND srcdb_refseq[PROP]",
+    retmax=20
+)
+result = Entrez.read(handle)
+ids = result['IdList']
+
+print(f"找到 {len(ids)} 个 BRCA1 mRNA 转录本")
+
+# 下载每个转录本的 GenBank，提取外显子和 CDS
+for acc in ids[:5]:  # 只处理前5个
+    handle = Entrez.efetch(db="nucleotide", id=acc, rettype="gb", retmode="text")
+    record = SeqIO.read(handle, "genbank")
+    handle.close()
+
+    print(f"\n=== {acc} ===")
+    print(f"长度: {len(record.seq)}")
+    print(f"描述: {record.description}")
+
+    # 统计外显子数量
+    exons = [f for f in record.features if f.type == "exon"]
+    print(f"外显子数量: {len(exons)}")
+
+    # 找 CDS
+    cds_features = [f for f in record.features if f.type == "CDS"]
+    for cds in cds_features:
+        if "translation" in cds.qualifiers:
+            prot = cds.qualifiers["translation"][0]
+            print(f"蛋白长度: {len(prot)} aa")
+            break
+```
+
+---
+
+#### 8. Esearch 字段汇总
+
+| 数据库 | 常用字段 | 示例 |
+|--------|----------|------|
+| `nucleotide` | `[GENE]`, `[ORGANISM]`, `[PROP]`, `[FILTER]` | `BRCA1[GENE] AND human[ORGANISM]` |
+| `protein` | `[GENE]`, `[ORGANISM]`, `[MOLWT]` | `p53[GENE] AND human[ORGANISM]` |
+| `pubmed` | `[TI]`（标题）, `[AU]`（作者）, `[DP]`（日期） | `CRISPR[TI] AND 2024[DP]` |
+| `gene` | `[GENE]`, `[ORGANISM]`, `[CHR]`（染色体） | `BRCA1[GENE] AND human[ORGANISM]` |
+
+**NCBI 特殊属性 `[PROP]`**：
+
+| 属性 | 含义 |
+|------|------|
+| `refseq[PROP]` | RefSeq 数据库记录 |
+| `genomic[PROP]` | 基因组序列 |
+| `mrna[PROP]` | mRNA 序列 |
+| `cds[PROP]` | CDS 序列 |
+| `srcdb_refseq[PROP]` | 来源于 RefSeq |
+
+---
+
+#### 9. 常见错误与解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `Entrez.efetch` 返回空 | ID 不正确或数据库不匹配 | 检查 ID 是否属于该数据库 |
+| `HTTP Error 429: Too Many Requests` | 请求过于频繁 | 减小请求频率，添加 `sleep(0.3)` |
+| `ValueError: Failed to parse XML` | 返回内容不是 XML | 检查 `retmode` 参数是否正确 |
+| 解析 GenBank 时 `SeqRecord` 无特征 | 下载的是 FASTA 而非 GenBank | 修改 `rettype="gb"` |
+| `Entrez.email not set` | 未设置邮箱 | 在调用前设置 `Entrez.email` |
+| 搜索返回 0 条记录 | 搜索词有误 | 在 NCBI 官网先用相同关键词验证 |
+
+---
+
+#### 10. 本课核心代码模板
+
+```python
+from Bio import Entrez, SeqIO
+
+Entrez.email = "your_email@example.com"
+
+def search_and_fetch(db, term, retmax=10, rettype="fasta"):
+    """搜索并下载序列"""
+    # 搜索
+    search = Entrez.esearch(db=db, term=term, retmax=retmax)
+    result = Entrez.read(search)
+    ids = result['IdList']
+    if not ids:
+        print("没有找到记录")
+        return None
+
+    # 批量获取
+    id_str = ",".join(ids)
+    fetch = Entrez.efetch(db=db, id=id_str, rettype=rettype, retmode="text")
+    data = fetch.read()
+    fetch.close()
+    return data
+
+# 使用示例
+fasta = search_and_fetch("nucleotide", "BRCA1[GENE] AND human[ORGANISM]", retmax=5)
+with open("brca1.fasta", "w") as f:
+    f.write(fasta)
+```
+
+---
+
+#### 11. 课后练习
+
+1. 用 Esearch 搜索人类 TP53 基因的核苷酸序列，获取 ID 列表并打印总数。
+
+2. 从蛋白质数据库下载 TP53 蛋白序列（ID: P04637）的 FASTA。
+
+3. 用 GenBank 格式下载人类 BRCA1 基因（NM_007294），解析并打印其所有外显子的起始和结束位置。
+
+4. 写一个函数 `fetch_gene_sequence(gene_name, organism="human")`，返回该基因的第一个 mRNA 序列的 FASTA 字符串。
+
+ 搜索最近 1 年发表的关于 CRISPR-Cas9 的 PubMed 文献，打印前 5 篇的标题。
+
+
+### 第三课：UniProt 数据库实战 —— 蛋白质功能注释与批量查询
+
+本课目标：
+
+- 理解 UniProt 的构成（Swiss-Prot 与 TrEMBL 的区别）
+
+- 掌握 UniProt REST API 的查询语法和端点
+
+- 按基因名和物种搜索蛋白质
+
+- 解析 UniProt JSON 响应，提取核心注释（功能、GO 术语、结构域）
+
+- 根据 NCBI 蛋白质 ID 映射到 UniProt ID
+
+- 批量查询多个蛋白质并导出为结构化数据
+
+---
+
+#### 1. UniProt 简介（Swiss-Prot vs TrEMBL）
+
+| 数据库 | 说明 | 特点 |
+|--------|------|------|
+| **Swiss-Prot** | 人工注释（Manual curation） | 高质量、高可靠性，有详细功能注释和文献引用 |
+| **TrEMBL** | 自动注释（Automatic annotation） | 基于核酸序列翻译，未经人工复核，注释较粗 |
+
+两者统称为 UniProtKB（UniProt Knowledgebase）。搜索时默认包含两者，但可通过过滤区分。
+
+**UniProt 记录的核心内容**：
+
+| 字段 | 说明 |
+|------|------|
+| Accession（登录号） | 主标识符（如 P01308） |
+| Entry Name（条目名） | 可读标识符（如 INS_HUMAN） |
+| Protein Name | 蛋白质全名 |
+| Gene Name | 基因名称 |
+| Organism | 物种 |
+| Function（功能） | 蛋白质的生物学功能描述 |
+| Subcellular Location | 亚细胞定位 |
+| Domains & Sites | 结构域、活性位点、跨膜区 |
+| GO Terms | 基因本体注释（分子功能、生物过程、细胞组分） |
+| Cross-references | 到其他数据库的链接（NCBI、PDB、Pfam 等） |
+| Sequence | 氨基酸序列 |
+
+---
+
+#### 2. UniProt REST API 基础
+
+**API 基础信息**：
+
+| 项目 | 值 |
+|------|-----|
+| 基础 URL | `https://rest.uniprot.org` |
+| 搜索端点 | `/uniprotkb/search` |
+| 获取记录 | `/uniprotkb/{accession}` |
+| 获取序列 | `/uniprotkb/{accession}/fasta` |
+| 获取批量 | `/uniprotkb/stream` |
+| 返回格式 | JSON（默认）或 TSV / XML |
+
+**频率限制**：
+
+- 无 API Key：每分钟 60 次请求（每秒 1 次）
+- 建议添加 `sleep(1)` 或使用 `time.sleep(0.5)` 保守请求
+
+**基础导入**：
+
+```python
+import requests
+import time
+import json
+```
+
+---
+
+#### 3. 按基因名/物种搜索蛋白质（Search）
+
+**搜索人类 BRCA1 基因的蛋白质记录**：
+
+```python
+import requests
+
+def search_uniprot(query, format="json"):
+    """搜索 UniProt，返回 JSON 结果"""
+    url = "https://rest.uniprot.org/uniprotkb/search"
+    params = {
+        "query": query,
+        "format": format
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+# 搜索人类 BRCA1
+result = search_uniprot("gene:BRCA1 AND organism_id:9606")
+print(f"总记录数: {result['results'][0]['total'] if 'total' in result else len(result['results'])}")
+
+for entry in result['results']:
+    print("Accession:", entry['primaryAccession'])
+    print("Entry Name:", entry.get('uniProtkbId', 'N/A'))
+    print("Gene:", entry['genes'][0]['geneName']['value'] if entry.get('genes') else 'N/A')
+    print("Protein:", entry['proteinDescription']['recommendedName']['fullName']['value'])
+    print("---")
+```
+
+**搜索人类胰岛素蛋白（INS）**：
+
+```python
+result = search_uniprot("gene:INS AND organism_id:9606")
+if result['results']:
+    entry = result['results'][0]
+    print(f"登录号: {entry['primaryAccession']}")
+    print(f"蛋白名: {entry['proteinDescription']['recommendedName']['fullName']['value']}")
+```
+
+**常用查询字段**：
+
+| 字段 | 用途 | 示例 |
+|------|------|------|
+| `gene` | 基因名 | `gene:BRCA1` |
+| `organism_id` | NCBI 物种 ID（人类=9606） | `organism_id:9606` |
+| `organism_name` | 物种名 | `organism_name:"Homo sapiens"` |
+| `accession` | 登录号 | `accession:P01308` |
+| `reviewed` | 是否 Swiss-Prot（true=瑞士） | `reviewed:true` |
+| `go` | GO 术语 ID | `go:GO:0005515` |
+| `domain` | 结构域 | `domain:"Protein kinase"` |
+| `existence` | 存在性（实验证据等） | `existence:1` |
+
+**逻辑组合**：和 NCBI 一样，支持 `AND`、`OR`、`NOT` 和括号。
+
+---
+
+#### 4. 解析 UniProt JSON 结果（核心字段）
+
+UniProt JSON 结构较深，以下是安全提取常见字段的方法：
+
+```python
+def safe_get(obj, path, default="N/A"):
+    """安全提取嵌套字段"""
+    for key in path.split('.'):
+        if isinstance(obj, dict):
+            obj = obj.get(key, {})
+        elif isinstance(obj, list):
+            if key.isdigit():
+                obj = obj[int(key)] if int(key) < len(obj) else {}
+            else:
+                # 尝试找第一个匹配的字段
+                for item in obj:
+                    if isinstance(item, dict) and key in item:
+                        obj = item[key]
+                        break
+                else:
+                    return default
+        else:
+            return default
+    return obj if obj else default
+
+def parse_uniprot_entry(entry):
+    """提取核心信息"""
+    acc = entry['primaryAccession']
+    entry_name = entry.get('uniProtkbId', 'N/A')
+    
+    # 蛋白名
+    protein = entry.get('proteinDescription', {})
+    name = protein.get('recommendedName', {})
+    if not name:
+        name = protein.get('submissionNames', [{}])[0]
+    protein_name = name.get('fullName', {}).get('value', 'N/A')
+    
+    # 基因名
+    genes = entry.get('genes', [])
+    gene_name = genes[0]['geneName']['value'] if genes else 'N/A'
+    
+    # 物种
+    organism = entry.get('organism', {}).get('scientificName', 'N/A')
+    organism_id = entry.get('organism', {}).get('taxonId', 'N/A')
+    
+    # 长度
+    length = entry.get('sequence', {}).get('length', 'N/A')
+    
+    # 是否已审阅（Swiss-Prot）
+    reviewed = entry.get('entryType', 'Unreviewed') == 'Swiss-Prot'
+    
+    return {
+        'accession': acc,
+        'entry_name': entry_name,
+        'protein_name': protein_name,
+        'gene_name': gene_name,
+        'organism': organism,
+        'taxon_id': organism_id,
+        'length': length,
+        'reviewed': reviewed
+    }
+
+# 示例
+result = search_uniprot("gene:TP53 AND organism_id:9606 AND reviewed:true")
+if result['results']:
+    info = parse_uniprot_entry(result['results'][0])
+    print(info)
+```
+
+---
+
+#### 5. 根据 UniProt ID 获取详细注释
+
+```python
+def get_uniprot_entry(accession, format="json"):
+    """根据登录号获取完整记录"""
+    url = f"https://rest.uniprot.org/uniprotkb/{accession}"
+    params = {"format": format}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.json()
+
+# 获取人类胰岛素（P01308）的详细注释
+entry = get_uniprot_entry("P01308")
+```
+
+**提取功能描述（Function）**：
+
+```python
+def get_function(entry):
+    """提取蛋白质功能描述"""
+    comments = entry.get('comments', [])
+    for comment in comments:
+        if comment.get('commentType') == 'FUNCTION':
+            texts = comment.get('texts', [])
+            return texts[0]['value'] if texts else 'N/A'
+    return 'N/A'
+
+print("功能:", get_function(entry))
+```
+
+**提取亚细胞定位（Subcellular Location）**：
+
+```python
+def get_subcellular(entry):
+    """提取亚细胞定位"""
+    comments = entry.get('comments', [])
+    for comment in comments:
+        if comment.get('commentType') == 'SUBCELLULAR_LOCATION':
+            locations = comment.get('locations', [])
+            return ', '.join([loc['value'] for loc in locations]) if locations else 'N/A'
+    return 'N/A'
+
+print("亚细胞定位:", get_subcellular(entry))
+```
+
+**提取结构域（Domains）**：
+
+```python
+def get_domains(entry):
+    """提取结构域"""
+    domains = []
+    comments = entry.get('comments', [])
+    for comment in comments:
+        if comment.get('commentType') == 'DOMAIN':
+            desc = comment.get('texts', [{}])[0].get('value', 'N/A')
+            # 位置信息
+            pos = comment.get('positions', [{}])[0]
+            start = pos.get('start', {}).get('value', '?')
+            end = pos.get('end', {}).get('value', '?')
+            domains.append(f"{desc} ({start}-{end})")
+    return domains if domains else ['N/A']
+
+print("结构域:", get_domains(entry))
+```
+
+---
+
+#### 6. 提取 GO 注释（Gene Ontology）
+
+```python
+def get_go_terms(entry):
+    """提取 GO 术语及相关信息"""
+    go_terms = []
+    db_refs = entry.get('uniProtKBCrossReferences', [])
+    for ref in db_refs:
+        if ref.get('database') == 'GO':
+            go_id = ref.get('id')
+            # GO 类型：C=细胞组分，F=分子功能，P=生物过程
+            properties = ref.get('properties', [])
+            go_type = ''
+            go_term = ''
+            for prop in properties:
+                if prop.get('key') == 'GO':
+                    go_term = prop.get('value')
+                if prop.get('key') == 'GO-Term'):
+                    go_type = prop.get('value')
+            evidence = ref.get('evidenceTypes', [{}])[0].get('code', 'N/A')
+            go_terms.append({
+                'id': go_id,
+                'term': go_term,
+                'type': go_type,
+                'evidence': evidence
+            })
+    return go_terms
+
+# 示例
+entry = get_uniprot_entry("P01308")
+gos = get_go_terms(entry)
+for go in gos[:5]:
+    print(f"{go['id']} ({go['type']}): {go['term']}")
+```
+
+**精简版：只提取 GO ID 列表**：
+
+```python
+def get_go_ids(entry):
+    go_ids = []
+    for ref in entry.get('uniProtKBCrossReferences', []):
+        if ref.get('database') == 'GO':
+            go_ids.append(ref.get('id'))
+    return go_ids
+```
+
+---
+
+#### 7. 映射 NCBI 蛋白质 ID 到 UniProt ID（跨库连接）
+
+有时你只有 NCBI 的 RefSeq 蛋白 ID（如 NP_000198），需要找到对应的 UniProt ID。
+
+```python
+def ncbi_to_uniprot(ncbi_protein_id):
+    """根据 NCBI 蛋白 ID 查找 UniProt 登录号"""
+    url = "https://rest.uniprot.org/uniprotkb/search"
+    query = f"xref:NCBI_{ncbi_protein_id}"
+    params = {"query": query, "format": "json"}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    result = resp.json()
+    if result.get('results'):
+        return result['results'][0]['primaryAccession']
+    return None
+
+# 示例：NCBI 蛋白 ID → UniProt
+uniprot_acc = ncbi_to_uniprot("NP_000198")  # 人胰岛素前体
+print("对应 UniProt 登录号:", uniprot_acc)
+```
+
+**其他常用映射前缀**：
+
+| 数据库 | 前缀 | 示例 |
+|--------|------|------|
+| NCBI RefSeq 蛋白 | `NCBI_NP_` | `NCBI_NP_000198` |
+| NCBI Gene ID | `NCBI_Gene_` | `NCBI_Gene_672` |
+| Ensembl | `Ensembl_` | `Ensembl_ENSP00000265050` |
+| Pfam | `Pfam_` | `Pfam_PF00069` |
+| InterPro | `InterPro_` | `InterPro_IPR001245` |
+
+---
+
+#### 8. 批量查询多个蛋白质（Stream 端点）
+
+使用 `/uniprotkb/stream` 可以批量获取多条记录（最多 500 条）。
+
+```python
+def batch_fetch_uniprot(accessions):
+    """批量获取多个 UniProt 记录的 JSON"""
+    if isinstance(accessions, list):
+        accessions = " OR ".join([f"accession:{a}" for a in accessions])
+    url = "https://rest.uniprot.org/uniprotkb/stream"
+    params = {
+        "query": accessions,
+        "format": "json"
+    }
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.json()  # 返回的是 results 列表
+
+# 查询多个蛋白质
+ids = ["P01308", "P04637", "P38398"]  # 胰岛素、TP53、BRCA1
+data = batch_fetch_uniprot(ids)
+
+for entry in data.get('results', []):
+    info = parse_uniprot_entry(entry)
+    print(f"{info['accession']} | {info['gene_name']} | {info['protein_name']} | {info['length']} aa")
+```
+
+---
+
+#### 9. 下载蛋白质 FASTA 序列
+
+**方式一：通过 API 单条获取**：
+
+```python
+def fetch_uniprot_fasta(accession):
+    url = f"https://rest.uniprot.org/uniprotkb/{accession}/fasta"
+    resp = requests.get(url)
+    resp.raise_for_status()
+    return resp.text
+
+# 下载 P01308 的 FASTA
+fasta = fetch_uniprot_fasta("P01308")
+print(fasta[:200])  # 查看前 200 字符
+```
+
+**方式二：从 JSON 结果中提取序列**：
+
+```python
+def get_sequence_from_json(entry):
+    return entry.get('sequence', {}).get('value', '')
+
+# 使用已有的 entry
+seq = get_sequence_from_json(entry)
+print("序列长度:", len(seq))
+```
+
+**批量下载多个 FASTA（用 stream）**：
+
+```python
+def batch_fetch_fasta(accessions):
+    if isinstance(accessions, list):
+        accessions = " OR ".join([f"accession:{a}" for a in accessions])
+    url = "https://rest.uniprot.org/uniprotkb/stream"
+    params = {"query": accessions, "format": "fasta"}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.text
+
+fasta_data = batch_fetch_fasta(["P01308", "P04637"])
+with open("batch_uniprot.fasta", "w") as f:
+    f.write(fasta_data)
+```
+
+---
+
+#### 10. 从 UniProt 获取跨数据库引用（如 PDB 结构）
+
+```python
+def get_pdb_refs(entry):
+    """获取关联的 PDB 结构 ID"""
+    pdb_ids = []
+    for ref in entry.get('uniProtKBCrossReferences', []):
+        if ref.get('database') == 'PDB':
+            pdb_ids.append(ref.get('id'))
+    return pdb_ids
+
+entry = get_uniprot_entry("P01308")
+pdb_refs = get_pdb_refs(entry)
+print("PDB 结构 ID:", pdb_refs)
+```
+
+---
+
+#### 11. 完整实战：从基因名到蛋白质功能全流程
+
+```python
+import requests
+import time
+
+def gene_to_protein_annotation(gene_name, organism="9606"):
+    """根据基因名获取蛋白质完整注释"""
+    query = f"gene:{gene_name} AND organism_id:{organism}"
+    url = "https://rest.uniprot.org/uniprotkb/search"
+    params = {"query": query, "format": "json"}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    results = resp.json().get('results', [])
+    if not results:
+        return None
+    entry = results[0]
+    
+    return {
+        'accession': entry['primaryAccession'],
+        'protein_name': entry.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'N/A'),
+        'gene': gene_name,
+        'function': get_function(entry),
+        'subcellular': get_subcellular(entry),
+        'domains': get_domains(entry),
+        'go_ids': get_go_ids(entry),
+        'sequence': entry.get('sequence', {}).get('value', '')
+    }
+
+# 实战：获取 TP53 的完整注释
+tp53_info = gene_to_protein_annotation("TP53")
+if tp53_info:
+    print("登录号:", tp53_info['accession'])
+    print("蛋白名:", tp53_info['protein_name'])
+    print("功能:", tp53_info['function'][:150] + "...")
+    print("亚细胞定位:", tp53_info['subcellular'])
+    print("GO ID:", tp53_info['go_ids'][:5])
+    print("序列长度:", len(tp53_info['sequence']))
+```
+
+---
+
+#### 12. 常见错误与解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `404 Not Found` | 访问号不存在 | 检查访问号拼写，确认是 UniProt 格式（如 P01308） |
+| JSON 解析失败（`KeyError`） | 某些字段缺失 | 使用 `.get()` 安全取值，不要硬索引 |
+| 搜索结果为空（`results` = []） | 查询条件太严格或基因名拼写错误 | 在 UniProt 官网用相同关键词测试 |
+| `Rate limit exceeded` | 请求频率过高 | 增加 `time.sleep(1)` |
+| 批量查询超过 500 条 | 单次 stream 限制 | 分批次查询，每批 ≤ 500 个 |
+| 网络超时 | 网络环境不佳 | 设置 `timeout=30` 参数 |
+
+---
+
+#### 13. 本课核心代码模板速查
+
+| 操作 | 代码模板 |
+|------|----------|
+| 搜索蛋白 | `requests.get("https://rest.uniprot.org/uniprotkb/search", params={"query":"gene:BRCA1 AND organism_id:9606"})` |
+| 获取单个记录 | `requests.get("https://rest.uniprot.org/uniprotkb/P01308")` |
+| 获取 FASTA | `requests.get("https://rest.uniprot.org/uniprotkb/P01308/fasta")` |
+| 批量获取 | `requests.get("https://rest.uniprot.org/uniprotkb/stream", params={"query":"accession:P01308 OR accession:P04637", "format":"json"})` |
+| NCBI → UniProt | 搜索 `xref:NCBI_NP_000198` |
+
+---
+
+#### 14. 本课小结
+
+- **UniProt** 是蛋白质功能注释的首选数据库，Swiss-Prot 为人工审阅，质量最高
+- **REST API** 端点：`/uniprotkb/search`（搜索）、`/uniprotkb/{id}`（单条）、`/uniprotkb/stream`（批量）
+- **核心注释字段**：功能（`FUNCTION`）、亚细胞定位（`SUBCELLULAR_LOCATION`）、结构域（`DOMAIN`）、GO 术语
+- **跨库链接**：通过 `uniProtKBCrossReferences` 获取 NCBI、PDB、Pfam 等外部 ID
+- **批量操作**使用 `stream` 端点，支持 FASTA 和 JSON 格式
+
+---
+
+#### 15. 课后练习
+
+1. 用 UniProt API 搜索人类 EGFR 基因（基因名 EGFR），打印其 Swiss-Prot 登录号。
+
+2. 下载 P04637（人 TP53）的 FASTA 序列并保存到本地文件。
+
+3. 从 P01308 记录中提取功能描述和亚细胞定位。
+
+4. 用 `ncbi_to_uniprot()` 函数将 NCBI RefSeq ID `NP_001296233`（人 HER2 蛋白）映射为 UniProt ID。
+
+5. 批量查询 3 个蛋白质（P01308、P04637、P38398），生成一个 CSV，包含：登录号、基因名、蛋白名、长度。
+
+### 第四课：PDB 数据库 —— 三维结构下载与基础解析
+
+本课目标：
+
+- 理解 PDB（蛋白质数据银行）的核心数据内容
+
+- 区分 mmCIF（.cif）与 PDB（.pdb）文件格式
+
+- 使用 Biopython 的 `PDBList` 批量下载结构文件
+
+- 使用 `MMCIFParser` / `PDBParser` 解析三维结构
+
+- 遍历结构层次（Model → Chain → Residue → Atom）
+
+- 提取蛋白序列、配体信息、分辨率等元数据
+
+- 用 RCSB PDB REST API 搜索和获取结构信息
+
+---
+
+#### 1. PDB 文件格式与获取方式
+
+**PDB 核心文件格式对比**：
+
+| 格式 | 扩展名 | 特点 | 推荐程度 |
+|------|--------|------|----------|
+| mmCIF（宏观分子晶体学信息文件） | `.cif` | 现代标准，信息更完整，支持大分子复合物 | 强烈推荐 |
+| PDB（旧格式） | `.pdb` | 固定列宽，行数限制，逐步淘汰 | 旧代码兼容 |
+| XML | `.xml` | 便于解析，但文件较大 | 一般 |
+
+**获取 PDB 结构的主要途径**：
+
+| 途径 | 方式 | 适用场景 |
+|------|------|----------|
+| Biopython PDBList | 直接下载文件 | 批量下载，离线分析 |
+| RCSB REST API | HTTP 请求获取 JSON 元数据 | 快速查询结构信息 |
+| 官网 FTP | 手动或 wget 下载 | 一次性全库同步 |
+
+---
+
+#### 2. 安装与导入
+
+```python
+import requests
+from Bio import PDB
+from Bio.PDB import PDBList, MMCIFParser, PDBParser, PPBuilder
+from Bio.PDB.Polypeptide import three_to_one, is_aa
+```
+
+**注意**：`Bio.PDB` 是 Biopython 的一部分，已随 `biopython` 安装。
+
+---
+
+#### 3. 用 PDBList 下载结构文件
+
+**下载单个 PDB 文件（旧格式）**：
+
+```python
+pdb_list = PDBList()
+pdb_list.retrieve_pdb_file('1TUP', pdir='./pdb_files', file_format='pdb')
+# 下载后文件为 ./pdb_files/pdb1tup.ent（旧命名）
+```
+
+**下载 mmCIF 格式（推荐）**：
+
+```python
+pdb_list.retrieve_pdb_file('1TUP', pdir='./cif_files', file_format='mmCif')
+# 文件为 ./cif_files/1tup.cif
+```
+
+**批量下载**：
+
+```python
+pdb_ids = ['1TUP', '2DNS', '3B43']
+for pid in pdb_ids:
+    pdb_list.retrieve_pdb_file(pid, pdir='./cif_files', file_format='mmCif')
+    print(f"已下载: {pid}")
+```
+
+**文件命名说明**：
+
+| 格式 | 参数 file_format | 文件名示例 |
+|------|------------------|------------|
+| PDB | `'pdb'` | `pdb1tup.ent` |
+| mmCIF | `'mmCif'` | `1tup.cif` |
+| PDB 压缩 | `'pdb'` + 手动解压 | 可配合 `tar` |
+
+---
+
+#### 4. 解析 mmCIF 文件（推荐方式）
+
+```python
+parser = MMCIFParser(QUIET=True)
+structure = parser.get_structure('1TUP', './cif_files/1tup.cif')
+```
+
+**解析旧 PDB 文件**：
+
+```python
+parser = PDBParser(QUIET=True)
+structure = parser.get_structure('1TUP', './pdb_files/pdb1tup.ent')
+```
+
+**参数说明**：
+- `QUIET=True`：不显示解析过程中的警告信息
+- 第一个参数是结构 ID（可任意命名）
+
+---
+
+#### 5. 遍历结构层次（核心操作）
+
+PDB 结构的层次：`Structure → Model(s) → Chain(s) → Residue(s) → Atom(s)`
+
+**遍历所有链和残基**：
+
+```python
+for model in structure:
+    print(f"Model: {model.id}")
+    for chain in model:
+        print(f"  Chain: {chain.id}")
+        residues = list(chain.get_residues())
+        print(f"    残基数量: {len(residues)}")
+        # 只打印前 5 个残基
+        for i, residue in enumerate(residues[:5]):
+            res_name = residue.get_resname()
+            res_id = residue.get_id()[1]  # 残基编号（坐标）
+            print(f"      {i+1}: {res_name} {res_id}")
+        if len(residues) > 5:
+            print(f"      ... (还有 {len(residues) - 5} 个残基)")
+```
+
+**获取所有原子坐标（以 CA 原子为例）**：
+
+```python
+ca_atoms = []
+for model in structure:
+    for chain in model:
+        for residue in chain:
+            if is_aa(residue):  # 只处理标准氨基酸
+                if 'CA' in residue:
+                    ca = residue['CA']
+                    ca_atoms.append((residue.get_resname(), ca.get_coord()))
+                    print(f"{residue.get_resname()} CA: {ca.get_coord()}")
+
+print(f"共找到 {len(ca_atoms)} 个 CA 原子")
+```
+
+---
+
+#### 6. 提取蛋白序列（FASTA）
+
+使用 `PPBuilder` 从结构中提取肽链序列：
+
+```python
+ppb = PPBuilder()
+sequences = ppb.build_peptides(structure)
+
+for i, peptide in enumerate(sequences):
+    seq_str = str(peptide.get_sequence())
+    print(f"链 {i+1}: {seq_str[:30]}... (长度: {len(seq_str)})")
+```
+
+**获取每条链的序列（更精细控制）**：
+
+```python
+from Bio.PDB.Polypeptide import three_to_one
+
+def get_chain_sequence(chain):
+    seq = []
+    for residue in chain:
+        if is_aa(residue):
+            res_name = residue.get_resname()
+            # 三字母转单字母
+            if res_name in three_to_one:
+                seq.append(three_to_one[res_name])
+            else:
+                seq.append('X')
+    return ''.join(seq)
+
+for model in structure:
+    for chain in model:
+        seq = get_chain_sequence(chain)
+        print(f"链 {chain.id}: 长度 {len(seq)}")
+        print(seq[:60] + "..." if len(seq) > 60 else seq)
+```
+
+---
+
+#### 7. 提取非蛋白组分（配体、水分子、离子）
+
+```python
+def get_non_standard_residues(structure):
+    het_dict = {}
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                if not is_aa(residue):
+                    res_name = residue.get_resname()
+                    if res_name not in het_dict:
+                        het_dict[res_name] = 0
+                    het_dict[res_name] += 1
+    return het_dict
+
+het_stats = get_non_standard_residues(structure)
+print("非标准残基统计:")
+for name, count in sorted(het_stats.items(), key=lambda x: -x[1]):
+    print(f"  {name}: {count} 个")
+```
+
+**过滤特定配体（如 HEM、ATP）**：
+
+```python
+def find_ligands(structure, ligand_names=['HEM', 'ATP', 'NAD']):
+    ligands = []
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                if residue.get_resname() in ligand_names:
+                    ligands.append({
+                        'chain': chain.id,
+                        'residue': residue.get_resname(),
+                        'id': residue.get_id()[1],
+                        'model': model.id
+                    })
+    return ligands
+
+print(find_ligands(structure))
+```
+
+---
+
+#### 8. 从 RCSB PDB API 获取元数据（无需下载文件）
+
+RCSB 提供 REST API，可直接查询结构的元数据（分辨率、实验方法、释放日期等）。
+
+```python
+def get_pdb_metadata(pdb_id):
+    url = f"https://data.rcsb.org/rest/v1/core/entry/{pdb_id}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    
+    # 提取关键信息
+    metadata = {
+        'id': data.get('rcsb_id', pdb_id),
+        'title': data.get('struct', {}).get('title', 'N/A'),
+        'resolution': data.get('rcsb_entry_info', {}).get('resolution_combined', ['N/A'])[0],
+        'experiment_method': data.get('exptl', [{}])[0].get('method', 'N/A'),
+        'deposit_date': data.get('rcsb_accession_info', {}).get('deposit_date', 'N/A'),
+        'release_date': data.get('rcsb_accession_info', {}).get('release_date', 'N/A'),
+        'polymer_count': data.get('rcsb_entry_info', {}).get('polymer_entity_count_polymer', 0),
+        'deposited_sequence_count': data.get('rcsb_entry_info', {}).get('deposited_polymer_entity_sequence_length', 0)
+    }
+    return metadata
+
+# 获取 1TUP 的元数据
+info = get_pdb_metadata('1TUP')
+if info:
+    print("PDB ID:", info['id'])
+    print("标题:", info['title'][:80] + "...")
+    print("分辨率:", info['resolution'], "Å")
+    print("实验方法:", info['experiment_method'])
+    print("释放日期:", info['release_date'])
+```
+
+**搜索 PDB（根据基因名或蛋白名）**：
+
+```python
+def search_pdb_by_gene(gene_name):
+    url = "https://search.rcsb.org/rcsbsearch/v1/query"
+    query = {
+        "query": {
+            "type": "terminal",
+            "service": "text",
+            "parameters": {"value": gene_name}
+        },
+        "return_type": "entry",
+        "request_options": {"paginate": {"start": 0, "rows": 10}}
+    }
+    response = requests.post(url, json=query)
+    if response.status_code == 200:
+        data = response.json()
+        ids = [result['identifier'] for result in data.get('result_set', [])]
+        return ids
+    return []
+
+# 搜索 BRCA1 相关结构
+pdb_ids = search_pdb_by_gene("BRCA1")
+print("BRCA1 相关 PDB 结构:", pdb_ids[:10])
+```
+
+---
+
+#### 9. 计算结构的基础统计
+
+```python
+def calc_structure_stats(structure):
+    """计算结构的基本统计信息"""
+    stats = {
+        'models': 0,
+        'chains': 0,
+        'residues': 0,
+        'atoms': 0,
+        'aa_residues': 0,
+        'hetero_residues': 0,
+        'ca_count': 0
+    }
+    
+    for model in structure:
+        stats['models'] += 1
+        for chain in model:
+            stats['chains'] += 1
+            for residue in chain:
+                stats['residues'] += 1
+                if is_aa(residue):
+                    stats['aa_residues'] += 1
+                    if 'CA' in residue:
+                        stats['ca_count'] += 1
+                else:
+                    stats['hetero_residues'] += 1
+                for atom in residue:
+                    stats['atoms'] += 1
+    return stats
+
+stats = calc_structure_stats(structure)
+print("=== 结构统计 ===")
+print(f"模型数: {stats['models']}")
+print(f"链数: {stats['chains']}")
+print(f"总残基数: {stats['residues']}")
+print(f"  氨基酸残基: {stats['aa_residues']}")
+print(f"  非标准残基: {stats['hetero_residues']}")
+print(f"总原子数: {stats['atoms']}")
+print(f"CA 原子数: {stats['ca_count']}")
+```
+
+---
+
+#### 10. 处理多模型结构（NMR 结构）
+
+NMR 结构通常包含多个模型（构象），需要遍历所有模型：
+
+```python
+for model in structure:
+    print(f"=== Model {model.id} ===")
+    # 计算该模型的某个属性，如总能量
+    for chain in model:
+        print(f"  链 {chain.id}: {len(list(chain.get_residues()))} 个残基")
+```
+
+---
+
+#### 11. 序列与结构的交叉验证（检查 PDB 序列与 FASTA 是否一致）
+
+```python
+from Bio import SeqIO
+from Bio.PDB.Polypeptide import three_to_one
+
+def get_pdb_sequence(structure):
+    """从 PDB 结构提取完整序列"""
+    seq = []
+    for model in structure:
+        for chain in model:
+            chain_seq = get_chain_sequence(chain)
+            if chain_seq:
+                seq.append(chain_seq)
+                break  # 只取第一个模型的第一个链
+        break  # 只取第一个模型
+    return seq[0] if seq else ""
+
+pdb_seq = get_pdb_sequence(structure)
+print(f"PDB 序列长度: {len(pdb_seq)}")
+print(f"序列开头: {pdb_seq[:50]}...")
+```
+
+---
+
+#### 12. 常见错误与解决
+
+| 错误 | 原因 | 解决 |
+|------|------|------|
+| `FileNotFoundError` | 下载路径不正确或文件名不一致 | 使用 `os.path.join` 构建路径，检查文件是否已下载 |
+| `KeyError` 解析 mmCIF | 某些字段缺失 | 用 `.get()` 安全访问，而非直接索引 |
+| `BiopythonWarning: You are using PDBParser` | 旧格式解析警告 | 改用 `MMCIFParser` |
+| `is_aa()` 将非标准氨基酸忽略 | 修饰氨基酸（如 MSE）被跳过 | 手动添加非标准氨基酸到识别列表 |
+| 三维坐标解包异常 | 某些原子坐标缺失 | 检查 `residue.has_id('CA')` 后再访问 |
+| RCSB API 返回 404 | PDB ID 不存在 | 先在官网验证 ID 是否正确 |
+
+---
+
+#### 13. 本课核心代码模板速查
+
+| 操作 | 代码模板 |
+|------|----------|
+| 下载 mmCIF | `PDBList().retrieve_pdb_file('1TUP', file_format='mmCif')` |
+| 解析 mmCIF | `MMCIFParser().get_structure('1TUP', '1tup.cif')` |
+| 遍历链 | `for chain in structure[0]`（取第一个模型） |
+| 获取残基 | `for residue in chain.get_residues()` |
+| 获取原子坐标 | `residue['CA'].get_coord()` |
+| 提取序列 | `PPBuilder().build_peptides(structure)[0].get_sequence()` |
+| 查询元数据 | `requests.get("https://data.rcsb.org/rest/v1/core/entry/1TUP")` |
+| 搜索结构 | `requests.post("https://search.rcsb.org/rcsbsearch/v1/query", json=...)` |
+
+---
+
+#### 14. 课后练习
+
+1. 用 `PDBList` 下载人血红蛋白结构（PDB ID: 2DN2）的 mmCIF 文件。
+
+2. 解析 2DN2，统计其包含的链数、氨基酸残基数和血红蛋白辅基（HEM）数量。
+
+3. 用 `PPBuilder` 提取 2DN2 的 α 链序列（链 A）并打印其长度。
+
+4. 用 RCSB API 获取 2DN2 的分辨率和实验方法。
+
+5. 写一个函数，输入 PDB ID，返回该结构中所有配体的名称列表（去重）。
+
+6. （选做）提取所有 CA 原子坐标，计算该蛋白质的几何中心（所有 CA 坐标的平均值）。
+
+
+### 第五课：AlphaFold —— 当人工智能遇见蛋白质结构
+
+本课目标：
+
+- 理解 AlphaFold 的生物学背景（Anfinsen 法则与 Levinthal 悖论）
+
+- 掌握 AlphaFold 的 AI 原理（共进化分析 + Evoformer + 结构模块）
+
+- 区分 AlphaFold2、AlphaFold-Multimer、AlphaFold3 的演进
+
+- 通过 AlphaFold Server 在线预测蛋白质结构（无需安装）
+
+- 通过 ColabFold 在浏览器中运行 AlphaFold2（GPU 加速）
+
+- 通过 AlphaFold Database API 批量获取预计算结果
+
+- 将 AlphaFold 预测结果与 PDB、UniProt 数据整合
+
+---
+
+#### 1. 为什么 AlphaFold 是人工智能的里程碑
+
+AlphaFold 是 Google DeepMind 开发的 AI 系统，能从氨基酸序列直接预测蛋白质的三维结构[reference:0][reference:1]。2024 年诺贝尔化学奖授予了 AlphaFold2 的相关工作[reference:2]。截至目前，AlphaFold 已预测了约 2 亿个蛋白质的结构，几乎覆盖科学界已知的所有蛋白质[reference:3]。
+
+**与前文的衔接**：
+
+- 附录 5 讲的深度学习（Transformer、Attention）正是 AlphaFold 的核心技术
+- 附录 6 前四课讲的 UniProt（获取序列）和 PDB（实验结构）正是 AlphaFold 的训练数据和验证基准
+
+---
+
+#### 2. 生物学背景：为什么这个问题很难
+
+**Anfinsen 法则**：蛋白质的天然结构仅由其氨基酸序列决定。理论上，给定序列就能算出结构。
+
+**Levinthal 悖论**：一个 100 个氨基酸的蛋白质，所有可能构象约有 3^198 种，如果随机搜索，所需时间远超宇宙年龄。但自然界中蛋白质在毫秒级就能折叠完成。
+
+这两个看似矛盾的事实指向一个结论：**蛋白质折叠不是随机搜索，而是遵循某种可由序列推断的规则**。AlphaFold 就是用 AI 学习了这个规则。
+
+---
+
+#### 3. AlphaFold 的核心 AI 原理
+
+AlphaFold2 通过分析**氨基酸共进化**来预测结构：
+
+- 如果两个氨基酸在三维结构中相互靠近（如正负电荷配对），它们在进化中会**协同突变**——一个变了，另一个也会跟着变以维持相互作用
+- AlphaFold 通过**深度多序列比对（MSA）** 找出这些共进化模式
+- 然后通过神经网络将共进化信号转化为三维坐标
+
+**技术架构（简化）**：
+
+```
+输入：氨基酸序列（1D）
+    ↓
+搜索同源序列 → 多序列比对（MSA）→ 共进化信息
+    ↓
+Evoformer（48 层 Transformer 变体）→ 处理 MSA 和成对特征
+    ↓
+结构模块（8 层）→ 迭代优化原子坐标
+    ↓
+输出：3D 结构（PDB 文件）+ 置信度分数（pLDDT、PAE）
+```
+
+
+
+**AlphaFold 版本演进**：
+
+| 版本 | 发布时间 | 核心能力 |
+|------|----------|----------|
+| AlphaFold2 | 2021 | 单链蛋白质结构预测，CASP14 夺冠[reference:12] |
+| AlphaFold-Multimer | 2022 | 多链蛋白质复合物预测[reference:13] |
+| AlphaFold3 | 2024 | 蛋白质 + DNA/RNA/配体/离子联合预测[reference:14][reference:15] |
+
+---
+
+#### 4. 方法一：AlphaFold Server（最简单，无需安装）
+
+AlphaFold Server 是 Google DeepMind 提供的免费在线平台，基于 AlphaFold3 内核[reference:16]。
+
+**前置条件**：需要 Google 账号登录[reference:17]。每天免费预测 20 个模型[reference:18]。
+
+**操作步骤**：
+
+1. 打开 https://alphafoldserver.com
+2. 点击「Sign in」用 Google 账号登录
+3. 在序列输入框中粘贴蛋白质的氨基酸序列（FASTA 格式）
+4. 可选：添加 DNA、RNA、配体、离子等[reference:19]
+5. 设置拷贝数（Copies）[reference:20]
+6. 点击「Continue and preview job」→ 设置任务名称 → 「Confirm and launch」
+7. 等待（一般不超过 10 分钟）[reference:21]
+8. 下载结果（PDB 文件 + 置信度报告）
+
+**FASTA 序列获取（从 UniProt）**：
+
+```python
+import requests
+
+def get_uniprot_fasta(accession):
+    url = f"https://rest.uniprot.org/uniprotkb/{accession}/fasta"
+    resp = requests.get(url)
+    return resp.text
+
+# 获取人血红蛋白 α 亚基（P69905）的 FASTA
+fasta = get_uniprot_fasta("P69905")
+print(fasta)
+```
+
+---
+
+#### 5. 方法二：ColabFold（浏览器中运行 AlphaFold2）
+
+ColabFold 是封装好的 Google Colab 笔记本，无需安装任何软件，在浏览器中即可运行 AlphaFold2[reference:24]。
+
+**操作步骤**：
+
+1. 打开 ColabFold 笔记本：https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb
+2. 点击「Runtime」→「Change runtime type」→ 选择「GPU」
+3. 在输入框中粘贴你的氨基酸序列
+4. 点击「Runtime」→「Run all」
+5. 等待运行完成（根据序列长度，10–60 分钟）
+6. 从 `results/` 文件夹下载结果
+
+**ColabFold 支持**：
+
+- 单链蛋白质预测
+- 多链复合物预测（蛋白-蛋白）
+- 蛋白-肽段复合物预测[reference:30]
+
+---
+
+#### 6. 方法三：AlphaFold Database API（批量获取预计算结果）
+
+AlphaFold Database 已包含约 2 亿个蛋白质的预计算结构[reference:31]。通过 API 可以直接获取，无需自己运行预测。
+
+**安装依赖**：
+
+```bash
+pip install requests
+```
+
+**通过 UniProt ID 获取预测结构**：
+
+```python
+import requests
+
+def get_afdb_structure(uniprot_id, output_format="pdb"):
+    """
+    从 AlphaFold Database 获取预计算结构
+    uniprot_id: UniProt 登录号（如 P69905）
+    output_format: "pdb" 或 "cif"
+    """
+    url = f"https://alphafold.ebi.ac.uk/files/AF-{uniprot_id}-F1-model_v4.{output_format}"
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        return resp.text
+    else:
+        return None
+
+# 获取人血红蛋白 α 亚基的 PDB 结构
+pdb_data = get_afdb_structure("P69905")
+if pdb_data:
+    with open("AF-P69905.pdb", "w") as f:
+        f.write(pdb_data)
+    print("结构已保存")
+```
+
+**通过 API 获取元数据**：
+
+```python
+def get_afdb_metadata(uniprot_id):
+    """获取 AlphaFold 预测的置信度信息"""
+    url = f"https://alphafold.ebi.ac.uk/api/prediction/{uniprot_id}"
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        return resp.json()
+    return None
+
+metadata = get_afdb_metadata("P69905")
+if metadata:
+    print("UniProt ID:", metadata.get('uniprotAccession'))
+    print("平均 pLDDT:", metadata.get('meanPlddt'))
+    print("是否有 PTM:", metadata.get('hasPostTranslationalModification'))
+```
+
+**AlphaFold Database API 端点速查**：
+
+| 端点 | 用途 | 示例 |
+|------|------|------|
+| `/files/AF-{id}-F1-model_v4.pdb` | 下载 PDB 结构文件 | `https://alphafold.ebi.ac.uk/files/AF-P69905-F1-model_v4.pdb` |
+| `/files/AF-{id}-F1-model_v4.cif` | 下载 mmCIF 结构文件 | 同上，改扩展名 |
+| `/api/prediction/{id}` | 获取预测元数据（置信度等） | `https://alphafold.ebi.ac.uk/api/prediction/P69905` |
+| `/api/uniprot/{id}` | 获取 UniProt 映射信息 | `https://alphafold.ebi.ac.uk/api/uniprot/P69905` |
+
+
+
+---
+
+#### 7. 解析 AlphaFold 输出：置信度指标
+
+AlphaFold 输出两个关键置信度指标：
+
+| 指标 | 全称 | 含义 | 阈值参考 |
+|------|------|------|----------|
+| **pLDDT** | predicted Local Distance Difference Test | 每个残基的局部置信度（0–100） | >90：极高置信；70–90：高；50–70：低；<50：不可靠 |
+| **PAE** | Predicted Aligned Error | 两个残基之间的预期位置误差（Å） | 越低越好，<5Å 表示高置信 |
+
+**解析 pLDDT 分数（从 PDB 文件）**：
+
+```python
+def parse_plddt_from_pdb(pdb_content):
+    """从 PDB 文件的 B-factor 列提取 pLDDT 分数"""
+    scores = []
+    for line in pdb_content.split('\n'):
+        if line.startswith('ATOM') and line[13:15] == 'CA':
+            # B-factor 在 PDB 文件的第 61-66 列
+            plddt = float(line[60:66])
+            scores.append(plddt)
+    return scores
+
+plddt_scores = parse_plddt_from_pdb(pdb_data)
+print(f"平均 pLDDT: {sum(plddt_scores) / len(plddt_scores):.1f}")
+print(f"高置信区域 (>90): {sum(1 for s in plddt_scores if s > 90)} 个残基")
+```
+
+---
+
+#### 8. 从序列到结构：整合前几课的知识
+
+**完整工作流**：
+
+```
+1. 从 UniProt 获取蛋白质序列（附录 6 第三课）
+       ↓
+2. 用 AlphaFold Server / ColabFold 预测结构（本课）
+       ↓
+3. 下载 PDB/mmCIF 文件（本课）
+       ↓
+4. 用 Biopython PDB 解析结构（附录 6 第四课）
+       ↓
+5. 与实验结构（PDB）对比验证（附录 6 第四课）
+```
+
+**实战代码：从 UniProt ID 到 AlphaFold 结构解析**：
+
+```python
+import requests
+from Bio.PDB import PDBParser
+
+def uniprot_to_af_structure(uniprot_id):
+    """
+    从 UniProt ID 到 AlphaFold 预测结构的完整流程
+    """
+    # 步骤 1：获取序列（验证用）
+    seq_url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}/fasta"
+    seq_resp = requests.get(seq_url)
+    print("序列已获取")
+    
+    # 步骤 2：从 AlphaFold DB 获取结构
+    pdb_url = f"https://alphafold.ebi.ac.uk/files/AF-{uniprot_id}-F1-model_v4.pdb"
+    pdb_resp = requests.get(pdb_url)
+    if pdb_resp.status_code != 200:
+        print(f"未找到 {uniprot_id} 的 AlphaFold 预测")
+        return None
+    
+    pdb_content = pdb_resp.text
+    
+    # 步骤 3：用 Biopython 解析
+    with open("temp.pdb", "w") as f:
+        f.write(pdb_content)
+    
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure(uniprot_id, "temp.pdb")
+    
+    # 步骤 4：统计信息
+    ca_count = 0
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                if 'CA' in residue:
+                    ca_count += 1
+    
+    print(f"结构已加载，CA 原子数: {ca_count}")
+    return structure
+
+# 测试：人血红蛋白 α 亚基
+structure = uniprot_to_af_structure("P69905")
+```
+
+---
+
+#### 9. AlphaFold 的局限性与注意事项
+
+| 局限 | 说明 |
+|------|------|
+| 动态构象 | 预测的是静态结构，无法捕捉蛋白质的柔性运动[reference:36] |
+| 实验验证 | 预测不能替代实验，需与实验数据交叉验证[reference:37] |
+| 非临床用途 | 未经临床验证，不能用于医疗决策[reference:38] |
+| 长序列限制 | 超长序列（>3000 aa）预测困难[reference:39] |
+
+---
+
+#### 10. 本课核心命令速查表
+
+| 操作 | 命令/地址 |
+|------|-----------|
+| AlphaFold Server | https://alphafoldserver.com |
+| ColabFold 笔记本 | https://colab.research.google.com/github/sokrypton/ColabFold/blob/main/AlphaFold2.ipynb |
+| AlphaFold DB API（PDB） | `https://alphafold.ebi.ac.uk/files/AF-{id}-F1-model_v4.pdb` |
+| AlphaFold DB API（元数据） | `https://alphafold.ebi.ac.uk/api/prediction/{id}` |
+| 获取 UniProt FASTA | `https://rest.uniprot.org/uniprotkb/{id}/fasta` |
+
+---
+
+#### 11. 本课小结
+
+- **AlphaFold 是 AI 在生物学中最成功的应用之一**，用深度学习解决了蛋白质结构预测这一半个世纪的科学难题[reference:40]
+- **三种使用方式**：AlphaFold Server（Web 界面，最简单）、ColabFold（浏览器运行，需 GPU）、AlphaFold DB API（批量获取预计算结果）
+- **核心 AI 技术**：多序列比对（MSA）+ Evoformer（Transformer 变体）+ 结构模块
+- **置信度评估**：pLDDT（局部置信度）和 PAE（成对误差）是判断预测质量的关键指标
+- **与前文衔接**：UniProt 提供序列（第三课）→ AlphaFold 预测结构（本课）→ Biopython PDB 解析（第四课），形成完整的生物信息学分析链条
+
+---
+
+#### 12. 课后练习
+
+1. 用 AlphaFold Server 预测一个你感兴趣的蛋白质结构（可从 UniProt 获取序列）。
+
+2. 用 AlphaFold Database API 下载 TP53（UniProt ID: P04637）的预测结构。
+
+3. 用 Biopython 解析下载的 PDB 文件，统计其链数、残基数和平均 pLDDT 分数。
+
+4. 将 AlphaFold 预测结构与 PDB 数据库中对应的实验结构（如有）进行对比，观察差异。
+
+5. 写一个 Python 函数，输入 UniProt ID，自动下载并解析其 AlphaFold 预测结构，返回 CA 原子坐标列表。
+
+## 附录 7：实战
+###思路
+核心思路是构建一个 “无服务器全栈分析管道”：用户通过 GitHub Pages 托管的静态前端上传 FASTA/FASTQ/PDB 生物文件，前端将文件内容和指令打包发给 Cloudflare Worker（作为安全代理网关），Worker 隐藏 API 密钥并转发请求至 OpenRouter 平台。
+
+核心模型选用 NVIDIA Nemotron-3.5-Lightning（免费版，nvidia/nemotron-3.5-lightning:free），利用其 100 万 Token 超大上下文窗口，直接原样塞入原始文件内容，配合精心设计的 System Prompt（针对不同文件格式的解析模板）引导模型生成结构化的 Markdown 分析报告（含统计表格、GC 含量、测序质量或结构解析），最终通过 SSE 流式输出回前端，实现“上传即分析、逐字渲染”的体验。
+
+简单说，就是拿大模型当“生物信息学解读者”，前端负责颜值和交互，Worker 负责安全中 转，模型负责从原始序列/结构数据中提取生物学意义。
+### 第一课：架构准备与 OpenRouter 配置
+
+本课目标：
+
+- 明确项目的最终目标（网页端上传生物文件 → 后端代理 → LLM 分析输出）
+
+- 理解“GitHub Pages 前端 + Cloudflare Worker 后端 + OpenRouter API”的架构
+
+- 注册 OpenRouter 并获取 API Key
+
+- 创建 GitHub 仓库和 Cloudflare Worker 空项目
+
+- 配置 Worker 环境变量（用于安全存储 API Key）
+
+---
+
+#### 1. 项目最终形态（一图胜千言）
+
+```
+用户浏览器（GitHub Pages 托管的前端页面）
+        ↓ 上传 .fasta / .fastq / .pdb 文件
+Cloudflare Worker（你写的中转 API）
+        ↓ 转发请求（携带 API Key）
+OpenRouter API（nvidia/nemotron-3.5-lightning:free）
+        ↓ 返回分析结果
+前端页面：展示结构化的生物信息分析报告
+```
+
+**全部代码量**：约 300 行前端 JS + 80 行 Worker JS。
+
+---
+
+#### 2. 技术栈确认（沿用附录 3 的工具）
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 前端框架 | 原生 HTML5 + CSS3 + JavaScript（ES6） | 不引入 React/Vue，降低门槛 |
+| 前端样式 | Bootstrap 5 CDN | 快速美观，响应式 |
+| 文件解析 | 前端原生 FileReader | 读取文本格式的 FASTA/FASTQ/PDB |
+| 后端 | Cloudflare Workers | 全球边缘节点，免费额度充足 |
+| 数据库 | 不需要（本次不用持久化） | 纯分析管道 |
+| LLM API | OpenRouter | 统一网关，免费访问 Nemotron |
+| 模型 | `nvidia/nemotron-3.5-lightning:free` | 316B MoE，100万上下文 |
+
+---
+
+#### 3. OpenRouter 注册与 API Key 获取
+
+**步骤 1：注册账号**
+
+1. 打开 https://openrouter.ai
+
+2. 点击右上角 **Sign Up**，用邮箱注册并验证
+
+**步骤 2：获取 API Key**
+
+1. 登录后，点击右上角头像 → **Settings**
+
+2. 左侧菜单点击 **API Keys**
+
+3. 点击 **Create API Key**
+
+4. 输入 Key 名称（如 `bio_analyst`）
+
+5. 复制生成的 Key（格式：`sk-or-v1-...`），**只显示一次，立即保存**
+
+**步骤 3：验证 Key 是否可用（在终端或 AidLux 中）**
+
+```bash
+curl https://openrouter.ai/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-or-v1-你的密钥" \
+  -d '{
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+如果返回 JSON 响应而非错误，说明 Key 可用。
+
+**重要限制提醒（教学够用）**：
+
+- 免费模型：**50 次请求 / 天**（账户级，所有免费模型共享）
+
+- 请合理规划课堂演示，避免频繁测试浪费额度
+
+- 充值 $10 后提升至 1000 次 / 天（可选）
+
+---
+
+#### 4. 创建 GitHub 仓库（存放前端）
+
+**方式一：网页创建（推荐）**
+
+1. 登录 GitHub，点击右上角 **+** → **New repository**
+
+2. 仓库名输入 `bio-llm-analyzer`
+
+3. 选择 **Public**
+
+4. 勾选 **Add a README file**
+
+5. 点击 **Create repository**
+
+**方式二：命令行创建（备选）**
+
+```bash
+mkdir bio-llm-analyzer
+cd bio-llm-analyzer
+git init
+echo "# Bio LLM Analyzer" > README.md
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/你的用户名/bio-llm-analyzer.git
+git push -u origin main
+```
+
+---
+
+#### 5. 创建 Cloudflare Worker 空项目
+
+**方式一：Dashboard 网页创建（推荐新手）**
+
+1. 登录 Cloudflare Dashboard → **Workers & Pages**
+
+2. 点击 **Create application** → **Create Worker**
+
+3. 输入名称：`bio-llm-api`
+
+4. 点击 **Deploy**
+
+5. 部署后点击 **Edit code** 进入在线编辑器
+
+**方式二：Wrangler CLI（熟练用户）**
+
+```bash
+# 安装 Wrangler（如未安装）
+npm install -g wrangler
+
+# 登录
+wrangler login
+
+# 创建项目
+wrangler init bio-llm-api
+
+# 进入目录
+cd bio-llm-api
+```
+
+---
+
+#### 6. 在 Worker 中配置环境变量（安全存储 API Key）
+
+**重要**：永远不要将 API Key 硬编码在 Worker 代码中（代码公开可读）。使用环境变量。
+
+**操作步骤**（Dashboard）：
+
+1. 进入 Worker `bio-llm-api` 详情页
+
+2. 点击 **Settings** → **Variables**
+
+3. 在 **Environment Variables** 区域：
+
+   - 点击 **Add variable**
+
+   - 变量名：`OPENROUTER_API_KEY`
+
+   - 值：`sk-or-v1-你的密钥`
+
+   - 点击 **Save and deploy**
+
+**在代码中访问环境变量**：
+
+```javascript
+// Worker 代码中通过 env.OPENROUTER_API_KEY 获取
+const apiKey = env.OPENROUTER_API_KEY;
+```
+
+**其他需要配置的变量（可选）**：
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `OPENROUTER_MODEL` | `nvidia/nemotron-3.5-lightning:free` | 模型名（可后续切换） |
+| `MAX_TOKENS` | `4096` | 输出最大长度 |
+
+---
+
+#### 7. 本课核心信息速查表
+
+| 项目 | 值 |
+|------|-----|
+| OpenRouter API Base | `https://openrouter.ai/api/v1` |
+| 模型 ID | `nvidia/nemotron-3.5-lightning:free` |
+| 上下文窗口 | 100 万 Token |
+| 免费日限额 | 50 次 / 天 |
+| 环境变量名 | `OPENROUTER_API_KEY` |
+| 前端仓库名 | `bio-llm-analyzer` |
+| Worker 名称 | `bio-llm-api` |
+
+---
+
+#### 8. 本课小结
+
+- **后端是“安全的代理”**：Worker 作为前端和 OpenRouter 之间的桥梁，隐藏 API Key
+
+- **前端是“美化的界面”**：GitHub Pages 托管静态 HTML，负责上传文件和展示结果
+
+- **LLM 是“分析引擎”**：Nemotron 处理生物数据并生成可读报告
+
+- **环境变量**是 Worker 中存储敏感信息的标准做法
+
+---
+
+#### 9. 课后练习（准备工作确认）
+
+1. 注册 OpenRouter，获取 API Key，用 `curl` 测试连通性。
+
+2. 创建 GitHub 仓库 `bio-llm-analyzer`，克隆到本地（或准备后续网页上传）。
+
+3. 创建 Cloudflare Worker `bio-llm-api`，在 Settings → Variables 中添加 `OPENROUTER_API_KEY`。
+
+4. 用浏览器访问你的 Worker 默认地址，确认返回 Hello World（证明 Worker 可访问）。
+
+### 第二课：Cloudflare Worker 代理 —— 转发请求到 OpenRouter
+
+本课目标：
+
+- 在 Worker 中编写完整的 HTTP 代理（接收前端请求 → 转发 OpenRouter → 返回响应）
+
+- 支持非流式（一次性返回）和流式（SSE 逐块输出）两种模式
+
+- 添加错误处理、超时控制、CORS 头
+
+- 理解 Worker 与前端之间的数据格式约定
+
+- 配置 Worker 路由（只开放必要的端点）
+
+---
+
+#### 1. Worker 架构设计（代理 + 安全隔离）
+
+Worker 的作用是“安全的中间人”：
+
+- **接收**：前端发来的 POST 请求（包含生物数据文件和指令）
+- **转发**：将请求重组为 OpenRouter 格式，携带环境变量中的 API Key
+- **返回**：将 OpenRouter 的响应原样或加工后返回给前端
+
+**为什么需要 Worker 代理而不直接前端调 OpenRouter**：
+
+| 问题 | 前端直接调 OpenRouter | Worker 代理方案 |
+|------|----------------------|-----------------|
+| API Key 暴露 | ❌ 前端代码公开，Key 可被窃取 | ✅ Key 存储在环境变量中，前端不可见 |
+| CORS 跨域 | ❌ 需要配置复杂的 CORS 白名单 | ✅ Worker 可自定义 CORS 头，灵活控制 |
+| 请求限制 | ❌ 前端无法做统一的速率控制 | ✅ Worker 可做限流和频率控制 |
+| 日志审计 | ❌ 难以追踪请求来源 | ✅ Worker 可记录所有请求日志 |
+
+---
+
+#### 2. Worker 代码（完整版）
+
+将以下代码粘贴到 Cloudflare Worker 在线编辑器中，替换默认的 Hello World：
+
+```javascript
+// 环境变量：OPENROUTER_API_KEY 在 Settings → Variables 中设置
+// OPENROUTER_MODEL 可选，默认 nvidia/nemotron-3.5-lightning:free
+
+export default {
+  async fetch(request, env, ctx) {
+    // 1. 只接受 POST 请求
+    if (request.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+      });
+    }
+
+    // 2. 解析请求体
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+      });
+    }
+
+    // 3. 校验必需字段
+    const { messages, stream = false, file_content = null, file_type = null } = requestBody;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: 'messages is required and must be a non-empty array' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+      });
+    }
+
+    // 4. 如果是生物文件分析，将文件内容注入到 system prompt 或 user message 中
+    let finalMessages = messages;
+    if (file_content && file_type) {
+      const fileContext = buildFileContext(file_content, file_type);
+      // 将文件信息添加到 system message 或附加到最后一个 user message
+      const systemMsg = finalMessages.find(m => m.role === 'system');
+      if (systemMsg) {
+        systemMsg.content = systemMsg.content + '\n\n' + fileContext;
+      } else {
+        // 插入一个 system message 到开头
+        finalMessages = [
+          { role: 'system', content: `你是一个专业的生物信息学分析助手。用户上传了一个 ${file_type} 文件。请基于文件内容进行分析。\n\n${fileContext}` },
+          ...finalMessages
+        ];
+      }
+    }
+
+    // 5. 构建 OpenRouter 请求体
+    const openrouterPayload = {
+      model: env.OPENROUTER_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+      messages: finalMessages,
+      stream: stream,
+      max_tokens: requestBody.max_tokens || 4096,
+      temperature: requestBody.temperature || 0.7
+    };
+
+    // 6. 转发到 OpenRouter API
+    const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': request.headers.get('Referer') || 'https://github.com/your-repo',
+        'X-Title': 'Bio LLM Analyzer'
+      },
+      body: JSON.stringify(openrouterPayload)
+    });
+
+    // 7. 处理响应
+    if (!openrouterResponse.ok) {
+      const errorText = await openrouterResponse.text();
+      return new Response(JSON.stringify({
+        error: 'OpenRouter API error',
+        status: openrouterResponse.status,
+        detail: errorText
+      }), {
+        status: openrouterResponse.status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+      });
+    }
+
+    // 8. 流式 vs 非流式
+    if (stream) {
+      // 流式：直接转发 SSE 流
+      return new Response(openrouterResponse.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          ...corsHeaders()
+        }
+      });
+    } else {
+      // 非流式：解析 JSON 后返回
+      const data = await openrouterResponse.json();
+      return new Response(JSON.stringify(data), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+      });
+    }
+  }
+};
+
+// CORS 头工具函数
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+}
+
+// 根据文件类型构造上下文提示
+function buildFileContent(file_content, file_type) {
+  const fileTypeName = {
+    'fasta': 'FASTA 序列文件',
+    'fastq': 'FASTQ 测序文件',
+    'pdb': 'PDB 三维结构文件'
+  }[file_type] || file_type;
+
+  // 截断过长内容（避免超过上下文窗口）
+  const maxPreviewLength = 20000; // 20k 字符预览
+  const preview = file_content.length > maxPreviewLength
+    ? file_content.slice(0, maxPreviewLength) + '\n... (内容过长，已截断)'
+    : file_content;
+
+  return `文件类型: ${fileTypeName}\n文件内容:\n${preview}`;
+}
+```
+
+---
+
+#### 3. 代码逐段解释（学生必看）
+
+| 代码段 | 作用 |
+|--------|------|
+| `if (request.method !== 'POST')` | 只允许 POST，其他方法返回 405 |
+| `await request.json()` | 解析前端传来的 JSON 请求体 |
+| `const { messages, stream, file_content, file_type } = requestBody` | 解构出前端传入的参数 |
+| `buildFileContext()` | 将用户上传的 FASTA/FASTQ/PDB 文件内容拼接到系统提示词中 |
+| `env.OPENROUTER_API_KEY` | 从环境变量读取 API Key（安全！） |
+| `fetch('https://openrouter.ai/api/v1/chat/completions', ...)` | 转发到 OpenRouter |
+| `if (stream)` | 流式返回 SSE，否则返回完整 JSON |
+
+---
+
+#### 4. 前端 → Worker 的请求格式约定
+
+前端发送的请求体（JSON）必须包含以下字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `messages` | array | ✅ | OpenAI 格式的消息数组，`role` + `content` |
+| `stream` | boolean | ❌ | 是否流式输出，默认 `false` |
+| `file_content` | string | ❌ | 用户上传的文件内容（纯文本） |
+| `file_type` | string | ❌ | 文件类型：`fasta` / `fastq` / `pdb` |
+| `max_tokens` | number | ❌ | 最大输出 Token，默认 4096 |
+| `temperature` | number | ❌ | 温度参数，默认 0.7 |
+
+**前端示例（非流式）**：
+
+```javascript
+const response = await fetch('https://bio-llm-api.你的用户名.workers.dev', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    messages: [
+      { role: 'system', content: '你是一个生物信息学助手' },
+      { role: 'user', content: '分析这段序列的GC含量' }
+    ],
+    file_content: '>BRCA1\nATCGATCG...',
+    file_type: 'fasta',
+    stream: false
+  })
+});
+const data = await response.json();
+```
+
+---
+
+#### 5. Worker 响应格式（非流式）
+
+Worker 非流式响应直接返回 OpenRouter 的 JSON 格式（OpenAI 兼容）：
+
+```json
+{
+  "id": "chatcmpl-xxx",
+  "object": "chat.completion",
+  "created": 1234567890,
+  "model": "nvidia/nemotron-3.5-lightning:free",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "分析结果：该序列长度1200bp，GC含量为45.2%..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 150,
+    "completion_tokens": 200,
+    "total_tokens": 350
+  }
+}
+```
+
+前端解析时通过 `data.choices[0].message.content` 获取分析结果。
+
+---
+
+#### 6. 流式响应格式（SSE）
+
+当 `stream: true` 时，Worker 直接转发 OpenRouter 的 SSE 流，格式为：
+
+```
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"分析"}}]}
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"结果"}}]}
+...
+data: [DONE]
+```
+
+前端按标准 SSE 解析即可：
+
+```javascript
+const response = await fetch('/api/chat', { method: 'POST', body: JSON.stringify({ stream: true, messages: [...] }) });
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const chunk = decoder.decode(value);
+  const lines = chunk.split('\n');
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const payload = line.slice(6);
+      if (payload === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(payload);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) console.log(content); // 逐块打印
+      } catch (e) { /* 忽略非 JSON 行 */ }
+    }
+  }
+}
+```
+
+---
+
+#### 7. 错误处理与状态码
+
+Worker 可能返回的 HTTP 状态码及含义：
+
+| 状态码 | 含义 | 前端处理建议 |
+|--------|------|-------------|
+| 200 | 成功（非流式） | 正常解析 JSON |
+| 200（SSE） | 成功（流式） | 逐块解析 data 行 |
+| 400 | 请求体格式错误或缺少字段 | 检查 messages 是否为空数组 |
+| 405 | 使用了非 POST 方法 | 改用 POST |
+| 429 | OpenRouter 频率限制（免费 50次/天） | 提示用户“今日免费额度已用完” |
+| 500 | OpenRouter 内部错误 | 显示错误详情 |
+| 502 | Worker 或 OpenRouter 超时 | 提示“服务暂时不可用，请稍后重试” |
+
+---
+
+#### 8. 部署 Worker（确认步骤）
+
+1. 在 Cloudflare Worker 在线编辑器中粘贴完整代码
+
+2. 点击 **Save and Deploy**
+
+3. 部署后，Worker 地址为 `https://bio-llm-api.你的用户名.workers.dev`
+
+4. 用 `curl` 测试 Worker 是否正常工作：
+
+```bash
+curl -X POST https://bio-llm-api.你的用户名.workers.dev \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":false}'
+```
+
+如果返回 OpenRouter 的 JSON 响应，说明 Worker 配置成功。
+
+---
+
+#### 9. 常见错误与解决
+
+| 错误现象 | 原因 | 解决 |
+|----------|------|------|
+| `OPENROUTER_API_KEY is undefined` | 环境变量未设置 | 在 Worker Settings → Variables 中添加 `OPENROUTER_API_KEY` |
+| `401 Unauthorized` | API Key 无效或过期 | 去 OpenRouter 重新生成 Key |
+| `429 Too Many Requests` | 免费模型日限额耗尽（50次/天） | 充值 $10 提升限制，或次日再试 |
+| `Model not found` | 模型名拼写错误 | 确认 `nvidia/nemotron-3.5-lightning:free` |
+| CORS 错误 | Worker 未返回 CORS 头 | 确认代码中包含 `corsHeaders()` |
+| 前端收不到流式数据 | SSE 格式不正确 | 确保 Worker 返回 `text/event-stream` 和正确的 data 格式 |
+
+---
+
+#### 10. 本课核心命令速查表
+
+| 操作 | 命令 |
+|------|------|
+| 测试 Worker（curl） | `curl -X POST https://bio-llm-api.xxx.workers.dev -H "Content-Type: application/json" -d '{"messages":[{"role":"user","content":"Hi"}]}'` |
+| 测试 OpenRouter（curl） | `curl https://openrouter.ai/api/v1/chat/completions -H "Authorization: Bearer sk-or-..." -d '{"model":"nvidia/nemotron-3.5-lightning:free","messages":[{"role":"user","content":"Hi"}]}'` |
+| 前端 fetch（非流式） | `fetch(worker_url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages:..., stream:false})})` |
+| 前端 fetch（流式） | 同上，`stream: true`，然后用 `response.body.getReader()` 读取 |
+
+---
+
+#### 11. 本课小结
+
+- **Worker 是后端代理**，接收前端请求 → 转发 OpenRouter → 返回响应
+- **环境变量**存储 API Key，前端不可见，安全隔离
+- **支持两种模式**：非流式（简单）和流式（逐字输出，体验好）
+- **错误处理**覆盖了请求格式校验、API Key 失效、频率限制等常见场景
+- **CORS 头**让前端可以跨域调用 Worker
+
+---
+
+#### 12. 课后练习
+
+1. 部署本课的 Worker 代码，用 `curl` 测试返回是否正确。
+
+2. 修改 Worker 代码，增加一个 `system` 提示词，让模型“用中文回答所有问题”。
+
+3. 测试流式模式：在前端用 `fetch` 发送 `stream: true`，在 Console 中逐块打印输出。
+
+4. 故意使用错误的 API Key，观察 Worker 返回的 401 错误格式。
+
+
+### 第三课：前端界面开发 —— 用 Bootstrap 5 搭建生物分析面板
+
+本课目标：
+
+- 用 Bootstrap 5 快速构建响应式、美观的单页应用
+
+- 实现文件上传控件（支持点击选择 + 拖拽上传）
+
+- 读取 FASTA / FASTQ / PDB 文件内容并在前端预览
+
+- 构建请求体，调用 Cloudflare Worker API（非流式 + 流式）
+
+- 实时显示分析进度（加载动画、流式输出打字机效果）
+
+- 渲染分析结果（表格、代码块、结构化数据）
+
+---
+
+#### 1. 界面布局设计（上中下三栏）
+
+| 区域 | 内容 | Bootstrap 组件 |
+|------|------|----------------|
+| 导航栏 | 项目名称 + GitHub 链接 | `.navbar` |
+| 主内容 | 文件上传区 + 参数设置 + 分析按钮 | `.container` + `.card` + `.row` |
+| 结果区 | 分析报告（文本 + 表格） | `.card` + `.card-body` |
+
+**配色方案**：
+
+- 主色：`#2c3e50`（深蓝灰），辅色：`#3498db`（亮蓝），背景：`#f8f9fa`
+
+---
+
+#### 2. 完整前端代码（`index.html`）
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧬 Bio LLM Analyzer</title>
+    <!-- Bootstrap 5 + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- 可选：Markdown 渲染库（轻量） -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { background: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .hero { background: linear-gradient(135deg, #2c3e50, #3498db); color: white; padding: 40px 0 30px; margin-bottom: 30px; }
+        .hero h1 { font-weight: 700; }
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        .upload-zone:hover { border-color: #3498db; background: #eef6ff; }
+        .upload-zone.dragover { border-color: #2ecc71; background: #eafaf1; }
+        #fileInfo { margin-top: 10px; font-weight: 500; }
+        #previewArea {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        #resultArea {
+            min-height: 200px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        #resultArea .markdown-body { font-family: inherit; }
+        .stream-cursor::after {
+            content: '▍';
+            animation: blink 1s step-end infinite;
+            color: #3498db;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .badge-filetype { font-size: 0.8rem; margin-left: 8px; }
+        .loading-spinner { display: none; }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="bi bi-gene"></i> BioLLM Analyzer</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="loadSample()"><i class="bi bi-file-earmark-text"></i> 示例数据</a></li>
+                    <li class="nav-item"><a class="nav-link" href="https://github.com/你的用户名/bio-llm-analyzer" target="_blank"><i class="bi bi-github"></i> GitHub</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container text-center">
+            <h1><i class="bi bi-robot"></i> 生物数据智能分析</h1>
+            <p class="lead">上传 FASTA / FASTQ / PDB 文件，AI 自动生成分析报告</p>
+            <span class="badge bg-light text-dark"><i class="bi bi-arrow-right"></i> 支持 .fasta .fastq .pdb</span>
+            <span class="badge bg-light text-dark ms-2"><i class="bi bi-cpu"></i> 模型: Nemotron-3.5 Lightning (免费)</span>
+        </div>
+    </section>
+
+    <!-- 主内容 -->
+    <div class="container">
+        <div class="row g-4">
+            <!-- 左侧：上传与设置 -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-upload"></i> 上传文件</h5>
+                        <!-- 拖拽/点击上传区 -->
+                        <div id="dropZone" class="upload-zone">
+                            <i class="bi bi-cloud-upload" style="font-size: 2.5rem; color: #3498db;"></i>
+                            <p class="mt-2">点击选择 或 拖拽文件至此</p>
+                            <small class="text-muted">支持 .fasta, .fastq, .pdb</small>
+                            <input type="file" id="fileInput" accept=".fasta,.fa,.fastq,.fq,.pdb" style="display:none;">
+                        </div>
+                        <div id="fileInfo" class="mt-2"></div>
+                        <div id="previewArea" style="display:none;"></div>
+
+                        <hr>
+                        <h6><i class="bi bi-sliders"></i> 分析参数</h6>
+                        <div class="mb-2">
+                            <label class="form-label">分析模式</label>
+                            <select id="analysisMode" class="form-select form-select-sm">
+                                <option value="general">通用分析</option>
+                                <option value="gc">GC 含量分析</option>
+                                <option value="structure">结构注释 (PDB)</option>
+                                <option value="variant">突变解读 (FASTQ)</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">输出风格</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="style" id="styleConcise" value="concise" checked>
+                                <label class="form-check-label" for="styleConcise">简洁</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="style" id="styleDetailed" value="detailed">
+                                <label class="form-check-label" for="styleDetailed">详细</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">额外指令（可选）</label>
+                            <input type="text" id="customPrompt" class="form-control form-control-sm" placeholder="例如：重点关注保守结构域">
+                        </div>
+
+                        <button id="analyzeBtn" class="btn btn-primary w-100" disabled>
+                            <i class="bi bi-play-circle"></i> 开始分析
+                        </button>
+                        <div class="loading-spinner text-center mt-3">
+                            <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                            <span class="ms-2">AI 正在思考...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：结果展示 -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="card-title"><i class="bi bi-file-earmark-text"></i> 分析报告</h5>
+                            <span id="tokenUsage" class="badge bg-secondary">Token: --</span>
+                        </div>
+                        <div id="resultArea">
+                            <p class="text-muted">等待分析……</p>
+                        </div>
+                        <div class="mt-2 text-end">
+                            <button id="copyBtn" class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-clipboard"></i> 复制</button>
+                            <button id="downloadBtn" class="btn btn-outline-success btn-sm" disabled><i class="bi bi-download"></i> 下载报告</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-muted py-3 mt-4">
+        <small>🔬 基于 OpenRouter + NVIDIA Nemotron-3.5 Lightning | 每日免费 50 次请求</small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ======================== 配置 ========================
+        const WORKER_URL = 'https://bio-llm-api.你的用户名.workers.dev'; // 替换为你的 Worker 地址
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB 限制（自由调整）
+
+        // ======================== DOM 引用 ========================
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const previewArea = document.getElementById('previewArea');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultArea = document.getElementById('resultArea');
+        const tokenUsage = document.getElementById('tokenUsage');
+        const loadingSpinner = document.querySelector('.loading-spinner');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const analysisMode = document.getElementById('analysisMode');
+        const styleConcise = document.getElementById('styleConcise');
+        const styleDetailed = document.getElementById('styleDetailed');
+        const customPrompt = document.getElementById('customPrompt');
+
+        let currentFile = null;        // { name, content, type }
+        let isStreaming = false;
+
+        // ======================== 文件上传逻辑 ========================
+        // 点击触发文件选择
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // 文件选择变化
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 拖拽事件
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 处理单个文件
+        function handleFile(file) {
+            // 大小检查
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`文件过大（${(file.size/1024/1024).toFixed(1)}MB），请上传小于 ${MAX_FILE_SIZE/1024/1024}MB 的文件`);
+                return;
+            }
+            // 类型检查（仅扩展名）
+            const validExts = ['.fasta', '.fa', '.fastq', '.fq', '.pdb'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!validExts.includes(ext)) {
+                alert('仅支持 .fasta, .fastq, .pdb 格式');
+                return;
+            }
+
+            // 读取内容
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                // 检测文件类型（基于内容或扩展名）
+                let fileType = ext.slice(1); // 去掉点
+                if (fileType === 'fa' || fileType === 'fasta') fileType = 'fasta';
+                if (fileType === 'fq' || fileType === 'fastq') fileType = 'fastq';
+                // 简易检测：若内容含 '>' 则为 FASTA
+                if (content.startsWith('>')) fileType = 'fasta';
+                else if (content.startsWith('@')) fileType = 'fastq';
+                else if (content.startsWith('HEADER')) fileType = 'pdb';
+
+                currentFile = { name: file.name, content, type: fileType };
+                // 更新界面
+                fileInfo.innerHTML = `<i class="bi bi-check-circle text-success"></i> ${file.name} (${fileType.toUpperCase()}) - ${(file.size/1024).toFixed(1)} KB`;
+                previewArea.style.display = 'block';
+                previewArea.textContent = content.slice(0, 2000) + (content.length > 2000 ? '\n... (截断)' : '');
+                analyzeBtn.disabled = false;
+                // 自动切换模式建议
+                if (fileType === 'fastq') analysisMode.value = 'variant';
+                else if (fileType === 'pdb') analysisMode.value = 'structure';
+                else analysisMode.value = 'gc';
+            };
+            reader.onerror = function() {
+                alert('读取文件失败，请检查文件是否损坏');
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // ======================== 加载示例数据 ========================
+        function loadSample() {
+            // 示例 BRCA1 序列片段
+            const sample = `>BRCA1 human
+ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCATCTGTCTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGTATGCTGAAACTTCTCAACCAGAAGAAAGGGCCTTCACAGTGTCCTTTATGTAAGAATGATATAACCAAAAGGAGCCTACAAGAAAGTACGAGATTTAGTCAACTTGTTGAAGAGCTATTGAAAATCATTTGTGCTTTTCAGCTTGACACAGGTTTGGAGTATGCAAACAGCTATAATTTTGCAAAAAAGGAAAATAACTCTCCTGAACATCTAAAAGATGAAGTTTCTATCATCCAAAGTATGGGCTACAGAAACCGTGCCAAAAGACTTCTACAGAGTGAACCCGAAAATCCTTCCTTGCAGGAAACCAGTCTCAGTGTCCAACTCTCTAACCTTGGAACTGTGAGAACTCTGAGGACAAAGAGCGGGG`;
+            // 模拟 file
+            const blob = new Blob([sample], { type: 'text/plain' });
+            const file = new File([blob], 'BRCA1_sample.fasta', { type: 'text/plain' });
+            // 触发 handleFile
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+
+        // ======================== 分析核心 ========================
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+            if (isStreaming) return;
+
+            // 获取参数
+            const mode = analysisMode.value;
+            const style = document.querySelector('input[name="style"]:checked').value;
+            const extraPrompt = customPrompt.value.trim();
+
+            // 构造系统提示词
+            let systemPrompt = `你是一个生物信息学分析专家。用户上传了一个 ${currentFile.type.toUpperCase()} 文件。`;
+            // 根据模式定制
+            const modeMap = {
+                'gc': '请计算序列长度、GC含量、AT含量，并给出序列的基本统计特征。',
+                'structure': '请分析该PDB结构：分辨率、链数、残基数、二级结构组成（螺旋/折叠/转角），并指出可能的功能区域。',
+                'variant': '请从FASTQ文件中提取测序质量、覆盖度，并注释可能的SNP或变异。',
+                'general': '请对该生物数据进行全面分析，包括序列特征、结构注释（若适用）等。'
+            };
+            systemPrompt += ` ${modeMap[mode] || modeMap['general']}`;
+            if (style === 'detailed') systemPrompt += ' 请提供详细的分析报告，包括数据来源、方法、结果和讨论。';
+            else systemPrompt += ' 请提供简洁清晰的结论，突出关键指标。';
+            if (extraPrompt) systemPrompt += ` 额外要求：${extraPrompt}`;
+
+            // 用户消息：仅包含文件内容（已在Worker中拼接，但这里也可以直接传文件内容）
+            // 我们采用Worker拼接方式：在请求中同时传file_content和file_type
+            // 并将用户消息置为"请分析"。
+            const userMessage = `请分析我上传的 ${currentFile.type.toUpperCase()} 文件。`;
+
+            // 构建请求体
+            const payload = {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage }
+                ],
+                file_content: currentFile.content,
+                file_type: currentFile.type,
+                stream: true,   // 总是流式，以获得更好的用户体验
+                max_tokens: 4096,
+                temperature: 0.3
+            };
+
+            // UI 状态
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 分析中...';
+            loadingSpinner.style.display = 'block';
+            resultArea.innerHTML = '<div class="stream-cursor">分析结果：</div>';
+            copyBtn.disabled = true;
+            downloadBtn.disabled = true;
+            tokenUsage.textContent = 'Token: ...';
+            isStreaming = true;
+
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    let errMsg = `请求失败 (${response.status})`;
+                    try {
+                        const errData = await response.json();
+                        errMsg = errData.error || errMsg;
+                    } catch (e) {}
+                    throw new Error(errMsg);
+                }
+
+                // 流式读取
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let resultText = '';
+                let done = false;
+                let usage = null;
+
+                while (!done) {
+                    const { value, done: doneReading } = await reader.read();
+                    done = doneReading;
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    // 处理 SSE 数据行
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const payloadStr = line.slice(6);
+                            if (payloadStr === '[DONE]') {
+                                done = true;
+                                break;
+                            }
+                            try {
+                                const parsed = JSON.parse(payloadStr);
+                                const delta = parsed.choices?.[0]?.delta?.content;
+                                if (delta) {
+                                    resultText += delta;
+                                    // 更新显示（带光标效果）
+                                    resultArea.innerHTML = `<div class="stream-cursor">${escapeHtml(resultText)}</div>`;
+                                    // 滚动到底部
+                                    resultArea.scrollTop = resultArea.scrollHeight;
+                                }
+                                // 尝试获取 usage（在最后一条非流式消息中可能包含）
+                                if (parsed.usage) {
+                                    usage = parsed.usage;
+                                }
+                            } catch (e) { /* 忽略非 JSON 行 */ }
+                        }
+                    }
+                }
+
+                // 最终完整显示
+                resultArea.innerHTML = `<div>${escapeHtml(resultText)}</div>`;
+                if (resultText.trim() === '') {
+                    resultArea.innerHTML = '<p class="text-warning">模型未返回任何内容，请重试。</p>';
+                }
+
+                // 显示 Token 使用情况（若未获取到，尝试从响应头或其它方式获取，这里简单提示）
+                if (usage) {
+                    tokenUsage.textContent = `Token: ${usage.total_tokens || 'N/A'}`;
+                } else {
+                    tokenUsage.textContent = `Token: 已使用（未统计）`;
+                }
+
+                copyBtn.disabled = false;
+                downloadBtn.disabled = false;
+
+            } catch (error) {
+                console.error(error);
+                resultArea.innerHTML = `<div class="alert alert-danger">❌ 分析出错：${error.message}</div>`;
+                tokenUsage.textContent = 'Token: 错误';
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i class="bi bi-play-circle"></i> 开始分析';
+                loadingSpinner.style.display = 'none';
+                isStreaming = false;
+            }
+        });
+
+        // ======================== 辅助函数 ========================
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // 复制结果
+        copyBtn.addEventListener('click', () => {
+            const text = resultArea.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('报告已复制到剪贴板');
+            }).catch(() => {
+                // fallback
+                const range = document.createRange();
+                range.selectNode(resultArea);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                alert('报告已复制');
+            });
+        });
+
+        // 下载报告
+        downloadBtn.addEventListener('click', () => {
+            const text = resultArea.textContent;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analysis_${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 支持键盘快捷键 (Ctrl+Enter 触发分析)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                if (!analyzeBtn.disabled) analyzeBtn.click();
+            }
+        });
+
+        console.log('🧬 BioLLM Analyzer 已加载，Worker 地址:', WORKER_URL);
+    </script>
+</body>
+</html>
+```
+
+---
+
+#### 3. 代码逐块解释
+
+| 代码块 | 作用 |
+|--------|------|
+| **Bootstrap 引入** | 使用 CDN 加载 Bootstrap 5 和 Bootstrap Icons，确保响应式布局 |
+| **自定义 CSS** | 美化上传区（拖拽高亮）、流式光标动画、滚动条样式等 |
+| **文件上传** | 使用 `FileReader` 读取文本内容，检测文件类型（FASTA/FASTQ/PDB），预览前 2000 字符 |
+| **参数选择** | 分析模式（通用/GC/结构/变异）、输出风格（简洁/详细）、额外指令输入框 |
+| **核心分析函数** | 构建 `system` 和 `user` 消息，附带 `file_content` 和 `file_type`，调用 Worker API |
+| **流式渲染** | 使用 `response.body.getReader()` 逐块读取 SSE 数据，更新 `resultArea` 实现打字机效果 |
+| **结果后处理** | 复制文本、下载为 TXT 文件、显示 Token 使用情况（若返回） |
+| **示例数据** | 内置 BRCA1 序列片段，一键填充演示 |
+| **键盘快捷键** | `Ctrl+Enter` 触发分析，提升操作效率 |
+
+---
+
+#### 4. 前端与 Worker 的通信协议（回顾）
+
+| 请求字段 | 类型 | 说明 |
+|----------|------|------|
+| `messages` | array | 对话消息（system, user） |
+| `file_content` | string | 文件全文（纯文本） |
+| `file_type` | string | `fasta` / `fastq` / `pdb` |
+| `stream` | boolean | 始终 `true`（本设计使用流式） |
+| `max_tokens` | number | 4096 |
+| `temperature` | number | 0.3 |
+
+Worker 会将 `file_content` 和 `file_type` 拼接到系统消息中，然后转发给 OpenRouter。
+
+---
+
+#### 5. 部署与测试
+
+1. **修改 Worker URL**：在 `index.html` 中替换 `WORKER_URL` 为你的 Cloudflare Worker 地址。
+
+2. **上传到 GitHub**：
+
+   - 将 `index.html` 推送到 `bio-llm-analyzer` 仓库
+
+   - 启用 GitHub Pages（Settings → Pages → 选择 main 分支）
+
+3. **打开 Pages 地址**：`https://你的用户名.github.io/bio-llm-analyzer/`
+
+4. **测试流程**：
+
+   - 拖拽或点击上传一个 `.fasta` 文件（或使用示例数据）
+
+   - 选择分析模式（如 GC 含量）
+
+   - 点击“开始分析”
+
+   - 观察流式输出，等待完整报告
+
+---
+
+#### 6. 常见问题与解决
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 上传后按钮仍禁用 | 文件未正确读取或类型检测失败 | 检查文件内容是否为空，或手动选择模式 |
+| 点击分析无反应 | Worker 地址错误或网络不通 | 检查 `WORKER_URL` 是否包含 `https://`，用 `curl` 测试 |
+| 流式输出中断 | 网络超时或 Worker 返回错误 | 查看浏览器 Console 错误，检查 Worker 日志 |
+| 结果乱码 | 文件编码不是 UTF-8 | 确保文件为 UTF-8 编码，可用 `iconv` 转换 |
+| 复制功能失效 | 浏览器安全策略 | 使用备用方法（手动选择文本 + Ctrl+C） |
+| 每天 50 次限额 | OpenRouter 免费限制 | 充值 $10 提升至 1000 次/天，或合理分配课堂演示次数 |
+
+---
+
+#### 7. 用户体验优化建议（课后可以加）
+
+- **添加进度条**：在分析过程中显示已接收的数据量
+- **Markdown 渲染**：用 `marked.js` 渲染模型输出中的表格、标题、代码块，使报告更易读
+- **历史记录**：将最近的分析结果保存在 `localStorage`，方便对比
+- **导出为 PDF**：集成 `jspdf` 将报告导出为 PDF
+- **多文件支持**：允许同时上传多个文件进行批量分析
+
+---
+
+#### 8. 本课核心代码速查
+
+| 功能 | 代码片段 |
+|------|----------|
+| 文件读取 | `new FileReader().readAsText(file)` |
+| 拖拽上传 | `dropzone.addEventListener('dragover', ...)` |
+| 构建请求 | `fetch(WORKER_URL, { method:'POST', body: JSON.stringify(payload) })` |
+| 流式读取 | `response.body.getReader()` + `TextDecoder` |
+| 解析 SSE | `line.startsWith('data: ')` + `JSON.parse(payloadStr)` |
+| 打字机效果 | 逐块追加内容 + `element.innerHTML` |
+| 复制内容 | `navigator.clipboard.writeText(text)` |
+| 下载文件 | `Blob` + `URL.createObjectURL` + `<a download>` |
+
+---
+
+#### 9. 课后练习
+
+1. 修改前端样式，把上传区改成圆形拖拽区，并调整整体颜色主题。
+
+2. 在分析结果中添加 Markdown 渲染（使用 `marked.parse()`），让输出包含标题、表格和代码块。
+
+3. 增加一个“停止分析”按钮，中断正在进行的流式请求（利用 `AbortController`）。
+
+4. 将 `resultArea` 的内容持久化到 `localStorage`，页面刷新后自动恢复历史报告。
+
+5. 尝试上传一个真实的 PDB 文件（如 1TUP），检查模型能否正确识别结构信息。
+
+
+### 第四课：数据解析与提示工程 —— 让 LLM 精准读懂生物文件
+
+本课目标：
+
+- 了解生物文件格式（FASTA / FASTQ / PDB）的核心信息结构
+
+- 掌握提示工程的基本方法（角色、任务分解、输出格式约束）
+
+- 为三种文件类型设计专用的系统提示词模板
+
+- 实现文件内容预处理（提取关键信息、压缩长度、保留核心数据）
+
+- 让模型输出结构化分析结果（Markdown 表格 + 关键指标）
+
+- 优化模型输出，降低幻觉，提高专业准确性
+
+---
+
+#### 1. 生物文件格式速览（供提示词设计参考）
+
+| 格式 | 核心结构 | 关键信息 | 分析重点 |
+|------|----------|----------|----------|
+| **FASTA** | `>header` + 序列（一行或多行） | 序列标题、字母（ATCG/U）、长度 | GC含量、序列复杂度、ORF预测、motif搜索 |
+| **FASTQ** | `@header` + 序列 + `+` + 质量字符串 | 序列 + 质量分数（ASCII 编码） | 测序质量分布、覆盖度、变异检测 |
+| **PDB** | 多行记录（ATOM, HETATM, HEADER, SEQRES, etc.） | 原子坐标、残基名、链标识、二级结构 | 分辨率、链数、二级结构组成、配体结合 |
+
+**FASTA 示例**：
+
+```
+>BRCA1 human
+ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAG...
+```
+
+**FASTQ 示例**：
+
+```
+@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:ATCACG
+CTCAAGGTTGTTGCAAAGACGGGAGGTAGGTGCCTGGGCATTTTCC
++
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+```
+
+**PDB 示例行**：
+
+```
+HEADER    HYDROLASE                               22-JAN-98   1TUP
+ATOM      1  N   ASP A   1      32.371  76.442  59.599  1.00 63.52           N
+ATOM      2  CA  ASP A   1      33.043  77.659  60.063  1.00 62.32           C
+...
+```
+
+---
+
+#### 2. 提示工程核心原则（专用于生物数据分析）
+
+| 原则 | 说明 | 示例 |
+|------|------|------|
+| **角色设定** | 让模型扮演特定专家角色 | “你是一个生物信息学分析专家” |
+| **任务分解** | 把复杂任务分成几步 | 先提取基本信息，再统计，最后解读 |
+| **格式约束** | 明确要求输出格式（表格/列表/JSON） | “请用 Markdown 表格形式输出统计数据” |
+| **关键词强制** | 要求模型必须包含某些关键指标 | “必须包括：序列长度、GC含量” |
+| **引导推理** | 提供分析框架，引导模型思考 | “请按以下步骤分析：1.序列组成 2. 二级结构预测 3. 功能注释” |
+| **示例引导（Few-shot）** | 在系统提示中给一个简要示例 | “例如：一个序列长度 1200bp，GC 含量 45% 属于正常范围” |
+| **约束范围** | 限制模型不要回答无关内容 | “只基于提供的文件内容分析，不额外编造数据” |
+
+---
+
+#### 3. 专用提示词模板（可直接嵌入 Worker 或前端）
+
+**FASTA 通用分析模板**：
+
+```text
+你是一个生物信息学分析专家。用户上传了一个 FASTA 文件，包含一条或多条核酸或蛋白质序列。
+
+请按以下步骤输出分析报告：
+
+1. **序列基本信息**
+   - 序列数量
+   - 每条序列的 ID 和长度
+   - 序列类型（DNA/RNA/蛋白质）
+
+2. **碱基/氨基酸组成统计**
+   - 对于核酸序列：A、T、C、G 的含量百分比
+   - 对于蛋白质序列：20 种氨基酸的分布
+   - 计算 GC 含量（若为核酸）
+
+3. **序列特征分析**
+   - 是否存在明显重复序列或低复杂度区域
+   - 若为 DNA：预测开放阅读框（ORF）或提示潜在编码区
+   - 若为蛋白质：提示可能的保守结构域（基于序列模式）
+
+4. **结论与建议**
+   - 序列是否完整（是否有起始/终止密码子提示）
+   - 可能的生物学功能（基于序列相似性，若可推断）
+
+输出格式要求：
+- 使用 Markdown 表格展示统计数据
+- 使用项目符号列表展示结论
+- 数字保留两位小数
+- 不要编造数据，仅基于文件内容进行分析
+```
+
+**FASTQ 专用分析模板（侧重测序质量）**：
+
+```text
+你是一个生物信息学测序数据分析专家。用户上传了一个 FASTQ 文件。
+
+请分析以下内容：
+
+1. **测序基本信息**
+   - 总 reads 数量
+   - 每条 read 的长度（均匀度）
+   - 序列类型（DNA/RNA）
+
+2. **质量评估**
+   - 平均质量得分（Q-score）分布
+   - 质量低于 Q20 的 reads 占比
+   - 是否存在质量下降趋势（从 5' 到 3'）
+
+3. **GC 含量分布**
+   - 所有 reads 的平均 GC 含量
+   - GC 含量的变异度（是否有异常 reads）
+
+4. **潜在问题提示**
+   - 是否存在接头污染（若序列中出现常见接头序列）
+   - 是否建议进行 trimming（基于质量分布）
+
+输出格式要求：
+- 用 Markdown 表格汇总统计指标
+- 提供可视化描述（用文字描述质量曲线趋势）
+- 给出具体的处理建议（如“建议使用 Trimmomatic 截断前 10bp”）
+```
+
+**PDB 专用分析模板（侧重结构）**：
+
+```text
+你是一个结构生物信息学专家。用户上传了一个 PDB 文件（三维结构）。
+
+请分析以下内容：
+
+1. **结构基本信息**
+   - PDB ID（若存在 HEADER 行）
+   - 分辨率（若存在）
+   - 实验方法（X-ray / NMR / CryoEM）
+   - 链的数量和每条链的残基数
+
+2. **二级结构组成**
+   - α-螺旋、β-折叠、转角、无规卷曲的大致比例
+   - 请根据原子坐标的二级结构注释（若有）或根据序列推断
+
+3. **配体与功能位点**
+   - 是否存在非标准残基（配体、离子、水分子）
+   - 列出主要的配体名称（如 HEM, ATP, ZN）
+
+4. **结构质量评估**
+   - 是否存在异常原子（B-factor 过高等）
+   - 是否有缺失残基（间隙）
+
+输出格式要求：
+- 提供关键数据表格
+- 简要总结结构的稳定性和功能可解释性
+```
+
+---
+
+#### 4. 提示词工程实现（Worker 集成）
+
+在 Worker 代码的 `buildSystemPrompt` 函数中，根据文件类型动态选择模板：
+
+```javascript
+function buildSystemPrompt(fileType, mode, style, extraPrompt) {
+    const role = '你是一个专业的生物信息学分析专家。';
+    let task = '';
+
+    const templates = {
+        'fasta': `用户上传了一个 FASTA 文件，包含核酸或蛋白质序列。
+请依次分析：1. 序列基本信息（ID、长度、类型）；2. 碱基/氨基酸组成统计（含 GC 含量）；3. 序列特征（重复区域、ORF 预测等）；4. 结论与建议。`,
+        'fastq': `用户上传了一个 FASTQ 文件（测序数据）。
+请分析：1. 测序基本信息（reads 数、长度）；2. 质量评估（Q-score 分布）；3. GC 含量分布；4. 潜在问题提示。`,
+        'pdb': `用户上传了一个 PDB 文件（三维结构）。
+请分析：1. 结构基本信息（ID、分辨率、链数）；2. 二级结构组成；3. 配体与功能位点；4. 结构质量评估。`
+    };
+
+    task = templates[fileType] || templates['fasta'];
+
+    let styleInstruction = '';
+    if (style === 'detailed') {
+        styleInstruction = '请提供详细的分析报告，包括数据来源、方法、结果和讨论，使用专业术语并适当引用标准。';
+    } else {
+        styleInstruction = '请提供简洁清晰的结论，突出关键指标，避免冗长解释。';
+    }
+
+    const formatInstruction = `
+输出格式要求：
+- 使用 Markdown 表格展示统计数据
+- 使用项目符号列表展示结论
+- 数字保留两位小数
+- 不要编造数据，仅基于提供的文件内容进行分析
+- 若无法确定某项，请注明“无法从文件内容推断”`;
+
+    const extraInstruction = extraPrompt ? `\n额外指令：${extraPrompt}` : '';
+
+    return `${role}\n${task}\n${styleInstruction}\n${formatInstruction}${extraInstruction}`;
+}
+```
+
+---
+
+#### 5. 文件内容预处理（确保不超上下文窗口）
+
+Nemotron-3.5 Lightning 上下文窗口达 100 万 Token，对于大多数 FASTA/FASTQ 文件（几 MB 内）通常足够。但对于超大文件（如数 GB 的 FASTQ），需要截断或抽样。
+
+**Worker 中的预处理策略**：
+
+```javascript
+function preprocessFileContent(content, fileType, maxChars = 50000) {
+    // 如果内容长度小于限制，直接返回
+    if (content.length <= maxChars) return content;
+
+    // 对于 FASTA：保留前 N 条序列
+    if (fileType === 'fasta') {
+        const lines = content.split('\n');
+        let kept = [];
+        let seqCount = 0;
+        let charCount = 0;
+        let isHeader = false;
+        for (const line of lines) {
+            if (line.startsWith('>')) {
+                if (seqCount > 10) break; // 最多保留 10 条序列
+                seqCount++;
+                isHeader = true;
+            }
+            kept.push(line);
+            charCount += line.length;
+            if (charCount > maxChars) break;
+        }
+        kept.push('\n... (文件内容过长，已截断，仅显示前 10 条序列)');
+        return kept.join('\n');
+    }
+
+    // 对于 FASTQ：保留前 N 个 reads
+    if (fileType === 'fastq') {
+        const lines = content.split('\n');
+        let kept = [];
+        let readCount = 0;
+        let charCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('@')) {
+                if (readCount >= 50) break; // 最多 50 条 reads
+                readCount++;
+            }
+            kept.push(lines[i]);
+            charCount += lines[i].length;
+            if (charCount > maxChars) break;
+        }
+        kept.push('\n... (文件内容过长，已截断，仅显示前 50 条 reads)');
+        return kept.join('\n');
+    }
+
+    // 对于 PDB：保留原子记录（ATOM/HETATM）的有限行
+    if (fileType === 'pdb') {
+        const lines = content.split('\n');
+        let kept = [];
+        let atomCount = 0;
+        for (const line of lines) {
+            if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
+                if (atomCount > 5000) break; // 最多 5000 个原子
+                atomCount++;
+            }
+            kept.push(line);
+            if (kept.length > 10000) break; // 总行数限制
+        }
+        kept.push('\n... (文件过长，已截断，仅保留前 5000 个原子记录)');
+        return kept.join('\n');
+    }
+
+    // 默认直接截断
+    return content.slice(0, maxChars) + '\n... (内容过长，已截断)';
+}
+```
+
+在 Worker 的 `fetch` 处理中，调用此函数对 `file_content` 进行预处理。
+
+---
+
+#### 6. 增强分析指令：指定输出格式（JSON 可选）
+
+为了便于前端解析，可以要求模型输出 JSON 格式（前端再渲染）。但为简单起见，本教程使用 Markdown 文本，利用 `marked.js` 在前端渲染表格和标题，获得良好的视觉体验。
+
+如果需要结构化数据（如用于后续自动处理），可在提示词中要求模型输出 JSON 并指定字段。示例：
+
+```text
+请以 JSON 格式返回以下字段：
+{
+  "sequence_count": 整数,
+  "total_length": 整数,
+  "gc_content": 浮点数,
+  "analysis_summary": "字符串"
+}
+```
+
+模型会输出 JSON 文本，前端可直接 `JSON.parse()`。
+
+---
+
+#### 7. 提示词优化实战（减少幻觉）
+
+| 技术 | 实现方式 |
+|------|----------|
+| **明确限制范围** | “只基于你从文件内容中获取的信息，不引用外部数据库” |
+| **要求标注不确定项** | “如果某个统计量无法从文件内容确定，请注明‘无法确定’” |
+| **提供单位** | “GC 含量以百分比形式输出，保留两位小数” |
+| **分步引导** | 将分析任务拆分为多个子任务，逐步输出，降低错误累积 |
+| **要求自我检查** | “在输出前，检查所有数值是否合理（如 GC% 在 0-100 之间）” |
+
+---
+
+#### 8. 完整 Worker 中的提示词组装流程
+
+```javascript
+// 在 Worker 的 fetch 处理中
+const { messages, file_content, file_type, mode, style, custom_prompt } = requestBody;
+
+// 预处理文件内容
+const processedContent = preprocessFileContent(file_content, file_type);
+
+// 构建系统提示词
+const systemPrompt = buildSystemPrompt(file_type, mode, style, custom_prompt);
+
+// 构造最终消息（含系统提示 + 文件上下文）
+const finalMessages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `以下是要分析的文件内容：\n${processedContent}` }
+];
+
+// 转发给 OpenRouter
+const openrouterPayload = {
+    model: env.OPENROUTER_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+    messages: finalMessages,
+    stream: true,
+    max_tokens: 4096,
+    temperature: 0.3
+};
+```
+
+---
+
+#### 9. 前端对 Markdown 输出的渲染增强
+
+在前端 `index.html` 中，引入 `marked.js` 来渲染 Markdown 内容（已在第三课准备）：
+
+```javascript
+// 在流式接收完完整文本后，渲染 Markdown
+const renderedHtml = marked.parse(resultText);
+resultArea.innerHTML = `<div class="markdown-body">${renderedHtml}</div>`;
+```
+
+并添加一个 CSS 类美化 Markdown 表格（Bootstrap 自带表格样式可配合）：
+
+```css
+.markdown-body table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.markdown-body th, .markdown-body td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+.markdown-body th { background: #f2f2f2; }
+```
+
+---
+
+#### 10. 常见问题与解决
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 模型回答过于泛泛 | 提示词不够具体 | 细化任务分解，要求分点回答 |
+| 输出包含虚构数据 | 模型“编造” | 在提示词中强调“仅基于文件内容” |
+| 表格格式错乱 | Markdown 表格不规范 | 在提示词中明确“表格需包含表头对齐符号 `|---|---|`” |
+| 文件内容被截断影响分析 | 截断丢失关键信息 | 增加 `maxChars` 值，或抽样策略更智能 |
+| 模型未按指定格式输出 | 格式约束不严格 | 在提示词中多次强调格式要求，甚至给出示例 |
+| 输出太长导致前端卡顿 | 大量 Token 渲染 | 限制 `max_tokens` 为 4096，或使用流式逐步渲染 |
+
+---
+
+#### 11. 本课核心代码速查
+
+| 功能 | 代码/模板 |
+|------|-----------|
+| 构建系统提示词 | `buildSystemPrompt(fileType, mode, style, extra)` |
+| 文件内容预处理 | `preprocessFileContent(content, fileType, maxChars)` |
+| 提示词模板（FASTA） | 见上文 |
+| 提示词模板（FASTQ） | 见上文 |
+| 提示词模板（PDB） | 见上文 |
+| 前端 Markdown 渲染 | `marked.parse(resultText)` |
+
+---
+
+#### 12. 课后练习
+
+1. 修改 `buildSystemPrompt` 函数，为 FASTA 文件增加“预测 ORF”的提示，让模型尝试找到最长开放阅读框。
+
+2. 为 FASTQ 提示词增加“计算平均质量值”的明确要求，并让模型用表格列出 Q20/Q30 比例。
+
+3. 在 Worker 的预处理函数中，增加对 PDB 文件“提取链标识”的简单解析，并将链标识列表传递给模型。
+
+4. 测试不同温度参数（0.1, 0.5, 0.9）对分析结果稳定性的影响，并总结最佳值。
+
+5. 尝试让模型输出 JSON 格式的分析报告，并在前端解析后以卡片形式展示关键指标（而非纯 Markdown）。
+
+
+
+### 第五课：最终整合与上线 —— 错误处理、性能优化、用户体验增强
+
+本课目标：
+
+- 完善错误处理机制（网络异常、超时、频率限制、文件解析异常）
+
+- 优化性能（前端缓存、请求防抖、加载状态细化）
+
+- 增强用户体验（进度指示、断线重连、历史记录）
+
+- 完整部署到 GitHub Pages + Cloudflare Worker
+
+- 编写项目文档（README.md、使用说明）
+
+- 最终验收测试清单
+
+---
+
+#### 1. 错误处理全栈设计（前端 + Worker）
+
+错误处理分为三层：**前端捕获**（用户友好提示）、**Worker 捕获**（日志记录）、**OpenRouter 捕获**（API 错误转发）。
+
+**前端错误处理增强（在 `index.html` 的 `analyzeBtn` 点击事件中）**：
+
+```javascript
+// 在 try 块外层添加超时控制
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 秒超时
+
+try {
+    const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+        let errMsg = `请求失败 (${response.status})`;
+        try {
+            const errData = await response.json();
+            errMsg = errData.error || errMsg;
+            // 特殊处理频率限制
+            if (response.status === 429) {
+                errMsg = '⚠️ 今日免费次数已用完 (50次/天)，请充值或明日再试';
+            }
+        } catch (e) {}
+        throw new Error(errMsg);
+    }
+    // ... 正常流式读取
+} catch (error) {
+    if (error.name === 'AbortError') {
+        resultArea.innerHTML = '<div class="alert alert-warning">⏱️ 请求超时（2分钟），请检查网络后重试</div>';
+    } else {
+        resultArea.innerHTML = `<div class="alert alert-danger">❌ ${error.message}</div>`;
+    }
+} finally {
+    clearTimeout(timeoutId);
+    // 恢复按钮状态
+}
+```
+
+**Worker 错误处理增强（在 Worker 代码中）**：
+
+```javascript
+// 在 Worker 的 fetch 函数中，增加更细致的错误分类
+try {
+    const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { ... },
+        body: JSON.stringify(openrouterPayload)
+    });
+
+    if (!openrouterResponse.ok) {
+        const errorText = await openrouterResponse.text();
+        let statusMessage = '';
+        switch (openrouterResponse.status) {
+            case 401:
+                statusMessage = 'API Key 无效或已过期';
+                break;
+            case 429:
+                statusMessage = '频率限制 (免费模型 50次/天)';
+                break;
+            case 402:
+                statusMessage = '账户余额不足，需充值';
+                break;
+            default:
+                statusMessage = `OpenRouter 错误 (${openrouterResponse.status})`;
+        }
+        return new Response(JSON.stringify({
+            error: statusMessage,
+            detail: errorText
+        }), {
+            status: openrouterResponse.status,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+        });
+    }
+    // ... 正常处理
+} catch (error) {
+    return new Response(JSON.stringify({
+        error: 'Worker 内部错误',
+        detail: error.message
+    }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+    });
+}
+```
+
+---
+
+#### 2. 性能优化策略
+
+| 优化点 | 实现方式 | 效果 |
+|--------|----------|------|
+| **文件读取防抖** | 上传后延迟 300ms 再启用按钮 | 防止快速重复上传触发多次解析 |
+| **结果缓存** | 将分析结果存入 `localStorage`，相同文件不重复分析 | 节省 API 调用次数 |
+| **请求取消** | 使用 `AbortController` 实现“停止分析”功能 | 用户可随时中断 |
+| **懒加载 Markdown** | 仅在需要时加载 `marked.js` | 减少首屏加载时间 |
+| **Worker 响应压缩** | Worker 返回时启用 `gzip` 压缩 | 减少传输数据量 |
+
+**结果缓存示例（前端）**：
+
+```javascript
+const CACHE_KEY = 'bio_analysis_cache';
+function getCachedResult(fileContent) {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const hash = simpleHash(fileContent.slice(0, 1000)); // 用内容前缀做简易 key
+    return cache[hash] || null;
+}
+function saveCache(fileContent, result) {
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const hash = simpleHash(fileContent.slice(0, 1000));
+    cache[hash] = { result, timestamp: Date.now() };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+}
+function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return 'h' + Math.abs(hash).toString(36);
+}
+```
+
+---
+
+#### 3. 用户体验增强（移动端适配 + 操作反馈）
+
+**增加“停止分析”按钮**：
+
+```html
+<button id="stopBtn" class="btn btn-danger w-100 mt-2" style="display:none;">
+    <i class="bi bi-stop-circle"></i> 停止分析
+</button>
+```
+
+```javascript
+let abortController = null;
+
+// 在点击分析时创建
+abortController = new AbortController();
+document.getElementById('stopBtn').style.display = 'block';
+
+// 停止按钮事件
+document.getElementById('stopBtn').addEventListener('click', () => {
+    if (abortController) {
+        abortController.abort();
+        resultArea.innerHTML += '\n\n⚠️ 分析已中断';
+        document.getElementById('stopBtn').style.display = 'none';
+    }
+});
+```
+
+**文件上传进度显示**：
+
+```javascript
+// 在 FileReader 的 onprogress 事件中（需使用 FileReader 的 progress 事件）
+reader.onprogress = function(e) {
+    if (e.lengthComputable) {
+        const pct = (e.loaded / e.total * 100).toFixed(0);
+        fileInfo.textContent = `读取中... ${pct}%`;
+    }
+};
+```
+
+**移动端触摸优化**：
+
+- 按钮尺寸 ≥ 44px（Bootstrap 默认满足）
+- 上传区支持点击和触摸（已实现）
+- 结果区可滑动（`overflow-y: auto`）
+
+---
+
+#### 4. 部署最终检查清单（上线前逐项确认）
+
+| 检查项 | 状态 | 备注 |
+|--------|------|------|
+| Worker 中 `OPENROUTER_API_KEY` 已设置 | ☐ | Settings → Variables |
+| Worker 代码已保存并部署 | ☐ | 确认版本最新 |
+| `index.html` 中 `WORKER_URL` 已替换 | ☐ | 必须是你的 Worker 地址 |
+| GitHub Pages 已启用 | ☐ | Settings → Pages → main 分支 |
+| `index.html` 已推送到 GitHub | ☐ | 确认文件在根目录 |
+| 浏览器访问 Pages 地址能加载页面 | ☐ | 无 404 错误 |
+| 上传一个示例 FASTA 能正常分析 | ☐ | 测试流式输出 |
+| 错误情况（无文件、大文件、网络断开）有提示 | ☐ | 用户友好 |
+| 移动端打开页面布局正常 | ☐ | 用手机测试或 Chrome 模拟 |
+
+---
+
+#### 5. 项目文档（README.md 模板）
+
+在 GitHub 仓库根目录创建 `README.md`：
+
+```markdown
+# 🧬 BioLLM Analyzer
+
+基于 Cloudflare Worker + OpenRouter + GitHub Pages 的生物数据智能分析工具。
+
+## 功能
+
+- 支持 FASTA / FASTQ / PDB 文件上传
+- AI 自动生成序列/结构分析报告
+- 流式输出，逐字显示分析过程
+- 响应式设计，支持手机/平板/电脑
+
+## 技术栈
+
+- **前端**：HTML5 + CSS3 + JavaScript (ES6) + Bootstrap 5
+- **后端**：Cloudflare Workers (JavaScript)
+- **LLM API**：OpenRouter (NVIDIA Nemotron-3.5 Lightning Free)
+- **部署**：GitHub Pages + Cloudflare Workers
+
+## 快速开始
+
+1. Fork 本仓库
+2. 在 Cloudflare 创建 Worker，设置环境变量 `OPENROUTER_API_KEY`
+3. 修改 `index.html` 中的 `WORKER_URL` 为你的 Worker 地址
+4. 启用 GitHub Pages
+
+## 使用示例
+
+上传一个 FASTA 文件 → 选择分析模式 → 点击“开始分析” → 等待流式输出
+
+## 许可证
+
+MIT License
+
+## 作者
+
+[你的名字] — [你的 GitHub]
+```
+
+---
+
+#### 6. 最终验收测试（手动测试脚本）
+
+在浏览器 Console 中运行以下代码，快速验证 Worker 连通性：
+
+```javascript
+fetch('https://bio-llm-api.你的用户名.workers.dev', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        messages: [{ role: 'user', content: '测试连接' }],
+        stream: false
+    })
+})
+.then(r => r.json())
+.then(data => console.log('Worker 连通成功:', data))
+.catch(e => console.error('Worker 连通失败:', e));
+```
+
+预期输出：一个包含 `choices` 数组的 JSON 对象。
+
+---
+
+#### 7. 性能与成本监控
+
+| 监控项 | 实现方式 |
+|--------|----------|
+| 每日调用次数 | OpenRouter 仪表盘查看 |
+| 平均响应时间 | Worker 日志中记录 `Date.now()` 差值 |
+| Token 消耗 | 从 OpenRouter 响应中提取 `usage` 字段 |
+| 错误率 | Worker 中捕获异常并记录到日志服务（如 Cloudflare Analytics） |
+
+**Worker 中添加简单的请求计时日志**：
+
+```javascript
+const startTime = Date.now();
+// ... 处理请求 ...
+console.log(`Request processed in ${Date.now() - startTime}ms`);
+```
+
+---
+
+#### 8. 本课核心命令速查表（部署相关）
+
+| 操作 | 命令/步骤 |
+|------|-----------|
+| 部署 Worker | Cloudflare Dashboard → 保存并部署 |
+| 更新 GitHub Pages | `git add . && git commit -m "update" && git push` |
+| 清除浏览器缓存 | `Ctrl+Shift+R` (Windows) / `Cmd+Shift+R` (Mac) |
+| 查看 Worker 日志 | Cloudflare Dashboard → Workers → 点击 Worker → Logs |
+| 测试 API 连通性 | `curl -X POST https://bio-llm-api.xxx.workers.dev -d '{"messages":[{"role":"user","content":"hi"}]}'` |
+
+---
+
+#### 9. 常见上线后问题及解决
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 页面加载但上传按钮无效 | 浏览器安全策略限制本地文件 | 通过 GitHub Pages 访问，不要直接双击打开 `index.html` |
+| Worker 返回 500 | 环境变量缺失或代码错误 | 检查 `OPENROUTER_API_KEY` 是否设置，查看 Worker Logs |
+| 流式输出卡顿 | 网络带宽限制 | 降低 `max_tokens` 或提示用户等待 |
+| 分析结果与预期不符 | 提示词设计问题 | 调整系统提示词模板，增加更具体的指令 |
+| 每日 50 次限额快速耗尽 | 测试频繁 | 开发测试用本地模拟，生产再调用 API |
+
+---
+
+#### 10. 本课小结
+
+- **错误处理**：前端超时控制 + Worker 状态码分类 + 用户友好提示
+- **性能优化**：缓存机制 + 请求取消 + 懒加载
+- **用户体验**：停止按钮 + 进度显示 + 移动端适配
+- **部署**：确认环境变量、Worker 地址、Pages 配置
+- **文档**：README.md 是项目的名片，必须完整
+- **监控**：追踪调用量、响应时间、错误率，持续优化
+
+---
+
+#### 11. 附录 7 完整技术栈回顾
+
+| 层级 | 技术 | 作用 |
+|------|------|------|
+| **前端** | HTML/CSS/JS + Bootstrap 5 | 用户界面与文件交互 |
+| **后端** | Cloudflare Workers | 代理转发 + 安全隔离 |
+| **LLM API** | OpenRouter + Nemotron-3.5 | 智能分析引擎 |
+| **部署** | GitHub Pages | 静态托管 |
+| **监控** | Cloudflare Logs | 运行状态追踪 |
+
+---
+
+#### 12. 课后练习（最终项目验收）
+
+1. 将整个项目（前端 HTML + Worker 代码）部署到你的 GitHub 和 Cloudflare，生成可访问的线上地址。
+
+2. 找一个真实的 FASTA 文件（如 BRCA1 序列），上传并观察分析结果，验证 GC 含量是否准确。
+
+3. 尝试上传一个 PDB 文件（如 1TUP），检查模型能否正确识别链数和分辨率。
+
+4. 故意输入一个格式错误的文件（如 `.txt`），验证前端是否给出正确的类型提示。
+
+5. 打开浏览器的 Network 面板，观察流式输出的请求和响应，理解 SSE 的工作过程。
+
+6. （选做）修改前端，增加“导出为 PDF”功能（使用 `jspdf` 库）。
+
+---
+
+## 附录 8：生物信息学实战工具补充（环境、文件格式、3D可视化与Git进阶）
+
+本附录专门补充前七章遗漏但极为实用的**非理论性**内容，聚焦于环境配置、高频文件格式解析、前端3D结构展示以及版本控制实战技巧。
+
+---
+
+### 第一课：Conda / Mamba 环境管理（AidLux 与 Ubuntu 通用）
+
+**为什么需要 Conda**：
+- `apt` 中的生物软件版本往往过旧（如 samtools 0.1.x）
+- 许多工具（如 `bwa`、`samtools`、`bcftools`）依赖特定编译环境
+- Conda 能隔离不同项目的 Python/R 版本，避免依赖冲突
+
+**在 AidLux / Ubuntu 上安装 Mambaforge（ARM64 兼容）**：
+
+```bash
+# 下载 ARM64 版本的 Mambaforge（适配 AidLux）
+wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-aarch64.sh
+bash Mambaforge-Linux-aarch64.sh -b -p $HOME/mambaforge
+echo 'export PATH="$HOME/mambaforge/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+mamba --version
+```
+
+**常用 Conda / Mamba 命令速查表**：
+
+| 操作 | 命令 |
+|------|------|
+| 创建环境（指定 Python 版本） | `mamba create -n bio python=3.11 -y` |
+| 激活环境 | `mamba activate bio` |
+| 退出环境 | `mamba deactivate` |
+| 安装生物信息学工具 | `mamba install -c bioconda samtools bwa bowtie2 -y` |
+| 安装 Python 包 | `mamba install pandas numpy matplotlib -y` |
+| 列出当前环境所有包 | `mamba list` |
+| 删除环境 | `mamba env remove -n bio` |
+| 导出环境为 YAML | `mamba env export > environment.yml` |
+| 从 YAML 重建环境 | `mamba env create -f environment.yml` |
+
+**实战：创建专用于附录 6 的序列分析环境**：
+
+```bash
+mamba create -n seq_analysis python=3.11 -y
+mamba activate seq_analysis
+mamba install -c bioconda samtools bcftools bedtools -y
+mamba install biopython pandas -y
+```
+
+**在 AidLux 中使用 Conda 的注意事项**：
+
+- AidLux 的存储空间有限，建议将 Conda 包缓存目录挂载到外部存储（如 `/sdcard`）：
+
+```bash
+mamba config --set pkgs_dirs /sdcard/conda_pkgs
+```
+
+---
+
+### 第二课：高频生物文件格式解析（SAM/BAM / VCF / GFF/GTF）
+
+#### 1. SAM/BAM（比对文件）
+
+**SAM 的核心字段（11 列必选）**：
+
+| 列号 | 字段名 | 说明 |
+|------|--------|------|
+| 1 | QNAME | 读段名称 |
+| 2 | FLAG | 位标记（如 0=未配对，16=反向互补） |
+| 3 | RNAME | 参考序列名（染色体） |
+| 4 | POS | 比对起始位置（1-based） |
+| 5 | MAPQ | 比对质量（Phred 分数） |
+| 6 | CIGAR | 比对信息（如 100M、50S） |
+| 7 | RNEXT | 配对读段的参考名 |
+| 8 | PNEXT | 配对读段的位置 |
+| 9 | TLEN | 插入片段长度 |
+| 10 | SEQ | 序列 |
+| 11 | QUAL | 质量字符串 |
+
+**用 `pysam` 在 Python 中解析 BAM（轻量级）**：
+
+```bash
+mamba install -c bioconda pysam -y
+```
+
+```python
+import pysam
+
+# 读取 BAM 文件（索引 .bam.bai 需在同目录）
+bamfile = pysam.AlignmentFile("sample.bam", "rb")
+
+# 遍历前 10 条比对
+for i, read in enumerate(bamfile):
+    if i >= 10: break
+    print(f"Read: {read.query_name}, Chr: {read.reference_name}, Pos: {read.reference_start + 1}, CIGAR: {read.cigarstring}")
+
+# 统计比对率
+total_reads = 0
+mapped_reads = 0
+for read in bamfile:
+    total_reads += 1
+    if not read.is_unmapped:
+        mapped_reads += 1
+print(f"比对率: {mapped_reads / total_reads * 100:.2f}%")
+
+bamfile.close()
+```
+
+**纯 Python 解析 SAM（无额外依赖）**：
+
+```python
+def parse_sam_header(sam_file):
+    """读取 SAM 头（@HD, @SQ 等）"""
+    with open(sam_file, 'r') as f:
+        for line in f:
+            if line.startswith('@'):
+                print(line.strip())
+            else:
+                break  # 头结束
+
+parse_sam_header("sample.sam")
+```
+
+#### 2. VCF（变异检测文件）
+
+**VCF 核心字段（8 列必选 + INFO/FORMAT）**：
+
+| 列号 | 字段名 | 说明 |
+|------|--------|------|
+| 1 | CHROM | 染色体 |
+| 2 | POS | 位置（1-based） |
+| 3 | ID | rsID 或 . |
+| 4 | REF | 参考碱基 |
+| 5 | ALT | 变异碱基（逗号分隔多个） |
+| 6 | QUAL | 质量分数 |
+| 7 | FILTER | 过滤状态（PASS 或 .） |
+| 8 | INFO | 附加信息（如 DP、AF） |
+
+**使用 `vcfpy` 解析 VCF（推荐）**：
+
+```bash
+mamba install -c bioconda vcfpy -y
+```
+
+```python
+import vcfpy
+
+reader = vcfpy.Reader.from_path("sample.vcf")
+print(f"样本数: {len(reader.samples)}")
+
+for record in reader:
+    # 只打印前 5 个突变
+    if record.POS > 1000: break
+    print(f"{record.CHROM}:{record.POS} REF:{record.REF} ALT:{','.join([str(a) for a in record.ALT])}")
+    # 提取 INFO 中的等位基因频率
+    af = record.INFO.get('AF', [None])[0]
+    if af:
+        print(f"  等位基因频率: {af}")
+```
+
+**纯 Python 快速解析 VCF（提取 SNP）**：
+
+```python
+def parse_vcf_simple(vcf_file):
+    with open(vcf_file, 'r') as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            parts = line.strip().split('\t')
+            chrom, pos, ref, alt = parts[0], parts[1], parts[3], parts[4]
+            if ref != alt and len(ref) == len(alt) == 1:
+                print(f"SNP: {chrom}:{pos} {ref}->{alt}")
+
+parse_vcf_simple("sample.vcf")
+```
+
+#### 3. GFF/GTF（基因组注释文件）
+
+**GFF 的 9 列结构（GTF 类似但第 2 列和第 9 列格式有差异）**：
+
+| 列号 | 字段名 | 说明 |
+|------|--------|------|
+| 1 | seqid | 序列 ID（染色体） |
+| 2 | source | 数据来源（如 RefSeq） |
+| 3 | type | 特征类型（gene, exon, CDS） |
+| 4 | start | 起始位置（1-based） |
+| 5 | end | 结束位置 |
+| 6 | score | 得分或 . |
+| 7 | strand | 链（+/-/.） |
+| 8 | phase | 密码子相位（0/1/2） |
+| 9 | attributes | 键值对（如 ID=gene1;Name=BRCA1） |
+
+**用 Python 解析 GFF（提取基因和外显子）**：
+
+```python
+def parse_gff(gff_file):
+    genes = {}
+    with open(gff_file, 'r') as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            parts = line.strip().split('\t')
+            if len(parts) < 9:
+                continue
+            seqid, source, feat_type, start, end, score, strand, phase, attrs = parts
+            start, end = int(start), int(end)
+            # 提取 gene_id
+            attr_dict = {}
+            for attr in attrs.split(';'):
+                if '=' in attr:
+                    k, v = attr.split('=', 1)
+                    attr_dict[k] = v
+            gene_id = attr_dict.get('ID', attr_dict.get('gene_id', 'unknown'))
+            if feat_type == 'gene':
+                genes[gene_id] = {'chr': seqid, 'start': start, 'end': end, 'strand': strand, 'exons': []}
+            elif feat_type == 'exon':
+                if gene_id in genes:
+                    genes[gene_id]['exons'].append((start, end))
+    return genes
+
+# 使用示例
+ann = parse_gff("annotation.gff")
+for gid, info in list(ann.items())[:3]:
+    print(f"{gid}: {info['chr']}:{info['start']}-{info['end']} ({len(info['exons'])} exons)")
+```
+
+---
+
+### 第三课：NGL Viewer —— 在网页中嵌入 3D 结构查看器
+
+**NGL Viewer** 是一个纯 Web 的分子查看器，支持 PDB 和 mmCIF 格式，可直接嵌入附录 7 的前端项目。
+
+**集成到 `index.html` 的步骤**：
+
+1. 引入 NGL 库（CDN）：
+
+```html
+<!-- 在 <head> 或 <body> 末尾引入 -->
+<script src="https://cdn.jsdelivr.net/npm/ngl@2.0.0/dist/ngl.js"></script>
+```
+
+2. 在 HTML 中添加容器：
+
+```html
+<div id="viewport" style="width: 100%; height: 400px; background: #1a1a2e; border-radius: 8px;"></div>
+```
+
+3. 在 JavaScript 中加载结构（支持 PDB ID、URL 或本地文件内容）：
+
+```javascript
+function loadStructure(containerId, data, format = 'pdb') {
+    const stage = new NGL.Stage(containerId, { backgroundColor: '#1a1a2e' });
+    
+    // 方式1：从 PDB ID 加载（需联网）
+    // stage.loadFile('rcsb://1TUP').then(function(comp) {
+    //     comp.addRepresentation('cartoon');
+    //     comp.autoView();
+    // });
+
+    // 方式2：从 Blob / URL 加载（适合用户上传的文件）
+    const blob = new Blob([data], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    stage.loadFile(url, { ext: format }).then(function(comp) {
+        // 添加卡通表示（蛋白质）
+        comp.addRepresentation('cartoon', { color: 'residueindex' });
+        // 添加原子球（配体）
+        comp.addRepresentation('ball+stick', { sele: 'hetero' });
+        comp.autoView();
+    });
+    return stage;
+}
+
+// 使用示例（假设从文件上传读取了 pdb_content）
+// loadStructure('viewport', pdb_content, 'pdb');
+```
+
+**完整集成到附录 7 分析流程**：
+
+- 用户上传 PDB 文件 → 前端预览文本 → 点击分析 → 在结果区 **同时** 显示 3D 结构 + AI 分析报告
+- 布局建议：左侧占 60% 显示 NGL，右侧 40% 显示报告文本
+
+**在 AidLux 本地测试**：由于 NGL 完全运行在浏览器中，不需要额外后端配置，适用于 Chromium 浏览器。
+
+---
+
+### 第四课：Git 进阶与 GitHub Actions 自动化
+
+#### 1. 解决合并冲突（最常遇到的“拦路虎”）
+
+**冲突标记解析**：
+
+```text
+<<<<<<< HEAD
+你的修改
+=======
+别人的修改
+>>>>>>> branch-name
+```
+
+**解决步骤**：
+1. 打开冲突文件，搜索 `<<<<<<<`
+2. 决定保留哪部分（或手动合并）
+3. 删除 `<<<<<<<`、`=======`、`>>>>>>>` 标记
+4. 保存文件
+5. `git add 文件名`
+6. `git commit -m "Resolved conflict"`
+
+**使用 `git mergetool`（可视化工具辅助）**：
+
+```bash
+git mergetool  # 会打开 vimdiff 或配置的 GUI 工具
+```
+
+**避免冲突的最佳实践**：
+- 频繁 `git pull`（至少每天一次）
+- 开发新功能时切分支（`git checkout -b feature-xxx`），不要在主分支直接改
+- 提交前先 `git stash` 暂存本地未提交的修改，拉取后再 `git stash pop`
+
+#### 2. Git Stash（暂存临时修改）
+
+| 操作 | 命令 |
+|------|------|
+| 暂存所有未提交修改 | `git stash` |
+| 暂存并保留未跟踪文件 | `git stash -u` |
+| 查看暂存列表 | `git stash list` |
+| 恢复最近暂存（保留 stash） | `git stash apply` |
+| 恢复并删除最近暂存 | `git stash pop` |
+| 恢复指定 stash | `git stash apply stash@{1}` |
+| 清空所有 stash | `git stash clear` |
+
+#### 3. GitHub Actions 自动部署 Worker（CI/CD）
+
+在仓库根目录创建 `.github/workflows/deploy.yml`：
+
+```yaml
+name: Deploy Worker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy Worker
+        run: wrangler deploy --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+```
+
+**前置操作**：
+
+1. 在 Cloudflare 生成 API Token（权限：Account Settings → API Tokens → Create Token → Edit Cloudflare Workers）
+2. 在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加：
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+
+之后每次 `git push main`，Worker 都会自动重新部署。
+
+#### 4. Git 撤销操作速查表（学生必背）
+
+| 想做的事情 | 命令 |
+|------------|------|
+| 撤销 `git add`（移出暂存区） | `git reset HEAD 文件名` |
+| 撤销最近一次 `commit`（保留修改） | `git reset --soft HEAD~1` |
+| 撤销最近一次 `commit`（丢弃修改） | `git reset --hard HEAD~1` |
+| 撤销所有本地未提交修改（危险） | `git checkout -- .` |
+| 修改最后一次 commit 信息 | `git commit --amend -m "新消息"` |
+| 回退到某个特定 commit（保留历史） | `git revert <commit-hash>` |
+
+---
+
+### 本附录核心速查表
+
+| 主题 | 关键命令 / 代码 |
+|------|----------------|
+| Conda 安装 | `wget Mambaforge-Linux-aarch64.sh && bash` |
+| Conda 创建环境 | `mamba create -n bio python=3.11` |
+| 解析 BAM | `pysam.AlignmentFile("file.bam")` |
+| 解析 VCF | `vcfpy.Reader.from_path("file.vcf")` |
+| 解析 GFF | 用纯 Python 按行切分 `\t` |
+| NGL 加载 | `new NGL.Stage('viewport')` + `loadFile(url)` |
+| Git 冲突解决 | 手动删标记 + `git add + commit` |
+| GitHub Actions | 写 `.yml` 文件 + 设置 Secrets |
+
+---
+
+### 课后练习
+
+1. 在 AidLux 上用 Mamba 创建一个环境，安装 `samtools`，并用它查看一个 BAM 文件的头信息（`samtools view -H sample.bam`）。
+
+2. 用 Python 解析任意一个 GTF 文件，统计每个染色体上的基因数量。
+
+3. 在附录 7 的前端页面中嵌入 NGL Viewer，让用户上传 PDB 文件后自动显示 3D 结构。
+
+4. 在你的 GitHub 仓库中模拟一次冲突：创建分支 `dev`，修改同一行代码并分别提交，然后合并，手动解决冲突。
+
+5. 创建一个 GitHub Actions 工作流，每次 push 时自动在终端打印 "Deploying..."（无需实际部署，只验证流程）。
