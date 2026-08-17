@@ -1,4 +1,4 @@
-/* ========== reader.js (最终版：基于文档顺序的标题归属) ========== */
+/* ========== reader.js (最终版：统一外部点击关闭) ========== */
 const CONFIG = {
     COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -1248,21 +1248,15 @@ document.addEventListener('profile-login', () => { try { restoreUserSession(); }
 document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
 window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
 
-/* ========== 移动端侧边栏适配 ========== */
+/* ========== 移动端侧边栏适配（统一外部点击关闭） ========== */
 function initMobileSidebar() {
-    const content = document.getElementById('content');
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
-    if (content) {
-        content.addEventListener('click', function(e) {
-            if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
-                if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
-                    sidebar.classList.remove('sidebar-open');
-                    if (app) app.classList.remove('sidebar-active');
-                }
-            }
-        });
-    }
+    const toolbar = document.getElementById('toolbar');
+    const searchPanel = document.getElementById('search-panel');
+    const profilePanel = document.getElementById('profile-panel');
+
+    // 响应式关闭侧栏（宽度>=768时强制关闭）
     function handleResize() {
         if (!sidebar || !app) return;
         if (window.innerWidth >= 768) {
@@ -1276,6 +1270,40 @@ function initMobileSidebar() {
         resizeTimer = setTimeout(handleResize, 150);
     });
     handleResize();
+
+    // 统一外部点击关闭所有浮层
+    document.addEventListener('click', function(e) {
+        // 1. 关闭侧栏（仅移动端）
+        if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
+            if (!sidebar.contains(e.target) && !toolbar.contains(e.target)) {
+                sidebar.classList.remove('sidebar-open');
+                if (app) app.classList.remove('sidebar-active');
+            }
+        }
+
+        // 2. 关闭搜索面板（参照 toggleSearchPanel 逻辑）
+        if (searchPanel && searchPanel.classList.contains('panel-visible')) {
+            if (!searchPanel.contains(e.target) && !toolbar.contains(e.target)) {
+                // 与 toggleSearchPanel 关闭时保持一致：移除类、清除高亮、清空结果
+                searchPanel.classList.remove('panel-visible');
+                // 清除高亮和结果（由 clearHighlight 和清空结果处理）
+                if (typeof clearHighlight === 'function') clearHighlight();
+                const results = document.getElementById('search-results');
+                if (results) results.innerHTML = '';
+            }
+        }
+
+        // 3. 关闭个人中心面板
+        if (profilePanel && profilePanel.style.display === 'block') {
+            if (!profilePanel.contains(e.target) && !toolbar.contains(e.target)) {
+                if (typeof closeProfile === 'function') {
+                    closeProfile();
+                } else {
+                    profilePanel.style.display = 'none';
+                }
+            }
+        }
+    });
 }
 
 window.toggleSidebar = function() {
