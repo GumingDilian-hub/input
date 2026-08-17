@@ -183,16 +183,17 @@
         </div>
     </div>
 
-    <!-- 主脚本（只加载一次） -->
+    <!-- 主脚本 -->
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
 
-    <!-- ====== 复制按钮 + PDF导出（内联，无 emoji） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出（样式已适配主题，逻辑已修复） ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
-        console.log('[copy-button] 内联版加载');
+        console.log('[copy-button] 内联版加载 (修复版)');
 
+        // 复制按钮样式 - 深色背景+白色文字，显眼
         const style = document.createElement('style');
         style.textContent = `
             .iwp-code-wrapper { position: relative; }
@@ -201,27 +202,34 @@
                 position: absolute;
                 top: 8px;
                 right: 8px;
-                background: rgba(40,40,40,0.75);
-                border: 1px solid rgba(255,255,255,0.15);
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.25);
                 border-radius: 6px;
                 padding: 4px 8px;
                 cursor: pointer;
                 opacity: 0;
                 transition: opacity 0.25s ease, background 0.2s ease;
-                backdrop-filter: blur(4px);
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #e0e0e0;
+                color: #fff;
                 line-height: 1;
                 z-index: 10;
                 font-size: 12px;
                 gap: 4px;
                 white-space: nowrap;
             }
-            .iwp-code-wrapper:hover .copy-btn-standalone { opacity: 0.7; }
-            .copy-btn-standalone:hover { opacity: 1 !important; background: rgba(70,70,70,0.9); }
-            .copy-btn-standalone svg { display: block; width: 16px; height: 16px; fill: currentColor; }
+            .iwp-code-wrapper:hover .copy-btn-standalone { opacity: 0.85; }
+            .copy-btn-standalone:hover {
+                opacity: 1 !important;
+                background: rgba(0, 0, 0, 0.95);
+            }
+            .copy-btn-standalone svg {
+                display: block;
+                width: 16px;
+                height: 16px;
+                fill: currentColor;
+            }
             .copy-btn-standalone .check-svg { fill: #6fcf97; }
             .copy-btn-standalone .status-text { margin-left: 2px; }
         `;
@@ -310,26 +318,15 @@
         }
     })();
 
-    // ---------- PDF导出模块 ----------
+    // ---------- PDF导出模块（修复版） ----------
     (function() {
-        console.log('[pdf-export] 内联版加载');
+        console.log('[pdf-export] 内联版加载 (修复版)');
 
+        // 注入 PDF 专用样式（深色主题适配）
         const style = document.createElement('style');
         style.textContent = `
-            #pdf-export-btn {
-                background: rgba(255,255,255,0.08);
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 6px;
-                color: #e0e0e0;
-                padding: 4px 12px;
-                cursor: pointer;
-                font-size: 14px;
-                transition: background 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-            }
-            #pdf-export-btn:hover { background: rgba(255,255,255,0.18); }
+            /* PDF 导出按钮直接使用 toolbar-btn 样式，无需额外定义 */
+            /* 模态框 - 深色主题 */
             .pdf-modal-overlay {
                 display: none;
                 position: fixed;
@@ -343,7 +340,7 @@
             }
             .pdf-modal-overlay.active { display: flex; }
             .pdf-modal-box {
-                background: #1e1e2e;
+                background: #2d2d2d;
                 border-radius: 12px;
                 padding: 24px;
                 max-width: 640px;
@@ -351,15 +348,15 @@
                 max-height: 85vh;
                 display: flex;
                 flex-direction: column;
-                border: 1px solid rgba(255,255,255,0.08);
+                border: 1px solid #444;
                 box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-                color: #cdd6f4;
+                color: #ccc;
             }
             .pdf-modal-box h2 {
                 margin-top: 0;
                 color: #fff;
                 font-size: 20px;
-                border-bottom: 1px solid rgba(255,255,255,0.06);
+                border-bottom: 1px solid #444;
                 padding-bottom: 12px;
             }
             .pdf-modal-scroll {
@@ -369,7 +366,7 @@
                 padding-right: 4px;
             }
             .pdf-modal-scroll::-webkit-scrollbar { width: 4px; }
-            .pdf-modal-scroll::-webkit-scrollbar-thumb { background: #45475a; border-radius: 4px; }
+            .pdf-modal-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
             .pdf-chapter-item {
                 display: flex;
                 align-items: center;
@@ -378,25 +375,25 @@
                 border-radius: 6px;
                 cursor: pointer;
                 transition: background 0.15s;
-                border-bottom: 1px solid rgba(255,255,255,0.03);
+                border-bottom: 1px solid #3a3a3a;
             }
-            .pdf-chapter-item:hover { background: rgba(255,255,255,0.05); }
+            .pdf-chapter-item:hover { background: #3a3a3a; }
             .pdf-chapter-item input[type="checkbox"] {
                 width: 16px;
                 height: 16px;
-                accent-color: #89b4fa;
+                accent-color: #fff;
                 cursor: pointer;
                 flex-shrink: 0;
             }
             .pdf-chapter-item .chapter-label {
                 font-size: 14px;
-                color: #cdd6f4;
+                color: #ddd;
                 word-break: break-word;
             }
             .pdf-chapter-item .chapter-badge {
                 font-size: 11px;
-                color: #6c7086;
-                background: rgba(255,255,255,0.05);
+                color: #888;
+                background: #3a3a3a;
                 padding: 0 8px;
                 border-radius: 4px;
                 margin-left: auto;
@@ -406,7 +403,7 @@
                 display: flex;
                 flex-wrap: wrap;
                 gap: 10px;
-                border-top: 1px solid rgba(255,255,255,0.06);
+                border-top: 1px solid #444;
                 padding-top: 16px;
                 align-items: center;
             }
@@ -417,30 +414,32 @@
                 font-size: 13px;
                 cursor: pointer;
                 transition: all 0.2s;
-                background: #313244;
-                color: #cdd6f4;
+                background: #3a3a3a;
+                color: #ccc;
             }
-            .pdf-modal-actions button:hover { background: #45475a; }
+            .pdf-modal-actions button:hover { background: #555; }
             .pdf-modal-actions .btn-primary {
-                background: #89b4fa;
-                color: #1e1e2e;
+                background: #555;
+                color: #fff;
                 font-weight: 600;
             }
-            .pdf-modal-actions .btn-primary:hover { background: #74c7ec; transform: scale(1.02); }
+            .pdf-modal-actions .btn-primary:hover { background: #777; }
             .pdf-modal-actions .btn-secondary {
                 background: transparent;
-                border: 1px solid rgba(255,255,255,0.1);
+                border: 1px solid #555;
             }
-            .pdf-modal-actions .btn-secondary:hover { background: rgba(255,255,255,0.05); }
+            .pdf-modal-actions .btn-secondary:hover { background: #3a3a3a; }
             .pdf-selection-info {
                 font-size: 12px;
-                color: #6c7086;
+                color: #888;
                 margin-left: auto;
             }
             @keyframes pdfFadeIn {
                 from { opacity: 0; transform: scale(0.96); }
                 to { opacity: 1; transform: scale(1); }
             }
+
+            /* 封面样式 */
             .pdf-cover {
                 display: none;
                 text-align: center;
@@ -494,10 +493,18 @@
                 color: #4a90d9;
                 font-weight: bold;
             }
+
+            /* 打印样式 - 修复空白页问题 */
             @media print {
                 body * { visibility: hidden; }
                 #article-body, #article-body * { visibility: visible; }
-                #article-body { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+                #article-body {
+                    display: block;
+                    width: 100%;
+                    padding: 0;
+                    margin: 0;
+                    background: #fff;
+                }
                 .pdf-cover { display: block !important; visibility: visible !important; }
                 .pdf-cover * { visibility: visible !important; }
                 #article-body .section-wrapper,
@@ -534,6 +541,7 @@
         `;
         document.head.appendChild(style);
 
+        // ---------- 注入 PDF 按钮（使用 toolbar-btn 类） ----------
         function injectPDFButton() {
             const toolbar = document.getElementById('toolbar');
             if (!toolbar) {
@@ -545,6 +553,7 @@
                         doInject(tb);
                     } else if (++attempts > 20) {
                         clearInterval(interval);
+                        console.warn('[pdf-export] 未找到 toolbar');
                     }
                 }, 300);
                 return;
@@ -556,11 +565,14 @@
             if (document.getElementById('pdf-export-btn')) return;
             const btn = document.createElement('button');
             btn.id = 'pdf-export-btn';
+            btn.className = 'toolbar-btn';  // 使用主题样式
             btn.textContent = 'PDF 导出';
             btn.addEventListener('click', openModal);
             toolbar.appendChild(btn);
+            console.log('[pdf-export] 按钮已注入');
         }
 
+        // ---------- 模态框 ----------
         let modalInstance = null;
 
         function openModal() {
@@ -569,7 +581,7 @@
                     <div class="pdf-modal-overlay" id="pdf-modal-overlay">
                         <div class="pdf-modal-box">
                             <h2>选择要导出的章节</h2>
-                            <div style="font-size:13px; color:#6c7086; margin-bottom:8px;">勾选你想包含的 H2 章节，封面将自动列出所选章节标题。</div>
+                            <div style="font-size:13px; color:#888; margin-bottom:8px;">勾选你想包含的 H2 章节，封面将自动列出所选章节标题。</div>
                             <div class="pdf-modal-scroll" id="pdf-chapter-list"></div>
                             <div class="pdf-modal-actions">
                                 <button class="btn-secondary" id="pdf-select-all">全选</button>
@@ -586,7 +598,9 @@
                 document.getElementById('pdf-select-all').addEventListener('click', () => toggleAllCheckboxes(true));
                 document.getElementById('pdf-deselect-all').addEventListener('click', () => toggleAllCheckboxes(false));
                 document.getElementById('pdf-generate').addEventListener('click', generatePDF);
-                modalInstance.addEventListener('click', (e) => { if (e.target === modalInstance) closeModal(); });
+                modalInstance.addEventListener('click', (e) => {
+                    if (e.target === modalInstance) closeModal();
+                });
             }
             renderChapterList();
             modalInstance.classList.add('active');
@@ -608,24 +622,34 @@
             });
         }
 
+        // ---------- 渲染 H2 列表（使用稳定 id） ----------
         function renderChapterList() {
             const container = document.getElementById('pdf-chapter-list');
             if (!container) return;
             const h2s = document.querySelectorAll('#article-body h2');
             if (h2s.length === 0) {
-                container.innerHTML = `<div style="color:#6c7086; padding:20px; text-align:center;">警告：当前没有找到 H2 章节标题</div>`;
+                container.innerHTML = `<div style="color:#888; padding:20px; text-align:center;">警告：当前没有找到 H2 章节标题</div>`;
                 return;
             }
             container.innerHTML = '';
+            // 为每个 H2 分配稳定 id（如果还没有）
             h2s.forEach((h2, index) => {
-                if (!h2.id) h2.id = 'h2-' + Date.now() + '-' + index;
+                if (!h2.id) {
+                    // 使用基于文本和索引的稳定 id（避免每次变化）
+                    const base = h2.textContent.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                    h2.id = 'h2-' + base + '-' + index;
+                }
+            });
+            // 生成列表
+            h2s.forEach((h2, index) => {
                 const item = document.createElement('label');
                 item.className = 'pdf-chapter-item';
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.checked = true;
-                cb.dataset.h2Id = h2.id;
+                cb.dataset.h2Id = h2.id;  // 存储稳定 id
                 cb.addEventListener('change', updateSelectionCount);
+
                 const label = document.createElement('span');
                 label.className = 'chapter-label';
                 let parentH1 = h2.previousElementSibling;
@@ -635,11 +659,11 @@
                     parentH1 = parentH1.previousElementSibling;
                 }
                 label.textContent = h2.textContent.trim();
+
                 const badge = document.createElement('span');
                 badge.className = 'chapter-badge';
-                badge.textContent = h1Name ? '📁 ' + h1Name : 'H2-' + (index+1);
-                // 上面的 📁 可以保留，但用户要求删除所有 emoji，这里换成文本
                 badge.textContent = h1Name ? '[章节] ' + h1Name : 'H2-' + (index+1);
+
                 item.appendChild(cb);
                 item.appendChild(label);
                 item.appendChild(badge);
@@ -660,6 +684,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
+        // ---------- 生成 PDF（修复版） ----------
         function generatePDF() {
             const checkedIds = new Set();
             const checkedLabels = [];
@@ -668,9 +693,16 @@
                 const label = cb.closest('.pdf-chapter-item').querySelector('.chapter-label');
                 if (label) checkedLabels.push(label.textContent.trim());
             });
-            if (checkedIds.size === 0) { alert('请至少勾选一个章节再导出！'); return; }
+
+            if (checkedIds.size === 0) {
+                alert('请至少勾选一个章节再导出！');
+                return;
+            }
+
             closeModal();
             restoreAllElements();
+
+            // 1. 添加封面
             const cover = document.createElement('div');
             cover.className = 'pdf-cover';
             cover.innerHTML = `
@@ -682,9 +714,12 @@
             `;
             const body = document.getElementById('article-body');
             body.prepend(cover);
+
+            // 2. 隐藏未选中的章节（基于稳定 id）
             const allH2s = document.querySelectorAll('#article-body h2');
             allH2s.forEach(h2 => {
                 if (!checkedIds.has(h2.id)) {
+                    // 隐藏该 H2 及其后续兄弟元素（直到下一个 H1/H2）
                     h2.style.display = 'none';
                     let sibling = h2.nextElementSibling;
                     while (sibling) {
@@ -694,11 +729,21 @@
                     }
                 }
             });
-            const printHandler = () => { restoreAllElements(); window.onafterprint = null; };
+
+            // 3. 执行打印
+            const printHandler = () => {
+                restoreAllElements();
+                window.onafterprint = null;
+            };
             window.onafterprint = printHandler;
+
             setTimeout(() => {
                 window.print();
-                setTimeout(() => { restoreAllElements(); window.onafterprint = null; }, 5000);
+                // 超时保护（如果用户取消打印）
+                setTimeout(() => {
+                    restoreAllElements();
+                    window.onafterprint = null;
+                }, 5000);
             }, 150);
         }
 
@@ -708,6 +753,7 @@
                        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
+        // 启动
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', injectPDFButton);
         } else {
@@ -716,7 +762,7 @@
     })();
     </script>
 
-    <!-- 原有内联函数（保留） -->
+    <!-- 原有内联函数 -->
     <script>
         // 注意：toggleSearchPanel 在 reader.js 中已有定义，会覆盖下面这个，但功能一致
         // 这里保留以供 HTML 内联调用，实际执行会使用 reader.js 的版本（包含清除高亮）
