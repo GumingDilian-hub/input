@@ -15,8 +15,11 @@
     <!-- Highlight.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <!-- html2canvas + jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* 加载遮罩（复用） */
+        /* 加载遮罩 */
         #loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -49,8 +52,23 @@
             font-size: 1rem;
             letter-spacing: 0.5px;
         }
+        #pdf-progress-bar {
+            margin-top: 12px;
+            width: 200px;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #pdf-progress-bar .fill {
+            height: 100%;
+            width: 0%;
+            background: #fff;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
 
-        /* 个人中心面板样式（和 profile.js 配套） */
+        /* 个人中心面板 */
         #profile-panel {
             position: fixed;
             top: 0;
@@ -95,7 +113,6 @@
             margin-left: auto;
         }
 
-        /* 移动端工具按钮显示控制 */
         #btn-hamburger {
             display: none;
         }
@@ -105,7 +122,6 @@
             }
         }
 
-        /* 搜索高亮样式（黑底白字，圆角） */
         .search-highlight {
             background: #000 !important;
             color: #fff !important;
@@ -114,6 +130,58 @@
             font-weight: 600;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
+
+        /* PDF 封面专用样式（截图用） */
+        .pdf-cover-page {
+            width: 794px;
+            height: 1123px;
+            padding: 0;
+            margin: 0;
+            background: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        .pdf-cover-page .cover-img {
+            width: 100%;
+            height: 50%;
+            object-fit: contain;
+            background: #fafafa;
+        }
+        .pdf-cover-page .cover-list {
+            height: 50%;
+            padding: 30px 50px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .pdf-cover-page .cover-list h2 {
+            margin: 0 0 12px 0;
+            font-size: 24px;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+        }
+        .pdf-cover-page .cover-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.8;
+            columns: 2;
+            column-gap: 40px;
+        }
+        .pdf-cover-page .cover-list ul li {
+            padding: 2px 0;
+            border-bottom: 1px dashed #eee;
+            break-inside: avoid;
+        }
+        .pdf-cover-page .cover-list ul li::before {
+            content: "- ";
+            color: #4a90d9;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -121,10 +189,10 @@
     <div id="loading-overlay">
         <div class="loader"></div>
         <div id="progress-text">少女祈祷中...</div>
+        <div id="pdf-progress-bar"><div class="fill" id="pdf-progress-fill"></div></div>
     </div>
 
     <div id="app">
-        <!-- 工具栏 -->
         <div id="toolbar">
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
@@ -132,7 +200,6 @@
             <button id="btn-hamburger" class="toolbar-btn" onclick="toggleSidebar()">☰</button>
         </div>
 
-        <!-- 搜索面板 -->
         <div id="search-panel" class="panel-hidden">
             <div class="panel-content">
                 <button id="close-search" class="close-btn" onclick="toggleSearchPanel()">×</button>
@@ -146,7 +213,6 @@
             </div>
         </div>
 
-        <!-- 左侧目录 -->
         <div id="sidebar">
             <div class="sidebar-header">
                 <span>导航 <span id="version-tag" style="font-size:0.7rem; color:#888; margin-left:0.3rem; cursor:default; user-select:none;">v5.068</span></span>
@@ -171,7 +237,6 @@
         </main>
     </div>
 
-    <!-- 个人中心面板 -->
     <div id="profile-panel">
         <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; border-bottom:1px solid #444; padding-bottom:0.5rem;">
             <span style="font-weight:600; color:#fff; font-size:1.2rem;">个人中心</span>
@@ -186,11 +251,11 @@
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
 
-    <!-- ====== 内联：复制按钮 + PDF导出（最终修复版） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出（分页截图方案） ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
-        console.log('[copy-button] 内联版加载');
+        console.log('[copy-button] 加载');
 
         const style = document.createElement('style');
         style.textContent = `
@@ -316,21 +381,20 @@
         }
     })();
 
-    // ---------- PDF导出模块（终极修复版） ----------
+    // ---------- PDF导出模块（分页截图，无截断） ----------
     (function() {
-        console.log('[pdf-export] 内联版加载 (终极修复)');
+        console.log('[pdf-export] 加载 (分页截图方案)');
 
-        // 注入 PDF 专用样式
+        // 模态框样式
         const style = document.createElement('style');
         style.textContent = `
-            /* PDF 导出按钮直接使用 toolbar-btn 样式 */
             .pdf-modal-overlay {
                 display: none;
                 position: fixed;
                 inset: 0;
                 background: rgba(0,0,0,0.6);
                 backdrop-filter: blur(4px);
-                z-index: 9999;
+                z-index: 9998;
                 justify-content: center;
                 align-items: center;
                 animation: pdfFadeIn 0.25s ease;
@@ -435,113 +499,6 @@
                 from { opacity: 0; transform: scale(0.96); }
                 to { opacity: 1; transform: scale(1); }
             }
-
-            /* 封面样式 */
-            .pdf-cover {
-                display: none;
-                text-align: center;
-                page-break-after: always;
-                padding: 0;
-                margin: 0;
-                width: 100%;
-                height: 100vh;
-                box-sizing: border-box;
-                background: #fff;
-                color: #000;
-            }
-            .pdf-cover img {
-                width: 100%;
-                height: 50vh;
-                object-fit: contain;
-            }
-            .pdf-cover .cover-list {
-                height: 50vh;
-                overflow-y: auto;
-                padding: 20px 40px;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-                background: #fafafa;
-            }
-            .pdf-cover .cover-list h2 {
-                margin: 0 0 12px 0;
-                font-size: 22px;
-                color: #333;
-                border-bottom: 2px solid #eee;
-                padding-bottom: 8px;
-            }
-            .pdf-cover .cover-list ul {
-                list-style: none;
-                padding: 0;
-                margin: 0;
-                text-align: left;
-                font-size: 14px;
-                line-height: 1.8;
-                columns: 2;
-                column-gap: 40px;
-            }
-            .pdf-cover .cover-list ul li {
-                padding: 2px 0;
-                border-bottom: 1px dashed #eee;
-                break-inside: avoid;
-            }
-            .pdf-cover .cover-list ul li::before {
-                content: "- ";
-                color: #4a90d9;
-                font-weight: bold;
-            }
-
-            /* 打印样式 - 保证所有内容显示，无截断 */
-            @media print {
-                /* 隐藏界面元素，但保留 article-body 及其内部所有内容 */
-                body * { visibility: hidden; }
-                #article-body, #article-body * { visibility: visible; }
-                #article-body {
-                    display: block !important;
-                    width: 100% !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    background: #fff !important;
-                    position: relative !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                    overflow: visible !important;
-                }
-                /* 显示封面 */
-                .pdf-cover {
-                    display: block !important;
-                    visibility: visible !important;
-                }
-                .pdf-cover * { visibility: visible !important; }
-
-                /* 内容防截断 */
-                #article-body .section-wrapper,
-                #article-body .figure-container,
-                #article-body .iwp-figure,
-                #article-body img,
-                #article-body pre,
-                #article-body .iwp-code-wrapper {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
-                }
-                #article-body img {
-                    max-width: 100% !important;
-                    height: auto !important;
-                }
-                h1, h2, h3 { page-break-after: avoid; }
-
-                /* 隐藏 UI */
-                #toolbar, #sidebar, #toc-panel, #search-panel,
-                .comment-section, .copy-btn-standalone,
-                .pdf-modal-overlay, #loading-overlay {
-                    display: none !important;
-                }
-                pre, code {
-                    white-space: pre-wrap !important;
-                    word-break: break-all !important;
-                    max-width: 100% !important;
-                }
-            }
         `;
         document.head.appendChild(style);
 
@@ -557,7 +514,6 @@
                         doInject(tb);
                     } else if (++attempts > 20) {
                         clearInterval(interval);
-                        console.warn('[pdf-export] 未找到 toolbar');
                     }
                 }, 300);
                 return;
@@ -573,7 +529,6 @@
             btn.textContent = 'PDF 导出';
             btn.addEventListener('click', openModal);
             toolbar.appendChild(btn);
-            console.log('[pdf-export] 按钮已注入');
         }
 
         // ---------- 模态框 ----------
@@ -615,15 +570,6 @@
         function closeModal() {
             if (modalInstance) modalInstance.classList.remove('active');
             document.body.style.overflow = '';
-            restoreAllElements();
-        }
-
-        function restoreAllElements() {
-            const cover = document.querySelector('.pdf-cover');
-            if (cover && cover.parentNode) cover.parentNode.removeChild(cover);
-            document.querySelectorAll('#article-body *').forEach(el => {
-                if (el.style && el.style.display === 'none') el.style.display = '';
-            });
         }
 
         // ---------- 渲染 H2 列表 ----------
@@ -683,7 +629,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 生成 PDF（等待渲染完成，复用加载遮罩） ----------
+        // ---------- 核心：分页截图生成 PDF ----------
         async function generatePDF() {
             // 1. 收集勾选信息
             const checkedIds = new Set();
@@ -698,47 +644,73 @@
                 return;
             }
 
-            // 2. 关闭模态框（但保留内容，稍后显示加载遮罩）
+            // 2. 关闭模态框
             closeModal();
 
-            // 3. 显示加载遮罩（复用 #loading-overlay）
+            // 3. 显示加载遮罩
             const overlay = document.getElementById('loading-overlay');
             const progressText = document.getElementById('progress-text');
+            const progressFill = document.getElementById('pdf-progress-fill');
             if (overlay) {
                 overlay.classList.remove('hidden');
-                if (progressText) progressText.textContent = '正在准备 PDF，请稍候...';
+                if (progressText) progressText.textContent = '正在准备内容，请稍候...';
+                if (progressFill) progressFill.style.width = '0%';
             }
 
-            // 4. 强制等待所有章节渲染完成
+            // 4. 等待所有内容渲染完成
             if (window.contentRenderComplete === false && window.contentRenderPromise) {
                 try {
                     await window.contentRenderPromise;
-                } catch (e) {
-                    console.warn('等待渲染完成时出错:', e);
-                }
+                } catch (e) {}
             }
-            // 额外安全等待：让浏览器完成布局
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(r => setTimeout(r, 300));
 
-            // 5. 恢复所有元素
-            restoreAllElements();
-
-            // 6. 构建封面
-            const cover = document.createElement('div');
-            cover.className = 'pdf-cover';
-            cover.innerHTML = `
-                <img src="images/077.png" alt="封面图片" />
-                <div class="cover-list">
-                    <h2>范围说明</h2>
-                    <ul>${checkedLabels.map(title => `<li>${escapeHtml(title)}</li>`).join('')}</ul>
+            // 5. 构建封面 HTML
+            const coverHTML = `
+                <div class="pdf-cover-page" id="pdf-cover-temp">
+                    <img src="images/077.png" class="cover-img" alt="封面" />
+                    <div class="cover-list">
+                        <h2>范围说明</h2>
+                        <ul>
+                            ${checkedLabels.map(title => `<li>${escapeHtml(title)}</li>`).join('')}
+                        </ul>
+                    </div>
                 </div>
             `;
-            const body = document.getElementById('article-body');
-            body.prepend(cover);
 
-            // 7. 隐藏未选中的章节
-            const allH2s = document.querySelectorAll('#article-body h2');
-            allH2s.forEach(h2 => {
+            // 6. 准备离屏容器
+            const container = document.createElement('div');
+            container.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: 0;
+                width: 794px;
+                background: #fff;
+                color: #000;
+                padding: 0;
+                margin: 0;
+                z-index: 99999;
+                font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+                line-height: 1.6;
+                overflow: visible;
+                max-height: none;
+                height: auto;
+            `;
+
+            // 7. 克隆文章体并注入
+            const bodyClone = document.getElementById('article-body').cloneNode(true);
+            // 移除评论区
+            bodyClone.querySelectorAll('.comment-section').forEach(el => el.remove());
+            // 移除复制按钮（如果有）
+            bodyClone.querySelectorAll('.copy-btn-standalone').forEach(el => el.remove());
+            // 强制覆盖 content-visibility
+            bodyClone.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
+                el.style.contentVisibility = 'visible';
+                el.style.containIntrinsicSize = 'none';
+            });
+            // 隐藏未选中的 H2 及其后续内容
+            const h2s = bodyClone.querySelectorAll('h2');
+            h2s.forEach(h2 => {
                 if (!checkedIds.has(h2.id)) {
                     h2.style.display = 'none';
                     let sibling = h2.nextElementSibling;
@@ -750,27 +722,75 @@
                 }
             });
 
-            // 8. 触发强制重排，确保所有样式生效
-            void document.body.offsetHeight;
+            // 将封面和内容放入容器
+            container.innerHTML = coverHTML + bodyClone.innerHTML;
+            document.body.appendChild(container);
+            await new Promise(r => setTimeout(r, 200));
 
-            // 9. 隐藏加载遮罩
+            // 8. 等待所有图片加载完成
+            const images = container.querySelectorAll('img');
+            if (images.length > 0) {
+                await Promise.all(Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((resolve) => {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+                }));
+            }
+
+            // 9. 获取总高度，计算页数
+            const pageHeight = 1123; // px
+            const totalHeight = container.scrollHeight;
+            const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
+
+            // 10. 初始化 jsPDF
+            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+            const pageWidth = 210;
+            const pageHeightMM = 297;
+            const scale = 2;
+
+            // 11. 逐页截图
+            for (let i = 0; i < totalPages; i++) {
+                const scrollY = i * pageHeight;
+                container.scrollTop = scrollY;
+                await new Promise(r => setTimeout(r, 100)); // 等待重排
+
+                if (progressText) progressText.textContent = `正在截取第 ${i+1}/${totalPages} 页...`;
+                if (progressFill) progressFill.style.width = Math.round(((i+1) / totalPages) * 100) + '%';
+
+                try {
+                    const canvas = await html2canvas(container, {
+                        scale: scale,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        width: 794,
+                        height: pageHeight,
+                        logging: false,
+                        windowHeight: pageHeight,
+                        windowWidth: 794,
+                        scrollY: scrollY,
+                        x: 0,
+                        y: 0
+                    });
+                    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+                    if (i > 0) pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeightMM);
+                } catch (err) {
+                    console.warn('截图失败:', err);
+                    if (i > 0) pdf.addPage();
+                }
+            }
+
+            // 12. 保存
+            if (progressText) progressText.textContent = '正在保存 PDF...';
+            pdf.save('笔记导出.pdf');
+
+            // 13. 清理
+            document.body.removeChild(container);
             if (overlay) overlay.classList.add('hidden');
-
-            // 10. 执行打印
-            const printHandler = () => {
-                restoreAllElements();
-                window.onafterprint = null;
-            };
-            window.onafterprint = printHandler;
-
-            setTimeout(() => {
-                window.print();
-                // 超时保护（如果用户取消打印）
-                setTimeout(() => {
-                    restoreAllElements();
-                    window.onafterprint = null;
-                }, 5000);
-            }, 150);
+            if (progressFill) progressFill.style.width = '0%';
         }
 
         function escapeHtml(text) {
