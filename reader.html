@@ -19,7 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* 加载遮罩（原有，但PDF生成时用右下角提示，所以遮罩可以隐藏） */
+        /* ===== 基础样式（与你的主题保持一致） ===== */
         #loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -68,7 +68,7 @@
             transition: width 0.3s;
         }
 
-        /* ===== 右下角“少女祈祷中”浮窗 ===== */
+        /* ===== 右下角提示浮窗 ===== */
         #pdf-generating-toast {
             display: none;
             position: fixed;
@@ -105,11 +105,8 @@
             color: #aaa;
             margin-top: 2px;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
 
-        /* 个人中心面板 */
+        /* ===== 个人中心 ===== */
         #profile-panel {
             position: fixed;
             top: 0;
@@ -154,13 +151,9 @@
             margin-left: auto;
         }
 
-        #btn-hamburger {
-            display: none;
-        }
+        #btn-hamburger { display: none; }
         @media (max-width: 768px) {
-            #btn-hamburger {
-                display: inline-block !important;
-            }
+            #btn-hamburger { display: inline-block !important; }
         }
 
         .search-highlight {
@@ -172,7 +165,38 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
-        /* PDF 封面专用样式（截图用） */
+        /* ===== 复制按钮（黑色圆角，右上角） ===== */
+        .copy-btn-standalone {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #000 !important;
+            color: #fff !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+            border-radius: 6px !important;
+            padding: 4px 8px !important;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.25s ease, background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            z-index: 10;
+            font-size: 12px;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .iwp-code-wrapper:hover .copy-btn-standalone { opacity: 0.85; }
+        .copy-btn-standalone:hover {
+            opacity: 1 !important;
+            background: #222 !important;
+        }
+        .copy-btn-standalone svg { fill: #fff !important; }
+        .copy-btn-standalone .check-svg { fill: #6fcf97 !important; }
+        .copy-btn-standalone .status-text { color: #fff !important; }
+
+        /* ===== PDF 封面样式（仅用于截图） ===== */
         .pdf-cover-page {
             width: 794px;
             height: 1123px;
@@ -223,44 +247,17 @@
             color: #4a90d9;
             font-weight: bold;
         }
-
-        /* 修复复制按钮颜色 - 强制黑色背景白色文字 */
-        .copy-btn-standalone {
-            background: #000 !important;
-            color: #fff !important;
-            border: 1px solid rgba(255,255,255,0.3) !important;
-            border-radius: 6px !important;
-            padding: 4px 8px !important;
-            opacity: 0 !important;
-            transition: opacity 0.25s ease !important;
-        }
-        .iwp-code-wrapper:hover .copy-btn-standalone {
-            opacity: 0.85 !important;
-        }
-        .copy-btn-standalone:hover {
-            opacity: 1 !important;
-            background: #222 !important;
-        }
-        .copy-btn-standalone svg {
-            fill: #fff !important;
-        }
-        .copy-btn-standalone .check-svg {
-            fill: #6fcf97 !important;
-        }
-        .copy-btn-standalone .status-text {
-            color: #fff !important;
-        }
     </style>
 </head>
 <body>
-    <!-- 加载动画（原有） -->
+    <!-- 加载遮罩 -->
     <div id="loading-overlay">
         <div class="loader"></div>
         <div id="progress-text">少女祈祷中...</div>
         <div id="pdf-progress-bar"><div class="fill" id="pdf-progress-fill"></div></div>
     </div>
 
-    <!-- 右下角提示浮窗（独立） -->
+    <!-- 右下角提示浮窗 -->
     <div id="pdf-generating-toast">
         <div class="toast-loader"></div>
         <div>
@@ -283,9 +280,7 @@
                 <input type="text" id="search-input" placeholder="输入关键词搜索...">
                 <div id="search-results"></div>
                 <div class="auto-scroll-toggle">
-                    <label>
-                        <input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动
-                    </label>
+                    <label><input type="checkbox" id="auto-scroll-checkbox" checked> 自动跟随滚动</label>
                 </div>
             </div>
         </div>
@@ -319,21 +314,18 @@
             <span style="font-weight:600; color:#fff; font-size:1.2rem;">个人中心</span>
             <button class="close-btn" onclick="closeProfile()">×</button>
         </div>
-        <div id="profile-content">
-            <div style="color:#888; text-align:center; padding:2rem 0;">加载中...</div>
-        </div>
+        <div id="profile-content"><div style="color:#888; text-align:center; padding:2rem 0;">加载中...</div></div>
     </div>
 
     <!-- 主脚本 -->
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
 
-    <!-- ====== 内联：复制按钮 + PDF导出（手动分页构建） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出（终极稳健版） ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
-        console.log('[copy-button] 加载');
-
+        console.log('[copy-button] 加载 (稳健版)');
         const COPY_SVG = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
         const CHECK_SVG = `<svg class="check-svg" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
 
@@ -376,9 +368,7 @@
                     try {
                         document.execCommand('copy');
                         setCopied();
-                    } catch (e2) {
-                        alert('复制失败，请手动复制');
-                    }
+                    } catch (e2) { alert('复制失败，请手动复制'); }
                     document.body.removeChild(ta);
                 }
             });
@@ -391,9 +381,7 @@
             const container = document.getElementById('article-body');
             if (!container) return false;
             const pres = container.querySelectorAll('pre:not([data-copy-inited])');
-            pres.forEach(pre => {
-                if (pre.querySelector('code')) processCodeBlock(pre);
-            });
+            pres.forEach(pre => { if (pre.querySelector('code')) processCodeBlock(pre); });
             return true;
         }
 
@@ -401,9 +389,7 @@
             scanCopyButtons();
             const observer = new MutationObserver(() => { scanCopyButtons(); });
             const target = document.getElementById('article-body');
-            if (target) {
-                observer.observe(target, { childList: true, subtree: true });
-            }
+            if (target) observer.observe(target, { childList: true, subtree: true });
             let attempts = 0;
             const interval = setInterval(() => {
                 if (scanCopyButtons() || attempts++ > 20) clearInterval(interval);
@@ -412,16 +398,14 @@
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initCopy);
-        } else {
-            initCopy();
-        }
+        } else { initCopy(); }
     })();
 
-    // ---------- PDF导出模块（手动分页构建，零滚动） ----------
+    // ---------- PDF导出模块（稳健版：基于 DOM 片段截取） ----------
     (function() {
-        console.log('[pdf-export] 加载 (手动分页构建)');
+        console.log('[pdf-export] 加载 (稳健版)');
 
-        // 模态框样式（精简）
+        // 模态框样式
         const style = document.createElement('style');
         style.textContent = `
             .pdf-modal-overlay {
@@ -545,12 +529,8 @@
                 let attempts = 0;
                 const interval = setInterval(() => {
                     const tb = document.getElementById('toolbar');
-                    if (tb) {
-                        clearInterval(interval);
-                        doInject(tb);
-                    } else if (++attempts > 20) {
-                        clearInterval(interval);
-                    }
+                    if (tb) { clearInterval(interval); doInject(tb); }
+                    else if (++attempts > 20) { clearInterval(interval); }
                 }, 300);
                 return;
             }
@@ -593,9 +573,7 @@
                 document.getElementById('pdf-select-all').addEventListener('click', () => toggleAllCheckboxes(true));
                 document.getElementById('pdf-deselect-all').addEventListener('click', () => toggleAllCheckboxes(false));
                 document.getElementById('pdf-generate').addEventListener('click', generatePDF);
-                modalInstance.addEventListener('click', (e) => {
-                    if (e.target === modalInstance) closeModal();
-                });
+                modalInstance.addEventListener('click', (e) => { if (e.target === modalInstance) closeModal(); });
             }
             renderChapterList();
             modalInstance.classList.add('active');
@@ -665,7 +643,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 核心：手动分页构建 + 逐页截图 ----------
+        // ---------- 核心：稳健的 PDF 生成（基于 DOM 片段） ----------
         async function generatePDF() {
             // 1. 收集勾选信息
             const checkedIds = new Set();
@@ -689,73 +667,99 @@
             if (toast) toast.style.display = 'flex';
             if (toastSub) toastSub.textContent = '准备内容，请稍候...';
 
-            // 4. 等待所有内容渲染完成
+            // 4. 等待内容渲染完成
             if (window.contentRenderComplete === false && window.contentRenderPromise) {
-                try {
-                    await window.contentRenderPromise;
-                } catch (e) {}
+                try { await window.contentRenderPromise; } catch (e) {}
             }
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 500));
 
-            // 5. 获取所有 section-wrapper，并筛选出包含已勾选 H2 的
-            const wrappers = document.querySelectorAll('#article-body .section-wrapper');
-            const selectedWrappers = [];
-            wrappers.forEach(w => {
-                const h2s = w.querySelectorAll('h2');
-                let keep = false;
-                h2s.forEach(h2 => {
-                    if (checkedIds.has(h2.id)) keep = true;
-                });
-                if (keep) selectedWrappers.push(w.cloneNode(true));
+            // 5. 构建内容 HTML
+            const body = document.getElementById('article-body');
+            const allH2s = body.querySelectorAll('h2');
+            // 为每个勾选的 H2，收集从该 H2 到下一个 H2（或 H1）之前的所有兄弟节点
+            let contentHTML = '';
+            const selectedH2Ids = new Set(checkedIds);
+            allH2s.forEach((h2, idx) => {
+                if (!selectedH2Ids.has(h2.id)) return;
+                // 收集该 H2 及其后续兄弟，直到遇到下一个 H2 或 H1
+                let currentNode = h2;
+                let endReached = false;
+                while (currentNode && !endReached) {
+                    // 克隆当前节点，移除评论区和复制按钮
+                    const clone = currentNode.cloneNode(true);
+                    clone.querySelectorAll('.comment-section, .copy-btn-standalone').forEach(el => el.remove());
+                    // 强制 content-visibility
+                    clone.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
+                        el.style.contentVisibility = 'visible';
+                        el.style.containIntrinsicSize = 'none';
+                    });
+                    contentHTML += clone.outerHTML;
+                    // 移动到下一个兄弟
+                    const next = currentNode.nextElementSibling;
+                    if (!next) break;
+                    if (next.tagName === 'H2' || next.tagName === 'H1') {
+                        endReached = true;
+                    } else {
+                        currentNode = next;
+                    }
+                }
+                // 如果该 H2 在某个 .section-wrapper 内，还要确保 wrapper 包含在内（但实际上我们通过兄弟节点已经包含了）
             });
+
+            // 如果内容为空，尝试用 .section-wrapper 方式兜底
+            if (!contentHTML.trim()) {
+                const wrappers = body.querySelectorAll('.section-wrapper');
+                wrappers.forEach(w => {
+                    const h2sInWrapper = w.querySelectorAll('h2');
+                    let keep = false;
+                    h2sInWrapper.forEach(h2 => { if (selectedH2Ids.has(h2.id)) keep = true; });
+                    if (keep) {
+                        const clone = w.cloneNode(true);
+                        clone.querySelectorAll('.comment-section, .copy-btn-standalone').forEach(el => el.remove());
+                        clone.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
+                            el.style.contentVisibility = 'visible';
+                            el.style.containIntrinsicSize = 'none';
+                        });
+                        contentHTML += clone.outerHTML;
+                    }
+                });
+            }
 
             // 6. 构建封面 HTML
             const coverHTML = `
-                <div class="pdf-cover-page" style="width:794px;height:1123px;padding:0;margin:0;background:#fff;color:#000;display:flex;flex-direction:column;box-sizing:border-box;font-family:'Segoe UI','Microsoft YaHei',sans-serif;">
-                    <img src="images/077.png" style="width:100%;height:50%;object-fit:contain;background:#fafafa;" alt="封面" />
-                    <div style="height:50%;padding:30px 50px;overflow-y:auto;background:#fafafa;">
-                        <h2 style="margin:0 0 12px 0;font-size:24px;color:#333;border-bottom:2px solid #eee;padding-bottom:8px;">范围说明</h2>
-                        <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:1.8;columns:2;column-gap:40px;">
-                            ${checkedLabels.map(title => `<li style="padding:2px 0;border-bottom:1px dashed #eee;break-inside:avoid;">- ${escapeHtml(title)}</li>`).join('')}
-                        </ul>
+                <div class="pdf-cover-page">
+                    <img src="images/077.png" class="cover-img" alt="封面" />
+                    <div class="cover-list">
+                        <h2>范围说明</h2>
+                        <ul>${checkedLabels.map(title => `<li>${escapeHtml(title)}</li>`).join('')}</ul>
                     </div>
                 </div>
             `;
 
-            // 7. 构建一个临时容器（可见，但放在屏幕外？我们直接放在屏幕内并滚动到可视区域，但为了截图清晰，我们将其放在左上角并截取）
-            // 更好的做法：在内存中构建 DOM，然后使用 html2canvas 的 x, y 参数截取特定区域，但为了简单，我们创建一个临时容器并添加到 body，然后逐个截取每个页面元素。
-            const tempContainer = document.createElement('div');
-            tempContainer.style.cssText = `
+            // 7. 创建临时容器
+            const container = document.createElement('div');
+            container.style.cssText = `
                 position: fixed;
-                left: 0;
+                left: -9999px;
                 top: 0;
                 width: 794px;
                 background: #fff;
-                z-index: 99999;
+                color: #000;
                 padding: 0;
                 margin: 0;
-                box-sizing: border-box;
+                z-index: 99999;
                 font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
                 line-height: 1.6;
-                visibility: visible;
-                opacity: 1;
-                pointer-events: none;
-                height: auto;
                 overflow: visible;
+                max-height: none;
+                height: auto;
             `;
-            // 先放入封面
-            tempContainer.innerHTML = coverHTML;
-            // 再依次放入选中的 wrappers（注意克隆体已移除评论区和复制按钮）
-            selectedWrappers.forEach(w => {
-                // 移除复制按钮（以防万一）
-                w.querySelectorAll('.copy-btn-standalone').forEach(el => el.remove());
-                tempContainer.appendChild(w);
-            });
-            document.body.appendChild(tempContainer);
-            await new Promise(r => setTimeout(r, 100));
+            container.innerHTML = coverHTML + contentHTML;
+            document.body.appendChild(container);
+            await new Promise(r => setTimeout(r, 200));
 
-            // 8. 等待所有图片加载
-            const imgs = tempContainer.querySelectorAll('img');
+            // 8. 等待图片加载
+            const imgs = container.querySelectorAll('img');
             if (imgs.length > 0) {
                 await Promise.all(Array.from(imgs).map(img => {
                     if (img.complete) return Promise.resolve();
@@ -763,25 +767,25 @@
                 }));
             }
 
-            // 9. 分页构建：按高度 1123px 切割
+            // 9. 等待公式渲染（如果 KaTeX 正在渲染）
+            await new Promise(r => setTimeout(r, 300));
+
+            // 10. 分页截图
             const pageHeight = 1123;
-            const totalHeight = tempContainer.scrollHeight;
+            const totalHeight = container.scrollHeight;
             const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
-            // 10. 初始化 PDF
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
             const pageWidthMM = 210;
             const pageHeightMM = 297;
             const scale = 2;
 
-            // 11. 逐页截图
             for (let i = 0; i < totalPages; i++) {
                 const yOffset = i * pageHeight;
                 if (toastSub) toastSub.textContent = `正在截取第 ${i+1}/${totalPages} 页...`;
 
                 try {
-                    // 使用 html2canvas 截取当前页区域
-                    const canvas = await html2canvas(tempContainer, {
+                    const canvas = await html2canvas(container, {
                         scale: scale,
                         useCORS: true,
                         allowTaint: true,
@@ -808,12 +812,12 @@
                 }
             }
 
-            // 12. 保存
+            // 11. 保存
             if (toastSub) toastSub.textContent = '正在保存 PDF...';
             pdf.save('笔记导出.pdf');
 
-            // 13. 清理
-            document.body.removeChild(tempContainer);
+            // 12. 清理
+            document.body.removeChild(container);
             if (toast) toast.style.display = 'none';
         }
 
@@ -826,9 +830,7 @@
         // 启动
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', injectPDFButton);
-        } else {
-            injectPDFButton();
-        }
+        } else { injectPDFButton(); }
     })();
     </script>
 
