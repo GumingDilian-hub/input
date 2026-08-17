@@ -19,7 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* 加载遮罩（原有） */
+        /* 加载遮罩（原有，但PDF生成时用右下角提示，所以遮罩可以隐藏） */
         #loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -224,17 +224,31 @@
             font-weight: bold;
         }
 
-        /* 强制复制按钮黑色背景 */
+        /* 修复复制按钮颜色 - 强制黑色背景白色文字 */
         .copy-btn-standalone {
             background: #000 !important;
             color: #fff !important;
-            border-color: rgba(255,255,255,0.3) !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+            border-radius: 6px !important;
+            padding: 4px 8px !important;
+            opacity: 0 !important;
+            transition: opacity 0.25s ease !important;
+        }
+        .iwp-code-wrapper:hover .copy-btn-standalone {
+            opacity: 0.85 !important;
+        }
+        .copy-btn-standalone:hover {
+            opacity: 1 !important;
+            background: #222 !important;
         }
         .copy-btn-standalone svg {
             fill: #fff !important;
         }
-        .copy-btn-standalone:hover {
-            background: #222 !important;
+        .copy-btn-standalone .check-svg {
+            fill: #6fcf97 !important;
+        }
+        .copy-btn-standalone .status-text {
+            color: #fff !important;
         }
     </style>
 </head>
@@ -246,7 +260,7 @@
         <div id="pdf-progress-bar"><div class="fill" id="pdf-progress-fill"></div></div>
     </div>
 
-    <!-- 右下角提示浮窗 -->
+    <!-- 右下角提示浮窗（独立） -->
     <div id="pdf-generating-toast">
         <div class="toast-loader"></div>
         <div>
@@ -314,7 +328,7 @@
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
 
-    <!-- ====== 内联：复制按钮 + PDF导出（最终修复版） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出（手动分页构建） ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
@@ -403,11 +417,11 @@
         }
     })();
 
-    // ---------- PDF导出模块（手动构建内容容器，彻底修复内容丢失） ----------
+    // ---------- PDF导出模块（手动分页构建，零滚动） ----------
     (function() {
-        console.log('[pdf-export] 加载 (手动构建版)');
+        console.log('[pdf-export] 加载 (手动分页构建)');
 
-        // 模态框样式
+        // 模态框样式（精简）
         const style = document.createElement('style');
         style.textContent = `
             .pdf-modal-overlay {
@@ -651,7 +665,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 核心：手动构建内容容器，保证内容完整 ----------
+        // ---------- 核心：手动分页构建 + 逐页截图 ----------
         async function generatePDF() {
             // 1. 收集勾选信息
             const checkedIds = new Set();
@@ -669,13 +683,13 @@
             // 2. 关闭模态框
             closeModal();
 
-            // 3. 显示右下角提示浮窗
+            // 3. 显示右下角提示
             const toast = document.getElementById('pdf-generating-toast');
             const toastSub = document.getElementById('toast-sub-text');
             if (toast) toast.style.display = 'flex';
             if (toastSub) toastSub.textContent = '准备内容，请稍候...';
 
-            // 4. 等待内容渲染完成
+            // 4. 等待所有内容渲染完成
             if (window.contentRenderComplete === false && window.contentRenderPromise) {
                 try {
                     await window.contentRenderPromise;
@@ -683,112 +697,78 @@
             }
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. 构建封面
-            const coverHTML = `
-                <div class="pdf-cover-page" id="pdf-cover-temp">
-                    <img src="images/077.png" class="cover-img" alt="封面" />
-                    <div class="cover-list">
-                        <h2>范围说明</h2>
-                        <ul>
-                            ${checkedLabels.map(title => `<li>${escapeHtml(title)}</li>`).join('')}
-                        </ul>
-                    </div>
-                </div>
-            `;
-
-            // 6. 手动构建内容容器：只包含选中的 section-wrapper
-            const originalBody = document.getElementById('article-body');
-            const wrappers = originalBody.querySelectorAll('.section-wrapper');
-            
-            // 找出所有被选中的 H2 所在父级 wrapper
+            // 5. 获取所有 section-wrapper，并筛选出包含已勾选 H2 的
+            const wrappers = document.querySelectorAll('#article-body .section-wrapper');
             const selectedWrappers = [];
             wrappers.forEach(w => {
-                // 检查 wrapper 内是否包含任何被选中的 h2
                 const h2s = w.querySelectorAll('h2');
                 let keep = false;
                 h2s.forEach(h2 => {
                     if (checkedIds.has(h2.id)) keep = true;
                 });
-                // 如果 wrapper 没有 h2，但它的兄弟有 h2？我们保守一点：只要 wrapper 内包含选中 h2 就保留整个 wrapper
-                if (keep) {
-                    selectedWrappers.push(w);
-                }
+                if (keep) selectedWrappers.push(w.cloneNode(true));
             });
 
-            // 如果没有任何 wrapper 被选中，尝试使用原始内容但隐藏未选中的 h2（保险）
-            let contentHTML = '';
-            if (selectedWrappers.length === 0) {
-                // 极端情况：用 clone 方法
-                const clone = originalBody.cloneNode(true);
-                clone.querySelectorAll('.comment-section').forEach(el => el.remove());
-                const h2s = clone.querySelectorAll('h2');
-                h2s.forEach(h2 => {
-                    if (!checkedIds.has(h2.id)) {
-                        h2.style.display = 'none';
-                        let sibling = h2.nextElementSibling;
-                        while (sibling) {
-                            if (sibling.tagName === 'H1' || sibling.tagName === 'H2') break;
-                            sibling.style.display = 'none';
-                            sibling = sibling.nextElementSibling;
-                        }
-                    }
-                });
-                contentHTML = clone.innerHTML;
-            } else {
-                // 手动拼接选中的 wrapper
-                selectedWrappers.forEach(w => {
-                    contentHTML += w.outerHTML;
-                });
-            }
+            // 6. 构建封面 HTML
+            const coverHTML = `
+                <div class="pdf-cover-page" style="width:794px;height:1123px;padding:0;margin:0;background:#fff;color:#000;display:flex;flex-direction:column;box-sizing:border-box;font-family:'Segoe UI','Microsoft YaHei',sans-serif;">
+                    <img src="images/077.png" style="width:100%;height:50%;object-fit:contain;background:#fafafa;" alt="封面" />
+                    <div style="height:50%;padding:30px 50px;overflow-y:auto;background:#fafafa;">
+                        <h2 style="margin:0 0 12px 0;font-size:24px;color:#333;border-bottom:2px solid #eee;padding-bottom:8px;">范围说明</h2>
+                        <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:1.8;columns:2;column-gap:40px;">
+                            ${checkedLabels.map(title => `<li style="padding:2px 0;border-bottom:1px dashed #eee;break-inside:avoid;">- ${escapeHtml(title)}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
 
-            // 7. 创建离屏容器，包含封面和内容
-            const container = document.createElement('div');
-            container.style.cssText = `
+            // 7. 构建一个临时容器（可见，但放在屏幕外？我们直接放在屏幕内并滚动到可视区域，但为了截图清晰，我们将其放在左上角并截取）
+            // 更好的做法：在内存中构建 DOM，然后使用 html2canvas 的 x, y 参数截取特定区域，但为了简单，我们创建一个临时容器并添加到 body，然后逐个截取每个页面元素。
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
                 position: fixed;
-                left: -9999px;
+                left: 0;
                 top: 0;
                 width: 794px;
                 background: #fff;
-                color: #000;
+                z-index: 99999;
                 padding: 0;
                 margin: 0;
-                z-index: 99999;
+                box-sizing: border-box;
                 font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
                 line-height: 1.6;
-                overflow: visible;
-                max-height: none;
+                visibility: visible;
+                opacity: 1;
+                pointer-events: none;
                 height: auto;
+                overflow: visible;
             `;
-            container.innerHTML = coverHTML + contentHTML;
-            // 强制所有图片、代码块等可见
-            container.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img, pre, code').forEach(el => {
-                el.style.contentVisibility = 'visible';
-                el.style.containIntrinsicSize = 'none';
+            // 先放入封面
+            tempContainer.innerHTML = coverHTML;
+            // 再依次放入选中的 wrappers（注意克隆体已移除评论区和复制按钮）
+            selectedWrappers.forEach(w => {
+                // 移除复制按钮（以防万一）
+                w.querySelectorAll('.copy-btn-standalone').forEach(el => el.remove());
+                tempContainer.appendChild(w);
             });
-            // 移除评论区（已经移除，但保险）
-            container.querySelectorAll('.comment-section').forEach(el => el.remove());
+            document.body.appendChild(tempContainer);
+            await new Promise(r => setTimeout(r, 100));
 
-            document.body.appendChild(container);
-            await new Promise(r => setTimeout(r, 200));
-
-            // 8. 等待图片加载
-            const images = container.querySelectorAll('img');
-            if (images.length > 0) {
-                await Promise.all(Array.from(images).map(img => {
+            // 8. 等待所有图片加载
+            const imgs = tempContainer.querySelectorAll('img');
+            if (imgs.length > 0) {
+                await Promise.all(Array.from(imgs).map(img => {
                     if (img.complete) return Promise.resolve();
-                    return new Promise((resolve) => {
-                        img.onload = resolve;
-                        img.onerror = resolve;
-                    });
+                    return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
                 }));
             }
 
-            // 9. 计算总高度和页数
+            // 9. 分页构建：按高度 1123px 切割
             const pageHeight = 1123;
-            const totalHeight = container.scrollHeight;
+            const totalHeight = tempContainer.scrollHeight;
             const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
-            // 10. 初始化 jsPDF
+            // 10. 初始化 PDF
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
             const pageWidthMM = 210;
             const pageHeightMM = 297;
@@ -796,26 +776,28 @@
 
             // 11. 逐页截图
             for (let i = 0; i < totalPages; i++) {
-                const scrollY = i * pageHeight;
-                container.scrollTop = scrollY;
-                await new Promise(r => setTimeout(r, 100));
-
+                const yOffset = i * pageHeight;
                 if (toastSub) toastSub.textContent = `正在截取第 ${i+1}/${totalPages} 页...`;
 
                 try {
-                    const canvas = await html2canvas(container, {
+                    // 使用 html2canvas 截取当前页区域
+                    const canvas = await html2canvas(tempContainer, {
                         scale: scale,
                         useCORS: true,
                         allowTaint: true,
                         backgroundColor: '#ffffff',
                         width: 794,
                         height: pageHeight,
+                        x: 0,
+                        y: yOffset,
                         logging: false,
                         windowHeight: pageHeight,
                         windowWidth: 794,
-                        scrollY: scrollY,
-                        x: 0,
-                        y: 0
+                        scrollY: 0,
+                        scrollX: 0,
+                        onclone: (clonedDoc) => {
+                            // 确保克隆后的文档也保持相同位置
+                        }
                     });
                     const imgData = canvas.toDataURL('image/jpeg', 0.92);
                     if (i > 0) pdf.addPage();
@@ -831,7 +813,7 @@
             pdf.save('笔记导出.pdf');
 
             // 13. 清理
-            document.body.removeChild(container);
+            document.body.removeChild(tempContainer);
             if (toast) toast.style.display = 'none';
         }
 
