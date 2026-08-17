@@ -19,7 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* ===== 基础样式（与你的主题保持一致） ===== */
+        /* ===== 基础样式 ===== */
         #loading-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -165,7 +165,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
-        /* ===== 复制按钮（常态显示黑色圆角矩形，带“复制”文字） ===== */
+        /* ===== 复制按钮（常态显示，黑色圆角，带"复制"文字） ===== */
         .copy-btn-standalone {
             position: absolute;
             top: 8px;
@@ -176,6 +176,8 @@
             border-radius: 6px !important;
             padding: 4px 10px !important;
             cursor: pointer;
+            opacity: 1 !important;  /* 始终可见 */
+            transition: background 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -184,30 +186,14 @@
             font-size: 12px;
             gap: 4px;
             white-space: nowrap;
-            opacity: 0.9 !important;
-            transition: background 0.2s ease, opacity 0.2s ease;
+            font-family: inherit;
         }
         .copy-btn-standalone:hover {
-            background: #333 !important;
-            opacity: 1 !important;
+            background: #222 !important;
         }
-        .copy-btn-standalone svg {
-            fill: #fff !important;
-            width: 14px;
-            height: 14px;
-        }
-        .copy-btn-standalone .check-svg {
-            fill: #6fcf97 !important;
-        }
-        .copy-btn-standalone .status-text {
-            color: #fff !important;
-        }
-        .iwp-code-wrapper {
-            position: relative;
-        }
-        .iwp-code-wrapper pre {
-            margin: 0;
-        }
+        .copy-btn-standalone svg { fill: #fff !important; }
+        .copy-btn-standalone .check-svg { fill: #6fcf97 !important; }
+        .copy-btn-standalone .status-text { color: #fff !important; }
 
         /* ===== PDF 封面样式（仅用于截图） ===== */
         .pdf-cover-page {
@@ -334,13 +320,13 @@
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
 
-    <!-- ====== 内联：复制按钮 + PDF导出（最终版，带边距和高分辨率） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出（最终调整版） ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
         console.log('[copy-button] 加载 (最终版)');
-        const COPY_SVG = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
-        const CHECK_SVG = `<svg class="check-svg" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
+        const COPY_SVG = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        const CHECK_SVG = `<svg class="check-svg" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
 
         function processCodeBlock(pre) {
             if (pre.dataset.copyInited === 'true') return;
@@ -351,7 +337,7 @@
             const btn = document.createElement('button');
             btn.className = 'copy-btn-standalone';
             btn.setAttribute('aria-label', '复制代码');
-            btn.innerHTML = COPY_SVG + '<span>复制</span>';
+            btn.innerHTML = COPY_SVG + ' 复制';
 
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -359,12 +345,10 @@
                 if (!codeEl) return;
                 const text = codeEl.textContent;
                 const setCopied = () => {
-                    btn.innerHTML = CHECK_SVG + '<span class="status-text">已复制</span>';
-                    btn.style.padding = '4px 10px';
+                    btn.innerHTML = CHECK_SVG + ' 已复制';
                     clearTimeout(btn._timeout);
                     btn._timeout = setTimeout(() => {
-                        btn.innerHTML = COPY_SVG + '<span>复制</span>';
-                        btn.style.padding = '4px 10px';
+                        btn.innerHTML = COPY_SVG + ' 复制';
                     }, 2000);
                 };
                 try {
@@ -414,11 +398,11 @@
         } else { initCopy(); }
     })();
 
-    // ---------- PDF导出模块（最终版，含页边距，scale=4） ----------
+    // ---------- PDF导出模块（最终调整版：边距 + scale=3） ----------
     (function() {
-        console.log('[pdf-export] 加载 (最终版)');
+        console.log('[pdf-export] 加载 (最终调整版)');
 
-        // 模态框样式（与之前相同）
+        // 模态框样式
         const style = document.createElement('style');
         style.textContent = `
             .pdf-modal-overlay {
@@ -656,7 +640,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 核心：PDF 生成（带页边距，scale=4） ----------
+        // ---------- 核心：稳健的 PDF 生成（带边距、scale=3） ----------
         async function generatePDF() {
             // 1. 收集勾选信息
             const checkedIds = new Set();
@@ -686,12 +670,12 @@
             }
             await new Promise(r => setTimeout(r, 500));
 
-            // 5. 构建内容 HTML（从每个选中 H2 开始截取到下一个 H2/H1 之前）
+            // 5. 构建内容 HTML
             const body = document.getElementById('article-body');
             const allH2s = body.querySelectorAll('h2');
             let contentHTML = '';
             const selectedH2Ids = new Set(checkedIds);
-            allH2s.forEach((h2) => {
+            allH2s.forEach((h2, idx) => {
                 if (!selectedH2Ids.has(h2.id)) return;
                 let currentNode = h2;
                 let endReached = false;
@@ -713,7 +697,7 @@
                 }
             });
 
-            // 兜底：如果内容为空，改用 .section-wrapper 方式
+            // 兜底：如果 contentHTML 为空，用 .section-wrapper 方式
             if (!contentHTML.trim()) {
                 const wrappers = body.querySelectorAll('.section-wrapper');
                 wrappers.forEach(w => {
@@ -732,7 +716,7 @@
                 });
             }
 
-            // 6. 构建封面 HTML
+            // 6. 构建封面
             const coverHTML = `
                 <div class="pdf-cover-page">
                     <img src="images/077.png" class="cover-img" alt="封面" />
@@ -743,7 +727,7 @@
                 </div>
             `;
 
-            // 7. 创建临时容器，加入页边距（左右各 40px，上下 30px）
+            // 7. 创建临时容器（带 padding 留边距）
             const container = document.createElement('div');
             container.style.cssText = `
                 position: fixed;
@@ -752,209 +736,48 @@
                 width: 794px;
                 background: #fff;
                 color: #000;
-                padding: 30px 40px;
+                padding: 40px 50px;
                 margin: 0;
+                box-sizing: border-box;
                 z-index: 99999;
                 font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
                 line-height: 1.6;
                 overflow: visible;
                 max-height: none;
                 height: auto;
-                box-sizing: border-box;
             `;
             container.innerHTML = coverHTML + contentHTML;
-            // 封面内部已经自带边距，但为了统一，我们让封面内容也适应容器内边距
-            // 但封面是独立 div，我们让它保持原样，但容器内边距会影响封面位置，所以要单独处理封面高度
-            // 更好的办法：封面单独作为第一页，不继承容器内边距，但为了简单，我们在封面外层再包一层，或者调整封面样式。
-            // 这里简便处理：将封面单独提取，单独截图，但为保持一致性，我们让封面也使用容器内边距，但封面内部已有边距，所以把容器的padding在截图时通过html2canvas的x/y偏移抵消？太复杂，我们单独把封面放到另一个容器。
-            // 更稳健：分别截图封面和内容，然后合并到PDF。
-            // 为了快速修复，我们保持原方案：容器整体有padding，封面作为第一页也在容器内，这样封面也会被padding影响，导致封面图缩小。
-            // 所以更合理：将封面和内容分开放置，分别截图。
-            // 由于用户急着用，我改为：封面单独构建，内容单独构建，分别截图并合并。
-            // 重新设计：我们创建两个容器，一个用于封面，一个用于内容，分别截图，然后加入PDF。
-            // 但这样改动较大，目前用户已经成功，只是要加边距，我改为在内容外层加div设置padding，封面独立。
-            // 我决定：封面使用独立的容器（无padding），内容使用带padding的容器。
-            // 所以修改如下：
-        }
+            document.body.appendChild(container);
+            await new Promise(r => setTimeout(r, 200));
 
-        // 由于上面逻辑已经复杂，我重新改写 generatePDF 函数，采用封面和内容分离截图。
-        // 但由于篇幅，我把完整的新 generatePDF 函数直接覆盖。
-        // 以下为新的 generatePDF 实现（替换上面那个占位）
-        // 为节省时间，我直接写出完整的 generatePDF 函数，替换原有函数。
-
-        // 但为了完整性，我将整个 PDF 模块重新定义，确保所有改动到位。
-        // 由于代码较长，我直接在下面重新声明 generatePDF 并覆盖之前的。
-        // 实际上在浏览器中，后面的声明会覆盖前面的，所以我可以重新定义。
-        // 但为了清晰，我直接用新函数替换。
-
-        // 重写 generatePDF
-        window.generatePDF = async function() {
-            // 1. 收集勾选信息
-            const checkedIds = new Set();
-            const checkedLabels = [];
-            document.querySelectorAll('#pdf-chapter-list input[type="checkbox"]:checked').forEach(cb => {
-                checkedIds.add(cb.dataset.h2Id);
-                const label = cb.closest('.pdf-chapter-item').querySelector('.chapter-label');
-                if (label) checkedLabels.push(label.textContent.trim());
-            });
-            if (checkedIds.size === 0) {
-                alert('请至少勾选一个章节再导出！');
-                return;
-            }
-
-            closeModal();
-
-            const toast = document.getElementById('pdf-generating-toast');
-            const toastSub = document.getElementById('toast-sub-text');
-            if (toast) toast.style.display = 'flex';
-            if (toastSub) toastSub.textContent = '准备内容，请稍候...';
-
-            if (window.contentRenderComplete === false && window.contentRenderPromise) {
-                try { await window.contentRenderPromise; } catch (e) {}
-            }
-            await new Promise(r => setTimeout(r, 500));
-
-            // 构建内容 HTML（同上）
-            const body = document.getElementById('article-body');
-            const allH2s = body.querySelectorAll('h2');
-            let contentHTML = '';
-            const selectedH2Ids = new Set(checkedIds);
-            allH2s.forEach((h2) => {
-                if (!selectedH2Ids.has(h2.id)) return;
-                let currentNode = h2;
-                let endReached = false;
-                while (currentNode && !endReached) {
-                    const clone = currentNode.cloneNode(true);
-                    clone.querySelectorAll('.comment-section, .copy-btn-standalone').forEach(el => el.remove());
-                    clone.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
-                        el.style.contentVisibility = 'visible';
-                        el.style.containIntrinsicSize = 'none';
-                    });
-                    contentHTML += clone.outerHTML;
-                    const next = currentNode.nextElementSibling;
-                    if (!next) break;
-                    if (next.tagName === 'H2' || next.tagName === 'H1') {
-                        endReached = true;
-                    } else {
-                        currentNode = next;
-                    }
-                }
-            });
-
-            if (!contentHTML.trim()) {
-                const wrappers = body.querySelectorAll('.section-wrapper');
-                wrappers.forEach(w => {
-                    const h2sInWrapper = w.querySelectorAll('h2');
-                    let keep = false;
-                    h2sInWrapper.forEach(h2 => { if (selectedH2Ids.has(h2.id)) keep = true; });
-                    if (keep) {
-                        const clone = w.cloneNode(true);
-                        clone.querySelectorAll('.comment-section, .copy-btn-standalone').forEach(el => el.remove());
-                        clone.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
-                            el.style.contentVisibility = 'visible';
-                            el.style.containIntrinsicSize = 'none';
-                        });
-                        contentHTML += clone.outerHTML;
-                    }
-                });
-            }
-
-            // 封面独立容器（无padding）
-            const coverContainer = document.createElement('div');
-            coverContainer.style.cssText = `
-                position: fixed;
-                left: -9999px;
-                top: 0;
-                width: 794px;
-                background: #fff;
-                padding: 0;
-                margin: 0;
-                z-index: 99999;
-                box-sizing: border-box;
-            `;
-            const coverHTML = `
-                <div class="pdf-cover-page">
-                    <img src="images/077.png" class="cover-img" alt="封面" />
-                    <div class="cover-list">
-                        <h2>范围说明</h2>
-                        <ul>${checkedLabels.map(title => `<li>${escapeHtml(title)}</li>`).join('')}</ul>
-                    </div>
-                </div>
-            `;
-            coverContainer.innerHTML = coverHTML;
-            document.body.appendChild(coverContainer);
-            await new Promise(r => setTimeout(r, 100));
-
-            // 内容容器（带边距）
-            const contentContainer = document.createElement('div');
-            contentContainer.style.cssText = `
-                position: fixed;
-                left: -9999px;
-                top: 0;
-                width: 794px;
-                background: #fff;
-                color: #000;
-                padding: 30px 40px;
-                margin: 0;
-                z-index: 99999;
-                font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-                line-height: 1.6;
-                overflow: visible;
-                max-height: none;
-                height: auto;
-                box-sizing: border-box;
-            `;
-            contentContainer.innerHTML = contentHTML;
-            document.body.appendChild(contentContainer);
-            await new Promise(r => setTimeout(r, 100));
-
-            // 等待图片加载
-            const allImgs = document.querySelectorAll('#pdf-cover-temp, #pdf-content-temp img');
-            // 其实我们直接用 coverContainer 和 contentContainer 里的 img
-            const imgsCover = coverContainer.querySelectorAll('img');
-            const imgsContent = contentContainer.querySelectorAll('img');
-            const allImages = [...imgsCover, ...imgsContent];
-            if (allImages.length > 0) {
-                await Promise.all(allImages.map(img => {
+            // 8. 等待图片加载
+            const imgs = container.querySelectorAll('img');
+            if (imgs.length > 0) {
+                await Promise.all(Array.from(imgs).map(img => {
                     if (img.complete) return Promise.resolve();
                     return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
                 }));
             }
+
+            // 9. 等待公式渲染
             await new Promise(r => setTimeout(r, 300));
 
-            // 分页截图：先截封面
+            // 10. 分页截图 (scale=3)
+            const pageHeight = 1123;
+            const totalHeight = container.scrollHeight;
+            const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
+
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
             const pageWidthMM = 210;
             const pageHeightMM = 297;
-            const scale = 4; // 高分辨率
-
-            // 截取封面
-            if (toastSub) toastSub.textContent = '正在截取封面...';
-            try {
-                const canvas = await html2canvas(coverContainer, {
-                    scale: scale,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff',
-                    width: 794,
-                    height: 1123,
-                    logging: false,
-                });
-                const imgData = canvas.toDataURL('image/jpeg', 0.92);
-                pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMM, pageHeightMM);
-            } catch (e) { console.warn('封面截图失败', e); }
-
-            // 截取内容（分页）
-            const pageHeight = 1123;
-            const totalHeight = contentContainer.scrollHeight;
-            const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
+            const scale = 3;  // 提高分辨率
 
             for (let i = 0; i < totalPages; i++) {
                 const yOffset = i * pageHeight;
                 if (toastSub) toastSub.textContent = `正在截取第 ${i+1}/${totalPages} 页...`;
 
                 try {
-                    const canvas = await html2canvas(contentContainer, {
+                    const canvas = await html2canvas(container, {
                         scale: scale,
                         useCORS: true,
                         allowTaint: true,
@@ -970,54 +793,33 @@
                         scrollX: 0,
                     });
                     const imgData = canvas.toDataURL('image/jpeg', 0.92);
-                    pdf.addPage();
+                    if (i > 0) pdf.addPage();
                     pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMM, pageHeightMM);
                 } catch (err) {
                     console.warn('截图失败:', err);
-                    pdf.addPage();
+                    if (i > 0) pdf.addPage();
                 }
             }
 
-            // 保存
+            // 11. 保存
             if (toastSub) toastSub.textContent = '正在保存 PDF...';
             pdf.save('笔记导出.pdf');
 
-            // 清理
-            document.body.removeChild(coverContainer);
-            document.body.removeChild(contentContainer);
+            // 12. 清理
+            document.body.removeChild(container);
             if (toast) toast.style.display = 'none';
-        };
+        }
 
-        // 由于上面重新定义了 generatePDF，需要把它绑定到按钮事件
-        // 但我们之前已经绑定了，现在覆盖绑定
-        // 在 openModal 中我们已经绑定了 document.getElementById('pdf-generate').addEventListener('click', generatePDF);
-        // 所以新的 generatePDF 会生效。
-
-        // 启动注入按钮
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', injectPDFButton);
-        } else { injectPDFButton(); }
-
-        // 工具函数
         function escapeHtml(text) {
             if (!text) return '';
             return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
-        // 由于上面的重新定义可能不会覆盖之前绑定的，我们强制重新绑定
-        // 但我们可以通过监听 DOMContentLoaded 后重新绑定
-        // 简单起见，我们重新获取按钮并绑定
-        document.addEventListener('DOMContentLoaded', function() {
-            const genBtn = document.getElementById('pdf-generate');
-            if (genBtn) {
-                genBtn.removeEventListener('click', generatePDF);
-                genBtn.addEventListener('click', generatePDF);
-            }
-        });
-
-        // 另外需要暴露 generatePDF 到全局
-        window.generatePDF = generatePDF;
+        // 启动
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectPDFButton);
+        } else { injectPDFButton(); }
     })();
     </script>
 
