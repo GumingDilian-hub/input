@@ -224,7 +224,7 @@
             font-weight: bold;
         }
 
-        /* 修复复制按钮颜色 */
+        /* 强制复制按钮黑色背景 */
         .copy-btn-standalone {
             background: #000 !important;
             color: #fff !important;
@@ -246,7 +246,7 @@
         <div id="pdf-progress-bar"><div class="fill" id="pdf-progress-fill"></div></div>
     </div>
 
-    <!-- 右下角提示浮窗（独立） -->
+    <!-- 右下角提示浮窗 -->
     <div id="pdf-generating-toast">
         <div class="toast-loader"></div>
         <div>
@@ -319,8 +319,6 @@
     // ---------- 复制按钮模块 ----------
     (function() {
         console.log('[copy-button] 加载');
-
-        // 复制按钮样式已通过全局 style 强制定制，无需重复注入
 
         const COPY_SVG = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
         const CHECK_SVG = `<svg class="check-svg" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
@@ -405,9 +403,9 @@
         }
     })();
 
-    // ---------- PDF导出模块（分页截图，内容修复） ----------
+    // ---------- PDF导出模块（手动构建内容容器，彻底修复内容丢失） ----------
     (function() {
-        console.log('[pdf-export] 加载 (分页截图修复版)');
+        console.log('[pdf-export] 加载 (手动构建版)');
 
         // 模态框样式
         const style = document.createElement('style');
@@ -653,7 +651,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 核心：分页截图生成 PDF（修复内容丢失） ----------
+        // ---------- 核心：手动构建内容容器，保证内容完整 ----------
         async function generatePDF() {
             // 1. 收集勾选信息
             const checkedIds = new Set();
@@ -671,13 +669,13 @@
             // 2. 关闭模态框
             closeModal();
 
-            // 3. 显示右下角提示浮窗（取代遮罩，避免干扰）
+            // 3. 显示右下角提示浮窗
             const toast = document.getElementById('pdf-generating-toast');
             const toastSub = document.getElementById('toast-sub-text');
             if (toast) toast.style.display = 'flex';
             if (toastSub) toastSub.textContent = '准备内容，请稍候...';
 
-            // 4. 等待所有内容渲染完成
+            // 4. 等待内容渲染完成
             if (window.contentRenderComplete === false && window.contentRenderPromise) {
                 try {
                     await window.contentRenderPromise;
@@ -685,7 +683,7 @@
             }
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. 构建封面 HTML
+            // 5. 构建封面
             const coverHTML = `
                 <div class="pdf-cover-page" id="pdf-cover-temp">
                     <img src="images/077.png" class="cover-img" alt="封面" />
@@ -698,7 +696,52 @@
                 </div>
             `;
 
-            // 6. 准备离屏容器
+            // 6. 手动构建内容容器：只包含选中的 section-wrapper
+            const originalBody = document.getElementById('article-body');
+            const wrappers = originalBody.querySelectorAll('.section-wrapper');
+            
+            // 找出所有被选中的 H2 所在父级 wrapper
+            const selectedWrappers = [];
+            wrappers.forEach(w => {
+                // 检查 wrapper 内是否包含任何被选中的 h2
+                const h2s = w.querySelectorAll('h2');
+                let keep = false;
+                h2s.forEach(h2 => {
+                    if (checkedIds.has(h2.id)) keep = true;
+                });
+                // 如果 wrapper 没有 h2，但它的兄弟有 h2？我们保守一点：只要 wrapper 内包含选中 h2 就保留整个 wrapper
+                if (keep) {
+                    selectedWrappers.push(w);
+                }
+            });
+
+            // 如果没有任何 wrapper 被选中，尝试使用原始内容但隐藏未选中的 h2（保险）
+            let contentHTML = '';
+            if (selectedWrappers.length === 0) {
+                // 极端情况：用 clone 方法
+                const clone = originalBody.cloneNode(true);
+                clone.querySelectorAll('.comment-section').forEach(el => el.remove());
+                const h2s = clone.querySelectorAll('h2');
+                h2s.forEach(h2 => {
+                    if (!checkedIds.has(h2.id)) {
+                        h2.style.display = 'none';
+                        let sibling = h2.nextElementSibling;
+                        while (sibling) {
+                            if (sibling.tagName === 'H1' || sibling.tagName === 'H2') break;
+                            sibling.style.display = 'none';
+                            sibling = sibling.nextElementSibling;
+                        }
+                    }
+                });
+                contentHTML = clone.innerHTML;
+            } else {
+                // 手动拼接选中的 wrapper
+                selectedWrappers.forEach(w => {
+                    contentHTML += w.outerHTML;
+                });
+            }
+
+            // 7. 创建离屏容器，包含封面和内容
             const container = document.createElement('div');
             container.style.cssText = `
                 position: fixed;
@@ -716,42 +759,19 @@
                 max-height: none;
                 height: auto;
             `;
-
-            // 7. 克隆文章体并注入，同时保留选中章节，隐藏未选中的
-            const originalBody = document.getElementById('article-body');
-            const cloneBody = originalBody.cloneNode(true);
-
-            // 移除评论区
-            cloneBody.querySelectorAll('.comment-section').forEach(el => el.remove());
-            // 移除复制按钮
-            cloneBody.querySelectorAll('.copy-btn-standalone').forEach(el => el.remove());
-
-            // 强制覆盖 content-visibility
-            cloneBody.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img').forEach(el => {
+            container.innerHTML = coverHTML + contentHTML;
+            // 强制所有图片、代码块等可见
+            container.querySelectorAll('.section-wrapper, .figure-container, .iwp-figure, img, pre, code').forEach(el => {
                 el.style.contentVisibility = 'visible';
                 el.style.containIntrinsicSize = 'none';
             });
+            // 移除评论区（已经移除，但保险）
+            container.querySelectorAll('.comment-section').forEach(el => el.remove());
 
-            // --- 核心：隐藏未选中的 H2 及其后续兄弟元素（直到下一个 H1/H2） ---
-            const h2s = cloneBody.querySelectorAll('h2');
-            h2s.forEach(h2 => {
-                if (!checkedIds.has(h2.id)) {
-                    h2.style.display = 'none';
-                    let sibling = h2.nextElementSibling;
-                    while (sibling) {
-                        if (sibling.tagName === 'H1' || sibling.tagName === 'H2') break;
-                        sibling.style.display = 'none';
-                        sibling = sibling.nextElementSibling;
-                    }
-                }
-            });
-
-            // 将封面和内容放入容器
-            container.innerHTML = coverHTML + cloneBody.innerHTML;
             document.body.appendChild(container);
             await new Promise(r => setTimeout(r, 200));
 
-            // 8. 等待所有图片加载完成
+            // 8. 等待图片加载
             const images = container.querySelectorAll('img');
             if (images.length > 0) {
                 await Promise.all(Array.from(images).map(img => {
@@ -763,8 +783,8 @@
                 }));
             }
 
-            // 9. 获取总高度，计算页数
-            const pageHeight = 1123; // px (A4 height at 96dpi)
+            // 9. 计算总高度和页数
+            const pageHeight = 1123;
             const totalHeight = container.scrollHeight;
             const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
