@@ -6,7 +6,7 @@ tags: [动物生理学, 神经生理]
 ---
 
 # 动物生理学
-##这里我是用AI识别的笔记文本，所以有的地方有乱码，你可以去https://github.com/GumingDilian-hub/dendrite/动物生理/ 查看原图片
+##这里我是用OCR识别的笔记文本，所以有的地方有乱码，你可以去https://github.com/GumingDilian-hub/dendrite/动物生理/ 查看原图片
 ## 想的真合味道
 
 ### 1. 神经纤维 = 轴突（+髓鞘）
