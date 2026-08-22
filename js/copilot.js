@@ -1,7 +1,7 @@
 // ============================================================
-// copilot.js - 完全兼容 reader.js + profile.js
-// 直接使用 window.state.user（由 reader.js 维护，profile.js 辅助）
-// 监听 profile-login / profile-logout 事件
+// copilot.js - 与 reader.js + profile.js 完全兼容
+// 依赖：window.state.user（由 reader.js 维护）
+// 新后端地址：https://copilot.2167964516.workers.dev
 // ============================================================
 
 (function() {
@@ -9,7 +9,7 @@
   var WORKER_BASE_URL = 'https://copilot.2167964516.workers.dev';
   var MAX_DOTS = 10;
   var LOGO_BASE = 'images/copilot/';
-  var ADMIN_USERNAME = 'loading';  // 与 reader.js 的 CONFIG.ADMIN_USERNAME 保持一致
+  var ADMIN_USERNAME = 'loading';
 
   // ---------- 模型列表 ----------
   var TEXT_MODELS = [
@@ -50,23 +50,19 @@
   var historyList, imageInput, imageLabel;
   var whiteboardImportBtn;
 
-  // ---------- 等待 reader.js + profile.js 完全就绪 ----------
+  // ---------- 等待 reader.js 就绪 ----------
   function waitForReaderReady() {
     return new Promise(function(resolve) {
-      // 如果内容已渲染且用户状态已恢复，立即 resolve
       if (window.contentRenderComplete && window.state && window.state.user) {
         resolve();
         return;
       }
-
       var checkInterval = setInterval(function() {
         if (window.contentRenderComplete && window.state && window.state.user) {
           clearInterval(checkInterval);
           resolve();
         }
       }, 200);
-
-      // 超时保护：最多等待 5 秒后强制初始化（显示未登录状态）
       setTimeout(function() {
         clearInterval(checkInterval);
         resolve();
@@ -166,8 +162,7 @@
       }
       var startIndex = Math.max(0, totalRounds - MAX_DOTS);
       for (var k = 0; k < dotElements.length; k++) {
-        var idx = k;
-        dotElements[k].classList.toggle('active', idx === roundIndex - startIndex);
+        dotElements[k].classList.toggle('active', k === roundIndex - startIndex);
       }
     }
   }
@@ -230,6 +225,12 @@
 
   function showWelcome() {
     messagesContainer.innerHTML = '<div class="copilot-placeholder">有什么可以帮你的？</div>';
+    roundCount = 0;
+    updateDots();
+  }
+
+  function showAdminWelcome() {
+    messagesContainer.innerHTML = '<div class="copilot-placeholder">✨ 管理员模式 - 有什么可以帮你的？</div>';
     roundCount = 0;
     updateDots();
   }
@@ -469,13 +470,16 @@
       copilotView.style.display = 'flex';
       if (tocView) tocView.style.display = 'none';
       btnCopilot.textContent = '关闭 Copilot';
-      // 直接使用 window.state.user（由 reader.js 管理）
+
       if (window.state && window.state.user) {
-        // 显示特殊账号标识（管理员）
         if (window.state.user.username === ADMIN_USERNAME) {
-          messagesContainer.innerHTML = '<div class="copilot-placeholder">✨ 管理员模式 - 有什么可以帮你的？</div>';
-        } else if (messagesContainer.children.length === 0 || messagesContainer.querySelector('.copilot-placeholder')) {
-          showWelcome();
+          if (messagesContainer.children.length === 0 || messagesContainer.querySelector('.copilot-placeholder')) {
+            showAdminWelcome();
+          }
+        } else {
+          if (messagesContainer.children.length === 0 || messagesContainer.querySelector('.copilot-placeholder')) {
+            showWelcome();
+          }
         }
       } else {
         messagesContainer.innerHTML = '<div class="copilot-placeholder">请先登录（使用评论区登录）</div>';
@@ -488,7 +492,6 @@
     var text = inputArea.value.trim();
     if (!text && !currentImageBase64) return;
 
-    // 直接使用 window.state.user（由 reader.js 管理）
     var user = window.state && window.state.user;
     if (!user || !user.token) {
       alert('请先登录');
@@ -637,7 +640,11 @@
     imageInput.value = '';
     roundCount = 0;
     updateDots();
-    showWelcome();
+    if (window.state && window.state.user && window.state.user.username === ADMIN_USERNAME) {
+      showAdminWelcome();
+    } else {
+      showWelcome();
+    }
   }
 
   // ---------- 历史记录 ----------
@@ -822,9 +829,8 @@
       }
     });
 
-    // ---------- 监听 reader.js + profile.js 的登录/登出事件 ----------
+    // 监听登录/登出事件，只更新 UI，不触发状态恢复
     document.addEventListener('profile-login', function(e) {
-      // 如果面板已打开，更新 UI
       if (copilotView.style.display !== 'none') {
         if (e.detail && e.detail.username === ADMIN_USERNAME) {
           messagesContainer.innerHTML = '<div class="copilot-placeholder">✨ 管理员模式 - 有什么可以帮你的？</div>';
@@ -891,7 +897,7 @@
 
     if (window.state && window.state.user) {
       if (window.state.user.username === ADMIN_USERNAME) {
-        messagesContainer.innerHTML = '<div class="copilot-placeholder">✨ 管理员模式 - 有什么可以帮你的？</div>';
+        showAdminWelcome();
       } else {
         showWelcome();
       }
