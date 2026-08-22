@@ -716,7 +716,11 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* ========== Copilot 侧栏样式 ========== */
+/* ============================================================
+   Copilot 全新优化样式
+   ============================================================ */
+
+/* ----- 侧栏视图 ----- */
 #sidebar-copilot-view {
     display: none;
     flex-direction: column;
@@ -724,34 +728,46 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     background: #252525;
 }
 
-#copilot-model-dropdown.open #copilot-model-options {
-    display: block;
+/* ----- 消息区域（含轮次点定位） ----- */
+#copilot-messages-wrapper {
+    position: relative;
+    overflow-y: auto;
+    flex: 1;
 }
 
-.copilot-model-option {
-    padding: 6px 12px;
-    cursor: pointer;
+/* ----- 轮次点 ----- */
+#copilot-dots {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
     display: flex;
-    align-items: center;
-    color: #ccc;
-    border-bottom: 1px solid #3a3a3a;
-    transition: background 0.15s;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 5;
+    pointer-events: none;
 }
-.copilot-model-option:hover {
-    background: #3a3a3a;
-}
-.copilot-model-option img {
-    width: 20px;
-    height: 20px;
-    margin-right: 8px;
-}
-
-.copilot-mode-btn.active {
+.copilot-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     background: #555;
-    border-color: #888;
-    color: #fff;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.25s ease, transform 0.2s ease;
+    flex-shrink: 0;
+}
+.copilot-dot:hover {
+    background: #888;
+    transform: scale(1.2);
+}
+.copilot-dot.active {
+    background: #fff;
+    transform: scale(1.3);
+    box-shadow: 0 0 8px rgba(255,255,255,0.25);
 }
 
+/* ----- 消息气泡 ----- */
 .copilot-msg {
     padding: 8px 12px;
     border-radius: 8px;
@@ -775,6 +791,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     margin: 0;
 }
 
+/* ----- 思考过程折叠 ----- */
 .copilot-thinking {
     margin-bottom: 6px;
     background: #1a1a1a;
@@ -800,6 +817,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     word-break: break-word;
 }
 
+/* ----- 占位文字 ----- */
 .copilot-placeholder {
     color: #888;
     text-align: center;
@@ -807,6 +825,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     font-size: 0.9rem;
 }
 
+/* ----- 历史记录列表 ----- */
 .copilot-history-item {
     padding: 4px 8px;
     cursor: pointer;
@@ -836,6 +855,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     font-size: 0.8rem;
 }
 
+/* ----- 图片缩略图 ----- */
 .copilot-image-thumb {
     margin-bottom: 4px;
 }
@@ -845,6 +865,219 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     border-radius: 4px;
 }
 
+/* ============================================================
+   模式上拉条 & 模型下拉（新样式）
+   ============================================================ */
+
+/* ---- 模式上拉条 ---- */
+#copilot-mode-display,
+#copilot-model-display {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #ddd;
+    user-select: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+#copilot-mode-display:hover,
+#copilot-model-display:hover {
+    border-color: #888;
+    background: #3a3a3a;
+}
+
+#copilot-mode-options,
+#copilot-model-options {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: #2d2d2d;
+    border: 1px solid #555;
+    border-radius: 4px;
+    min-width: 120px;
+    display: none;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    overflow-y: auto;
+    max-height: 200px;
+}
+#copilot-mode-options {
+    min-width: 120px;
+}
+#copilot-model-options {
+    min-width: 180px;
+}
+
+.copilot-mode-option {
+    padding: 6px 12px;
+    cursor: pointer;
+    color: #ccc;
+    border-bottom: 1px solid #3a3a3a;
+    transition: background 0.15s;
+    font-size: 0.8rem;
+}
+.copilot-mode-option:hover {
+    background: #3a3a3a;
+}
+.copilot-mode-option.active {
+    background: #555;
+    color: #fff;
+}
+
+/* ---- 模型选项（带分组） ---- */
+.copilot-model-option {
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #ccc;
+    border-bottom: 1px solid #3a3a3a;
+    transition: background 0.15s;
+    font-size: 0.8rem;
+}
+.copilot-model-option:hover {
+    background: #3a3a3a;
+}
+.copilot-model-option img {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}
+.copilot-model-option.active {
+    background: #555;
+    color: #fff;
+}
+.copilot-model-divider {
+    height: 1px;
+    background: #444;
+    margin: 4px 8px;
+}
+
+/* ----- 图片上传标签 ----- */
+#copilot-image-label {
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #888;
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+    user-select: none;
+}
+#copilot-image-label:hover {
+    opacity: 0.7;
+}
+#copilot-image-label:has(+ input:not([disabled])) {
+    opacity: 1;
+}
+#copilot-image-label:has(+ input[disabled]) {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ----- 白板导入按钮 ----- */
+#copilot-whiteboard-import {
+    background: #333;
+    border: 1px solid #555;
+    color: #ddd;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+#copilot-whiteboard-import:hover {
+    background: #3a3a3a;
+    border-color: #888;
+}
+#copilot-whiteboard-import.active {
+    border-color: #88b4e6;
+    background: #2a3a4a;
+}
+
+/* ----- 白板导入面板（浮层） ----- */
+#copilot-whiteboard-panel {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background: #2d2d2d;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 4px;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+#copilot-whiteboard-panel.open {
+    display: block;
+}
+#copilot-whiteboard-panel textarea {
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ddd;
+    padding: 6px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.85rem;
+    min-height: 80px;
+}
+#copilot-whiteboard-panel .wb-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+#copilot-whiteboard-panel .wb-actions button {
+    background: #333;
+    border: 1px solid #555;
+    color: #ddd;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+#copilot-whiteboard-panel .wb-actions button:hover {
+    background: #3a3a3a;
+}
+#copilot-whiteboard-panel .wb-actions button.primary {
+    background: #555;
+    border-color: #777;
+}
+#copilot-whiteboard-panel .wb-actions button.primary:hover {
+    background: #666;
+}
+#copilot-whiteboard-status {
+    font-size: 0.7rem;
+    color: #888;
+    margin-top: 4px;
+}
+
+/* ----- 输入框样式 ----- */
+#copilot-input {
+    background: #1e1e1e;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ddd;
+    padding: 0.4rem;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: border-color 0.2s ease;
+}
+#copilot-input:focus {
+    border-color: #888;
+    outline: none;
+}
+
+/* ----- 移动端适配 ----- */
 @media (max-width: 768px) {
     #sidebar-copilot-view {
         width: 100%;
@@ -855,4 +1088,23 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     #copilot-model-dropdown {
         max-width: 120px;
     }
+    #copilot-mode-dropdown {
+        max-width: 100px;
+    }
+    .copilot-dot {
+        width: 6px;
+        height: 6px;
+    }
+    #copilot-dots {
+        right: 4px;
+        gap: 4px;
+    }
+}
+
+/* ----- 工具行紧凑适配 ----- */
+#sidebar-copilot-view .copilot-input-wrap {
+    background: #252525;
+}
+#sidebar-copilot-view .copilot-input-wrap textarea {
+    font-size: 0.85rem;
 }
