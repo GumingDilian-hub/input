@@ -1,11 +1,9 @@
 /* ========== 基础重置与全局深色主题 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
-/* ⭐ 新增：让所有可交互元素默认带极简过渡（不影响性能） */
 * { transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
 html {
-    scroll-behavior: smooth; /* ⭐ 让页面滚动丝滑 */
+    scroll-behavior: smooth;
 }
 
 body {
@@ -31,7 +29,6 @@ body {
     overflow-y: auto;
     user-select: none;
     padding-bottom: 3rem;
-    /* ⭐ 新增：侧边栏自身平滑过渡（配合拖拽磁吸） */
     transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .sidebar-header {
@@ -51,9 +48,9 @@ body {
     cursor: pointer;
     padding: 0 0.3rem;
     color: #bbb;
-    transition: background-color 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: background-color 0.2s ease, transform 0.15s ease;
 }
-.sidebar-header button:hover { background: #3a3a3a; border-radius: 3px; transform: scale(1.1); } /* ⭐ 加个微弹 */
+.sidebar-header button:hover { background: #3a3a3a; border-radius: 3px; transform: scale(1.1); }
 
 #toc-tree { padding: 0.5rem 0 2rem; }
 
@@ -68,12 +65,11 @@ body {
     color: #bbb;
     border-radius: 4px;
     margin: 0.1rem 0.3rem;
-    /* ⭐ 新增：目录项点击/悬停平滑 */
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, padding-left 0.2s ease;
 }
 .toc-item:hover {
     background: #383838;
-    transform: translateX(2px); /* ⭐ 微微右移，像被吸过去 */
+    transform: translateX(2px);
 }
 .toc-h1 { font-weight: 600; padding-left: 0.8rem; }
 .toc-h2 { padding-left: 1.8rem; font-size: 0.95rem; }
@@ -87,12 +83,11 @@ body {
     flex-shrink: 0;
 }
 
-/* 多级高亮 - ⭐ 增强高亮反馈 */
 .toc-item.active {
     background-color: #ffffff;
     color: #111;
     font-weight: 600;
-    transform: translateX(4px); /* ⭐ 高亮时再右移一点 */
+    transform: translateX(4px);
     box-shadow: 0 2px 8px rgba(255,255,255,0.08);
 }
 
@@ -105,10 +100,10 @@ body {
 }
 #resizer:hover {
     background: #fff;
-    transform: scaleX(1.5); /* ⭐ 悬停时变宽一点点，手感更清晰 */
+    transform: scaleX(1.5);
 }
 
-/* ========== 正文区域 - 白底 (阅读器用) ========== */
+/* ========== 正文区域 - 白底 ========== */
 #content {
     flex: 1;
     overflow-y: auto;
@@ -146,15 +141,15 @@ body {
     cursor: pointer;
     font-size: 0.9rem;
     backdrop-filter: blur(5px);
-    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
 }
 .toolbar-btn:hover {
     background: #3a3a3a;
     border-color: #888;
-    transform: scale(1.03); /* ⭐ 微弹 */
+    transform: scale(1.03);
 }
 
-/* ========== 面板通用（搜索/个人中心） ========== */
+/* ========== 面板通用 ========== */
 .panel-hidden {
     position: fixed;
     right: -360px;
@@ -163,7 +158,7 @@ body {
     height: 100vh;
     background: #2d2d2d;
     box-shadow: -4px 0 20px rgba(0,0,0,0.5);
-    transition: right 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); /* ⭐ 果冻弹出 */
+    transition: right 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 20;
     overflow-y: auto;
     color: #ccc;
@@ -182,14 +177,13 @@ body {
     cursor: pointer;
     color: #aaa;
     align-self: flex-end;
-    transition: transform 0.2s ease, color 0.2s ease; /* ⭐ */
+    transition: transform 0.2s ease, color 0.2s ease;
 }
 .close-btn:hover {
     color: #fff;
-    transform: rotate(90deg); /* ⭐ 优雅转一下 */
+    transform: rotate(90deg);
 }
 
-/* 搜索输入 */
 #search-input {
     width: 100%;
     padding: 0.6rem;
@@ -199,7 +193,7 @@ body {
     font-size: 1rem;
     background: #1e1e1e;
     color: #ddd;
-    transition: border-color 0.25s ease, box-shadow 0.25s ease; /* ⭐ */
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 #search-input:focus {
     border-color: #888;
@@ -212,7 +206,7 @@ body {
     border-bottom: 1px solid #444;
     cursor: pointer;
     line-height: 1.3;
-    transition: background 0.15s ease, transform 0.15s ease; /* ⭐ */
+    transition: background 0.15s ease, transform 0.15s ease;
 }
 .search-result-item:hover {
     background: #3a3a3a;
@@ -221,7 +215,6 @@ body {
 .search-result-item .title { font-weight: 600; color: #fff; font-size: 0.85rem; }
 .search-result-item .context { font-size: 0.75rem; color: #aaa; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 自动跟随开关 */
 .auto-scroll-toggle {
     margin-top: auto;
     padding: 1rem 0 0.5rem;
@@ -232,7 +225,7 @@ body {
 .auto-scroll-toggle label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 .auto-scroll-toggle input[type="checkbox"] { accent-color: #fff; width: 1rem; height: 1rem; }
 
-/* ========== 文章标题与内容 (阅读器用) ========== */
+/* ========== 文章标题与内容 ========== */
 #article-body h1 {
     font-size: 2rem;
     margin: 1.8rem 0 1rem;
@@ -253,7 +246,7 @@ pre {
 }
 code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; }
 
-/* ========== ⭐ 新增：章节入场淡入 ========== */
+/* ========== 章节入场淡入 ========== */
 .section-wrapper {
     opacity: 0;
     transform: translateY(12px);
@@ -262,7 +255,6 @@ code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9rem; }
 @keyframes fadeUp {
     to { opacity: 1; transform: translateY(0); }
 }
-/* 排队进场延迟（最多延迟 0.4s，避免等太久） */
 .section-wrapper:nth-child(1) { animation-delay: 0.02s; }
 .section-wrapper:nth-child(2) { animation-delay: 0.06s; }
 .section-wrapper:nth-child(3) { animation-delay: 0.10s; }
@@ -291,7 +283,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 
 .clearfix::after { content: ""; display: table; clear: both; }
 
-/* ========== 表格优化 (阅读器) ========== */
+/* ========== 表格优化 ========== */
 #article-body table {
     width: 100%;
     border-collapse: collapse;
@@ -316,7 +308,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 #article-body tr:hover td { background-color: #e6f0fa; transition: background-color 0.15s; }
 #article-body td code { background-color: #f0f0f0; }
 
-/* ========== 评论区样式 (阅读器) ========== */
+/* ========== 评论区样式 ========== */
 .comment-section {
     margin: 2rem 0 1rem;
     border-top: 1px solid #ddd;
@@ -330,7 +322,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     font-weight: 500;
     user-select: none;
     display: inline-block;
-    transition: color 0.2s ease, transform 0.2s ease; /* ⭐ */
+    transition: color 0.2s ease, transform 0.2s ease;
 }
 .comment-toggle:hover {
     color: #111;
@@ -349,7 +341,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     background: #f8f8f8;
     border-radius: 6px;
     border: 1px solid #e8e8e8;
-    /* ⭐ 新增：评论区展开/收起动画 */
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .comment-body[style*="display: none"] {
@@ -367,7 +358,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     margin-bottom: 1.2rem;
     padding-bottom: 0.8rem;
     border-bottom: 1px solid #eee;
-    /* ⭐ 新增：评论入场微动 */
     animation: commentSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     opacity: 0;
     transform: translateY(6px);
@@ -375,7 +365,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
 @keyframes commentSlide {
     to { opacity: 1; transform: translateY(0); }
 }
-/* 评论排队延迟 */
 .comment-item:nth-child(1) { animation-delay: 0.02s; }
 .comment-item:nth-child(2) { animation-delay: 0.04s; }
 .comment-item:nth-child(3) { animation-delay: 0.06s; }
@@ -419,11 +408,11 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     font-size: 0.85rem;
     padding: 0;
     margin-right: 0.8rem;
-    transition: color 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: color 0.2s ease, transform 0.15s ease;
 }
 .comment-actions button:hover {
     color: #111;
-    transform: scale(1.1); /* ⭐ 微弹 */
+    transform: scale(1.1);
 }
 
 .comment-pagination {
@@ -439,7 +428,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     border-radius: 4px;
     font-size: 0.85rem;
     color: #333;
-    transition: background 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 .comment-pagination button:hover {
     background: #e0e0e0;
@@ -468,7 +457,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     cursor: pointer;
     font-size: 0.9rem;
     color: #333;
-    transition: background 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 .auth-panel button:hover {
     background: #f0f0f0;
@@ -481,7 +470,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     border-radius: 4px;
     font-size: 0.9rem;
     width: 130px;
-    transition: border-color 0.2s ease; /* ⭐ */
+    transition: border-color 0.2s ease;
 }
 .auth-panel input:focus {
     border-color: #888;
@@ -499,7 +488,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     resize: vertical;
     font-size: 0.9rem;
     background: #fff;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease; /* ⭐ */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .input-area textarea:focus {
     border-color: #888;
@@ -515,7 +504,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: background 0.2s ease, transform 0.15s ease; /* ⭐ */
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 .input-area button:hover {
     background: #111;
@@ -528,7 +517,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     margin-left: 0.5rem;
 }
 
-/* ========== 固定底部占位 ========== */
+/* ========== 底部占位 ========== */
 .bottom-spacer {
     position: fixed;
     left: 0;
@@ -610,8 +599,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     border-bottom: 1px solid #333;
 }
 
-/* ========== ⭐ 移动端侧边栏适配 ========== */
-/* 汉堡按钮在宽屏下隐藏（由 JS 控制，但 CSS 保底） */
+/* ========== 移动端侧边栏适配 ========== */
 #btn-hamburger {
     display: none;
 }
@@ -621,7 +609,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         display: inline-block !important;
     }
 
-    /* 侧边栏改为固定定位，滑出屏幕 */
     #sidebar {
         position: fixed;
         top: 0;
@@ -640,7 +627,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         transform: translateX(0);
     }
 
-    /* 遮罩层 */
     #app::after {
         content: '';
         position: fixed;
@@ -660,22 +646,18 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         pointer-events: auto;
     }
 
-    /* 点击遮罩关闭侧边栏（光标反馈） */
     #app.sidebar-active::after {
         cursor: pointer;
     }
 
-    /* 分隔条在移动端隐藏 */
     #resizer {
         display: none;
     }
 
-    /* 正文内边距缩小 */
     #content {
         padding: 1.2rem 1rem 20px;
     }
 
-    /* 文章标题字号缩小 */
     #article-body h1 {
         font-size: 1.6rem;
     }
@@ -689,7 +671,6 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         font-size: 0.95rem;
     }
 
-    /* 表格字号缩小 */
     #article-body table {
         font-size: 0.8rem;
     }
@@ -698,12 +679,10 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         padding: 0.3rem 0.4rem;
     }
 
-    /* 评论区内边距缩小 */
     .comment-body {
         padding: 0.8rem 1rem;
     }
 
-    /* 工具栏按钮在移动端紧凑排列 */
     #toolbar {
         top: 6px;
         right: 8px;
@@ -714,12 +693,10 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         font-size: 0.75rem;
     }
 
-    /* 个人中心面板在移动端全屏 */
     #profile-panel {
         width: 100%;
     }
 
-    /* 搜索面板在移动端全屏 */
     .panel-hidden {
         width: 100%;
         right: -100%;
@@ -729,8 +706,7 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     }
 }
 
-/* ========== ⭐ 搜索高亮（黑底白字，圆角） ========== */
-/* 此样式已在 HTML head 中定义，但为防止 CSS 加载顺序问题，在这里也定义一次 */
+/* ========== 搜索高亮 ========== */
 .search-highlight {
     background: #000 !important;
     color: #fff !important;
@@ -738,4 +714,145 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
     padding: 0 4px;
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ========== Copilot 侧栏样式 ========== */
+#sidebar-copilot-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    background: #252525;
+}
+
+#copilot-model-dropdown.open #copilot-model-options {
+    display: block;
+}
+
+.copilot-model-option {
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #ccc;
+    border-bottom: 1px solid #3a3a3a;
+    transition: background 0.15s;
+}
+.copilot-model-option:hover {
+    background: #3a3a3a;
+}
+.copilot-model-option img {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}
+
+.copilot-mode-btn.active {
+    background: #555;
+    border-color: #888;
+    color: #fff;
+}
+
+.copilot-msg {
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 85%;
+    word-wrap: break-word;
+    line-height: 1.5;
+    background: #2a2a2a;
+    align-self: flex-start;
+    color: #ddd;
+}
+.copilot-msg-user {
+    align-self: flex-end;
+    background: #3a3a3a;
+    color: #eee;
+}
+.copilot-msg-assistant {
+    background: #1e1e1e;
+    border: 1px solid #333;
+}
+.copilot-msg p {
+    margin: 0;
+}
+
+.copilot-thinking {
+    margin-bottom: 6px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    border-left: 3px solid #555;
+}
+.thinking-toggle {
+    color: #888;
+    cursor: pointer;
+    font-size: 0.8rem;
+    user-select: none;
+}
+.thinking-toggle:hover {
+    color: #ccc;
+}
+.thinking-content {
+    margin-top: 4px;
+    color: #999;
+    font-style: italic;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.copilot-placeholder {
+    color: #888;
+    text-align: center;
+    padding: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.copilot-history-item {
+    padding: 4px 8px;
+    cursor: pointer;
+    color: #ccc;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    transition: background 0.1s;
+}
+.copilot-history-item:hover {
+    background: #3a3a3a;
+}
+.copilot-history-delete {
+    color: #888;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.copilot-history-delete:hover {
+    color: #fff;
+}
+.copilot-history-empty {
+    color: #666;
+    text-align: center;
+    padding: 0.5rem 0;
+    font-size: 0.8rem;
+}
+
+.copilot-image-thumb {
+    margin-bottom: 4px;
+}
+.copilot-image-thumb img {
+    max-width: 60px;
+    max-height: 60px;
+    border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+    #sidebar-copilot-view {
+        width: 100%;
+    }
+    .copilot-model-option {
+        font-size: 0.8rem;
+    }
+    #copilot-model-dropdown {
+        max-width: 120px;
+    }
 }
