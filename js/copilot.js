@@ -1,13 +1,11 @@
 // ============================================================
-// copilot.js - 与 reader.js 完全兼容
-// 依赖：window.state（由 reader.js 提供）
-// 包含：模式上拉、模型分组、轮次点、白板AI
-// 基于用户修正版本，增量添加所有新功能
+// copilot.js - 与 reader.js 完全兼容（修正版）
+// 依赖：window.state（由 reader.js 提供），若不存在则从 localStorage 读取
 // ============================================================
 
 (function() {
   // ---------- 配置 ----------
-  var WORKER_BASE_URL = 'https://rough-firefly-b2a7.2167964516.workers.dev';
+  var WORKER_BASE_URL = 'https://rough-firefly-b2a7.2167964516.workers.dev';  // 你的 Worker 地址
   var MAX_DOTS = 10;
   var LOGO_BASE = 'images/copilot/';
 
@@ -50,23 +48,82 @@
   var historyList, imageInput, imageLabel;
   var whiteboardImportBtn;
 
-  // ---------- 等待 reader.js 加载 ----------
+  // ---------- 确保登录状态 ----------
+  function ensureUserState() {
+    // 如果 window.state 已存在且包含用户，直接使用
+    if (window.state && window.state.user) {
+      console.log('[Copilot] 使用 window.state.user:', window.state.user);
+      return window.state.user;
+    }
+
+    // 否则尝试从 localStorage 恢复
+    try {
+      var saved = localStorage.getItem('iwp-user');
+      if (saved) {
+        var user = JSON.parse(saved);
+        // 构建兼容的 window.state（如果不存在）
+        if (!window.state) window.state = {};
+        window.state.user = user;
+        console.log('[Copilot] 从 localStorage 恢复用户:', user);
+        return user;
+      }
+    } catch (e) {
+      console.warn('[Copilot] 无法从 localStorage 读取用户:', e);
+    }
+
+    console.warn('[Copilot] 未找到用户状态');
+    return null;
+  }
+
+  // ---------- 等待 reader.js 加载并确保登录状态 ----------
   function waitForContent() {
-    if (window.contentRenderComplete) {
-      initCopilot();
-    } else if (window.contentRenderPromise) {
-      window.contentRenderPromise.then(initCopilot).catch(function() {
-        initCopilot();
-      });
-    } else {
-      var tries = 0;
-      var interval = setInterval(function() {
-        if (window.contentRenderComplete || tries > 20) {
-          clearInterval(interval);
+    // 首先等待内容渲染完成
+    var waitForRender = function() {
+      if (window.contentRenderComplete) {
+        // 内容已就绪，尝试获取用户状态
+        var user = ensureUserState();
+        if (user) {
+          initCopilot();
+        } else {
+          // 如果用户未登录，仍然初始化（显示登录提示）
+          console.log('[Copilot] 用户未登录，继续初始化');
           initCopilot();
         }
-        tries++;
-      }, 300);
+      } else if (window.contentRenderPromise) {
+        window.contentRenderPromise
+          .then(function() {
+            var user = ensureUserState();
+            if (user) {
+              initCopilot();
+            } else {
+              initCopilot();
+            }
+          })
+          .catch(function() {
+            initCopilot();
+          });
+      } else {
+        var tries = 0;
+        var interval = setInterval(function() {
+          if (window.contentRenderComplete || tries > 20) {
+            clearInterval(interval);
+            var user = ensureUserState();
+            if (user) {
+              initCopilot();
+            } else {
+              initCopilot();
+            }
+          }
+          tries++;
+        }, 300);
+      }
+    };
+
+    // 如果 DOM 已加载完成，直接开始等待
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      waitForRender();
+    } else {
+      document.addEventListener('DOMContentLoaded', waitForRender);
     }
   }
 
@@ -465,7 +522,9 @@
       copilotView.style.display = 'flex';
       if (tocView) tocView.style.display = 'none';
       btnCopilot.textContent = '关闭 Copilot';
-      if (window.state && window.state.user) {
+      // 检查登录状态
+      var user = ensureUserState();
+      if (user) {
         if (messagesContainer.children.length === 0 || messagesContainer.querySelector('.copilot-placeholder')) {
           showWelcome();
         }
@@ -479,10 +538,14 @@
   async function sendMessage() {
     var text = inputArea.value.trim();
     if (!text && !currentImageBase64) return;
-    if (!window.state || !window.state.user) {
+
+    // 获取用户状态
+    var user = ensureUserState();
+    if (!user) {
       alert('请先登录');
       return;
     }
+
     if (isProcessing) return;
     isProcessing = true;
     sendBtn.disabled = true;
@@ -546,7 +609,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + window.state.user.token
+          'Authorization': 'Bearer ' + user.token
         },
         body: JSON.stringify(payload)
       });
@@ -630,10 +693,11 @@
 
   // ---------- 历史记录 ----------
   async function loadHistoryList() {
-    if (!window.state || !window.state.user) return;
+    var user = ensureUserState();
+    if (!user) return;
     try {
       var res = await fetch(WORKER_BASE_URL + '/api/history', {
-        headers: { 'Authorization': 'Bearer ' + window.state.user.token }
+        headers: { 'Authorization': 'Bearer ' + user.token }
       });
       if (!res.ok) throw new Error('load history failed');
       var list = await res.json();
@@ -671,10 +735,11 @@
   }
 
   async function loadHistoryItem(id) {
-    if (!window.state || !window.state.user) return;
+    var user = ensureUserState();
+    if (!user) return;
     try {
       var res = await fetch(WORKER_BASE_URL + '/api/history/' + id, {
-        headers: { 'Authorization': 'Bearer ' + window.state.user.token }
+        headers: { 'Authorization': 'Bearer ' + user.token }
       });
       if (!res.ok) throw new Error('load detail failed');
       var data = await res.json();
@@ -700,14 +765,15 @@
   }
 
   async function saveCurrentChat() {
-    if (!window.state || !window.state.user || messageHistory.length < 2) return;
+    var user = ensureUserState();
+    if (!user || messageHistory.length < 2) return;
     var title = messageHistory[0]?.content?.slice(0, 30) || '新对话';
     try {
       await fetch(WORKER_BASE_URL + '/api/history', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + window.state.user.token
+          'Authorization': 'Bearer ' + user.token
         },
         body: JSON.stringify({ messages: messageHistory, title: title })
       });
@@ -718,12 +784,13 @@
   }
 
   async function deleteHistoryItem(id) {
-    if (!window.state || !window.state.user) return;
+    var user = ensureUserState();
+    if (!user) return;
     if (!confirm('删除此历史记录？')) return;
     try {
       await fetch(WORKER_BASE_URL + '/api/history/' + id, {
         method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + window.state.user.token }
+        headers: { 'Authorization': 'Bearer ' + user.token }
       });
       loadHistoryList();
     } catch (e) {
@@ -851,7 +918,8 @@
     updateImageUploadState();
     updateWhiteboardUI();
 
-    if (window.state && window.state.user) {
+    var user = ensureUserState();
+    if (user) {
       showWelcome();
     } else {
       messagesContainer.innerHTML = '<div class="copilot-placeholder">请先登录（使用评论区登录）</div>';
@@ -861,6 +929,7 @@
   }
 
   // ---------- 启动 ----------
+  // 等待 DOM 就绪后开始等待内容
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', waitForContent);
   } else {
