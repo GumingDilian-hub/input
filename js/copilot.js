@@ -6,7 +6,7 @@
 
 (function() {
   // ---------- 配置 ----------
-  var WORKER_BASE_URL = 'https://rough-firefly-b2a7.2167964516.workers.dev';
+  var WORKER_BASE_URL = 'https://copilot.2167964516.workers.dev';
   var MAX_DOTS = 10;
   var LOGO_BASE = 'images/copilot/';
   var ADMIN_USERNAME = 'loading';  // 与 reader.js 的 CONFIG.ADMIN_USERNAME 保持一致
