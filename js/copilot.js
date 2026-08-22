@@ -1,8 +1,13 @@
 // ============================================================
 // copilot.js - 依赖 reader.js 中的 state.user
+// 修改点：在下方设置 WORKER_BASE_URL 为你的 Cloudflare Worker 域名
 // ============================================================
 
 (function() {
+  // ---------- 在这里修改 Worker 地址（必填） ----------
+  const WORKER_BASE_URL = 'https://你的worker域名.workers.dev';  // 替换为你的 Worker 域名
+  // ---------------------------------------------------------
+
   // ---------- DOM 引用 ----------
   const btnCopilot = document.getElementById('btn-copilot');
   const tocView = document.getElementById('sidebar-toc-view');
@@ -238,7 +243,7 @@
     };
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(WORKER_BASE_URL + '/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -365,7 +370,7 @@
   async function loadHistoryList() {
     if (!window.state || !window.state.user) return;
     try {
-      const res = await fetch('/api/history', {
+      const res = await fetch(WORKER_BASE_URL + '/api/history', {
         headers: { 'Authorization': `Bearer ${window.state.user.token}` },
       });
       if (!res.ok) throw new Error('load history failed');
@@ -399,7 +404,7 @@
   async function loadHistoryItem(id) {
     if (!window.state || !window.state.user) return;
     try {
-      const res = await fetch(`/api/history/${id}`, {
+      const res = await fetch(WORKER_BASE_URL + `/api/history/${id}`, {
         headers: { 'Authorization': `Bearer ${window.state.user.token}` },
       });
       if (!res.ok) throw new Error('load detail failed');
@@ -457,7 +462,7 @@
     if (!window.state || !window.state.user || messageHistory.length < 2) return;
     const title = messageHistory[0]?.content?.slice(0, 30) || '新对话';
     try {
-      await fetch('/api/history', {
+      await fetch(WORKER_BASE_URL + '/api/history', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -475,7 +480,7 @@
     if (!window.state || !window.state.user) return;
     if (!confirm('删除此历史记录？')) return;
     try {
-      await fetch(`/api/history/${id}`, {
+      await fetch(WORKER_BASE_URL + `/api/history/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${window.state.user.token}` },
       });
