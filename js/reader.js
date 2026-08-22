@@ -1,4 +1,4 @@
-/* ========== reader.js (完整修复版) ========== */
+/* ========== reader.js (完整修复版 - 错误分类 + 双参数兼容) ========== */
 const CONFIG = {
     COMMENT_API: 'https://copilot.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -34,27 +34,65 @@ const escapeHtml = (unsafe) => {
         .replace(/'/g, "&#039;");
 };
 
+/* ========== 增强 safeFetch（保留完整错误信息） ========== */
 async function safeFetch(url, options = {}) {
-    const res = await fetch(url, options);
-    if (!res.ok) {
-        let errorMsg = `HTTP ${res.status}`;
-        try {
-            const text = await res.text();
-            const parsed = JSON.parse(text);
-            errorMsg = parsed.error || parsed.message || text;
-        } catch (_) {
-            errorMsg = await res.text() || errorMsg;
+    try {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            let errorMsg = `HTTP ${res.status}`;
+            let errorBody = null;
+            let parsed = null;
+            try {
+                const text = await res.text();
+                errorBody = text;
+                parsed = JSON.parse(text);
+                if (parsed.error) errorMsg = parsed.error;
+                else if (parsed.message) errorMsg = parsed.message;
+                else if (parsed.detail) errorMsg = parsed.detail;
+            } catch (_) {}
+            const err = new Error(errorMsg);
+            err.status = res.status;
+            err.body = errorBody;
+            err.parsed = parsed;
+            throw err;
         }
-        throw new Error(errorMsg);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return await res.json();
+        }
+        return await res.text();
+    } catch (error) {
+        if (!error.status) error.status = 0;
+        console.error('[safeFetch]', error);
+        throw error;
     }
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-        return await res.json();
-    }
-    return await res.text();
 }
 
-/* ========== 全局登录/注册（兼容双参数） ========== */
+/* ========== 错误分类 ========== */
+function classifyAuthError(err) {
+    const status = err.status || 0;
+    const msg = err.message || '';
+    const body = err.body || '';
+
+    if (status === 409 || msg.includes('已存在') || body.includes('已存在')) {
+        return { type: 'USERNAME_EXISTS', friendly: '用户名已被占用，请换一个。' };
+    }
+    if (status === 401 || msg.includes('密码') || msg.includes('账号')) {
+        return { type: 'WRONG_CREDENTIALS', friendly: '用户名或密码错误，请重新输入。' };
+    }
+    if (status === 400 && (msg.includes('不能为空') || body.includes('不能为空'))) {
+        return { type: 'MISSING_FIELDS', friendly: '请填写完整的用户名和密码。' };
+    }
+    if (status === 500 || msg.includes('PBKDF2') || body.includes('PBKDF2')) {
+        return { type: 'SERVER_ERROR', friendly: '服务器加密算法错误，请确保 Worker 迭代次数 ≤ 100000。' };
+    }
+    if (status === 0 || msg.includes('fetch') || msg.includes('network')) {
+        return { type: 'NETWORK_ERROR', friendly: '网络连接失败，请检查网络后重试。' };
+    }
+    return { type: 'UNKNOWN', friendly: '未知错误：' + msg };
+}
+
+/* ========== 全局登录（兼容双参数） ========== */
 async function doLogin(usernameOrSection, password) {
     let u, p, sectionId = null;
 
@@ -63,28 +101,23 @@ async function doLogin(usernameOrSection, password) {
         p = password;
     } else {
         sectionId = usernameOrSection;
-        const userInput = document.getElementById(`login-user-${sectionId}`);
-        const passInput = document.getElementById(`login-pass-${sectionId}`);
+        const userInput = document.getElementById('login-user-' + sectionId);
+        const passInput = document.getElementById('login-pass-' + sectionId);
         u = userInput?.value.trim() || '';
         p = passInput?.value || '';
     }
 
     if (!u || !p) {
-        alert('请填写完整');
+        alert('请填写完整的用户名和密码');
         return;
     }
 
     try {
-        const data = await safeFetch(`${CONFIG.COMMENT_API}/login`, {
+        const data = await safeFetch(CONFIG.COMMENT_API + '/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: u, password: p })
         });
-
-        if (data && data.error) {
-            alert('登录失败：' + data.error);
-            return;
-        }
 
         if (data && data.token) {
             state.user = { username: u, token: data.token };
@@ -104,14 +137,18 @@ async function doLogin(usernameOrSection, password) {
             if (window.blogApp && typeof window.blogApp.loadComments === 'function') {
                 window.blogApp.loadComments();
             }
-        } else {
-            alert('登录失败：未知错误');
+            alert('✅ 登录成功，欢迎回来 ' + u);
+            return;
         }
+        alert('登录失败：未知错误');
     } catch (err) {
-        alert('登录请求异常：' + err.message);
+        const cls = classifyAuthError(err);
+        alert('❌ ' + cls.friendly);
+        console.error('[登录错误]', err);
     }
 }
 
+/* ========== 全局注册（兼容双参数 + 错误分类） ========== */
 async function doRegister(usernameOrSection, password) {
     let u, p, sectionId = null;
 
@@ -120,28 +157,23 @@ async function doRegister(usernameOrSection, password) {
         p = password;
     } else {
         sectionId = usernameOrSection;
-        const userInput = document.getElementById(`reg-user-${sectionId}`);
-        const passInput = document.getElementById(`reg-pass-${sectionId}`);
+        const userInput = document.getElementById('reg-user-' + sectionId);
+        const passInput = document.getElementById('reg-pass-' + sectionId);
         u = userInput?.value.trim() || '';
         p = passInput?.value || '';
     }
 
     if (!u || !p) {
-        alert('请填写完整');
+        alert('请填写完整的用户名和密码');
         return;
     }
 
     try {
-        const data = await safeFetch(`${CONFIG.COMMENT_API}/register`, {
+        const data = await safeFetch(CONFIG.COMMENT_API + '/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: u, password: p })
         });
-
-        if (data && data.error) {
-            alert('注册失败：' + data.error);
-            return;
-        }
 
         if (data && data.token) {
             state.user = { username: u, token: data.token };
@@ -161,11 +193,18 @@ async function doRegister(usernameOrSection, password) {
             if (window.blogApp && typeof window.blogApp.loadComments === 'function') {
                 window.blogApp.loadComments();
             }
-        } else {
-            alert('注册失败：未知错误');
+            alert('🎉 注册成功！欢迎 ' + u);
+            return;
         }
+        alert('注册失败：未知错误');
     } catch (err) {
-        alert('注册请求异常：' + err.message);
+        const cls = classifyAuthError(err);
+        let extra = '';
+        if (cls.type === 'SERVER_ERROR') {
+            extra = '\n（请检查 Worker PBKDF2 迭代次数是否 ≤ 100000）';
+        }
+        alert('❌ ' + cls.friendly + extra);
+        console.error('[注册错误]', err);
     }
 }
 
@@ -265,7 +304,7 @@ async function fetchCommentsForSection(sectionId) {
     if (!listEl) return;
     listEl.innerHTML = '少女祈祷中...';
     try {
-        const data = await safeFetch(`${CONFIG.COMMENT_API}/comments?section=${encodeURIComponent(sectionId)}&limit=100`);
+        const data = await safeFetch(CONFIG.COMMENT_API + '/comments?section=' + encodeURIComponent(sectionId) + '&limit=100');
         const flat = data && data.comments ? data.comments : [];
         state.comments[sectionId] = flat;
         if (countBadge) countBadge.textContent = '(' + (data && data.total ? data.total : flat.length) + ')';
@@ -292,10 +331,8 @@ function renderCommentsForSection(sectionId) {
 function buildCommentTree(flatComments) {
     const map = {};
     const roots = [];
-    flatComments.forEach(c => {
-        c.children = [];
-        map[c.id] = c;
-    });
+    flatComments.forEach(c => { c.children = [];
+        map[c.id] = c; });
     flatComments.forEach(c => {
         if (c.parent_id && map[c.parent_id]) {
             map[c.parent_id].children.push(c);
@@ -472,7 +509,7 @@ async function doReply(parentId, sectionId) {
     const content = input?.value.trim();
     if (!content) return;
     try {
-        await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
+        await safeFetch(CONFIG.COMMENT_API + '/comments', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -490,7 +527,7 @@ async function likeComment(commentId, sectionId) {
     if (!state.user) return alert('请先登录');
     if (state.likedComments.has(commentId)) return alert('你已经点过赞了');
     try {
-        await safeFetch(`${CONFIG.COMMENT_API}/comments/${commentId}/like`, {
+        await safeFetch(CONFIG.COMMENT_API + '/comments/' + commentId + '/like', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + state.user.token }
         });
@@ -507,7 +544,7 @@ async function submitComment(sectionId) {
     const content = input?.value.trim();
     if (!content) return;
     try {
-        await safeFetch(`${CONFIG.COMMENT_API}/comments`, {
+        await safeFetch(CONFIG.COMMENT_API + '/comments', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -535,10 +572,10 @@ function restoreUserSession() {
     }
 }
 
-/* ========== 内容加载（原有功能） ========== */
+/* ========== 内容加载（原有功能全部保留） ========== */
 document.addEventListener('DOMContentLoaded', async () => {
     restoreUserSession();
-    const overlay = $('#loading-overlay');
+    const overlay = document.getElementById('loading-overlay');
     window.contentRenderComplete = false;
     window.contentRenderPromise = loadAllContent();
     await window.contentRenderPromise;
@@ -553,7 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initProgress();
     initAuthorPanel();
     initChapterSelect();
-    const body = $('#article-body');
+    const body = document.getElementById('article-body');
     if (body) {
         injectCommentSections(body);
         setupGlobalCommentListeners();
@@ -563,15 +600,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (closeSearch) {
         closeSearch.addEventListener('click', () => {
             clearHighlight();
-            const results = $('#search-results');
+            const results = document.getElementById('search-results');
             if (results) results.innerHTML = '';
         });
     }
 });
 
 async function loadAllContent() {
-    const body = $('#article-body');
-    const progressText = $('#progress-text');
+    const body = document.getElementById('article-body');
+    const progressText = document.getElementById('progress-text');
     if (!body) return;
     const total = CONFIG.CHAPTERS.length;
     const fetchPromises = CONFIG.CHAPTERS.map((path) =>
@@ -672,9 +709,7 @@ function extractAndRemoveFrontMatter(md) {
 
 function postProcessImages(container, chapterNum) {
     container.querySelectorAll('img').forEach(img => {
-        img.onerror = function() {
-            this.src = CONFIG.DEFAULT_AVATAR;
-        };
+        img.onerror = function() { this.src = CONFIG.DEFAULT_AVATAR; };
         const alt = img.alt || '';
         const match = alt.match(/\{(left|right|around|center)\s*(?:width=(\d+))?\}/);
         if (match) {
@@ -716,7 +751,7 @@ function postProcessFigure(container) {
 }
 
 function renderMath() {
-    const body = $('#article-body');
+    const body = document.getElementById('article-body');
     if (body && typeof renderMathInElement === 'function') {
         renderMathInElement(body, {
             delimiters: [
@@ -733,7 +768,7 @@ function renderVersionInfo(results) {
     for (const r of results) {
         if (r.meta && r.meta.title) { versionMeta = r.meta; break; }
     }
-    const versionDiv = $('#version-info');
+    const versionDiv = document.getElementById('version-info');
     if (versionMeta && versionDiv) {
         versionDiv.innerHTML =
             '<strong>' + escapeHtml(versionMeta.title || '') + '</strong>' +
@@ -745,8 +780,8 @@ function renderVersionInfo(results) {
 }
 
 function initSidebar() {
-    const resizer = $('#resizer');
-    const sidebar = $('#sidebar');
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
     if (!resizer || !sidebar) return;
     let isResizing = false;
     resizer.addEventListener('mousedown', () => { isResizing = true;
@@ -775,7 +810,7 @@ function initSidebar() {
 }
 
 function buildTOC() {
-    const toc = $('#toc-tree');
+    const toc = document.getElementById('toc-tree');
     if (!toc) return;
     toc.innerHTML = '';
     const headings = $$('#article-body h1, #article-body h2, #article-body h3');
@@ -842,8 +877,8 @@ function toggleTOCChildren(headingId, toggleEl) {
 }
 
 function initSearch() {
-    const input = $('#search-input');
-    const results = $('#search-results');
+    const input = document.getElementById('search-input');
+    const results = document.getElementById('search-results');
     if (!input || !results) return;
     let debounceTimer;
     let textNodeMap = new WeakMap();
@@ -1062,8 +1097,9 @@ function highlightSearchTerm(term, targetIndex = 0) {
 
 function initScrollSpy() {
     const tocItems = $$('.toc-item');
-    const autoCheckbox = $('#auto-scroll-checkbox');
-    const rootEl = $('#content');
+    const autoCheckbox = document.getElementById('auto-scroll-checkbox');
+    const rootEl = document.getElementById('content');
+
     function highlightChain(targetId) {
         tocItems.forEach(i => i.classList.remove('active'));
         let current = $('.toc-item[data-target="' + targetId + '"]');
@@ -1106,7 +1142,7 @@ function initScrollSpy() {
 }
 
 function initProgress() {
-    const content = $('#content');
+    const content = document.getElementById('content');
     if (!content) return;
     const saved = localStorage.getItem('iwp-progress');
     if (saved) content.scrollTop = parseInt(saved) || 0;
@@ -1118,13 +1154,13 @@ function initProgress() {
 }
 
 function initAuthorPanel() {
-    const btn = $('#btn-author');
-    const panel = $('#author-panel');
-    const close = $('#close-author');
+    const btn = document.getElementById('btn-author');
+    const panel = document.getElementById('author-panel');
+    const close = document.getElementById('close-author');
     if (!btn || !panel || !close) return;
     btn.addEventListener('click', async () => {
         panel.classList.add('panel-visible');
-        const info = $('#author-info');
+        const info = document.getElementById('author-info');
         if (panel.classList.contains('loaded') || !info) return;
         try {
             const resp = await fetch(CONFIG.AUTHOR_MD);
@@ -1163,7 +1199,7 @@ function initAuthorPanel() {
 }
 
 function initChapterSelect() {
-    const select = $('#chapter-select');
+    const select = document.getElementById('chapter-select');
     if (!select) return;
     $$('#article-body h1').forEach(h1 => {
         if (!h1.id) h1.id = 'h-' + Math.random().toString(36).substr(2, 8);
@@ -1263,6 +1299,7 @@ function setupGlobalCommentListeners() {
 function initMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
+
     function handleResize() {
         if (!sidebar || !app) return;
         if (window.innerWidth >= 768) {
@@ -1276,6 +1313,7 @@ function initMobileSidebar() {
         resizeTimer = setTimeout(handleResize, 150);
     });
     handleResize();
+
     document.addEventListener('click', function(e) {
         if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
             if (!sidebar.contains(e.target) && !e.target.closest('#toolbar')) {
