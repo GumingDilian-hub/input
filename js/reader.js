@@ -1,4 +1,4 @@
-/* ========== reader.js (最终版：统一外部点击关闭) ========== */
+/* ========== reader.js (稳定版：单一状态源) ========== */
 const CONFIG = {
     COMMENT_API: 'https://copilot.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
@@ -123,7 +123,6 @@ async function loadAllContent() {
     if (progressText) progressText.textContent = '少女祈祷中...';
     body.innerHTML = '';
 
-    // 分时渲染循环，每个章节渲染后让步，避免长时间阻塞主线程
     const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
 
     for (let i = 0; i < results.length; i++) {
@@ -131,7 +130,6 @@ async function loadAllContent() {
         if (!chunk) continue;
         const sectionDiv = document.createElement('div');
         sectionDiv.className = 'section-wrapper clearfix';
-        // 使用 content-visibility 优化不可见区域渲染性能
         sectionDiv.style.contentVisibility = 'auto';
         sectionDiv.style.containIntrinsicSize = 'auto 500px';
         try {
@@ -146,7 +144,6 @@ async function loadAllContent() {
         });
         body.appendChild(sectionDiv);
         if (progressText) progressText.textContent = `少女祈祷中... ${i + 1}/${total}`;
-        // 让出主线程，确保 UI 响应
         await yieldToMain();
     }
     renderMath();
@@ -378,22 +375,20 @@ function toggleSectionVisibility(headingId, toggleEl) {
     toggleTOCChildren(headingId, toggleEl);
 }
 
-/* ========== 搜索功能：基于文档顺序的标题归属 ========== */
+/* ========== 搜索功能 ========== */
 function initSearch() {
     const input = $('#search-input');
     const results = $('#search-results');
     if (!input || !results) return;
     let debounceTimer;
 
-    // 构建文本节点到标题的映射表（按文档顺序）
-    let textNodeMap = new WeakMap(); // 存储每个文本节点对应的标题文本
+    let textNodeMap = new WeakMap();
 
     function buildHeadingMap() {
         textNodeMap = new WeakMap();
         const body = document.getElementById('article-body');
         if (!body) return;
         let currentHeading = '未分类';
-        // 遍历所有节点，按顺序记录
         const walker = document.createTreeWalker(
             body,
             NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
@@ -407,44 +402,34 @@ function initSearch() {
                 if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
                     currentHeading = node.textContent.trim();
                 }
-                // 如果是评论区或其他无关元素，可以跳过但这里保留
             } else if (node.nodeType === Node.TEXT_NODE) {
-                // 只记录非空文本节点
                 if (node.textContent.trim()) {
                     textNodeMap.set(node, currentHeading);
                 }
             }
         }
-        // 如果没有任何标题，使用文章第一个 h1 作为默认
         if (currentHeading === '未分类') {
             const h1 = document.querySelector('#article-body h1');
             if (h1) {
                 const defaultHeading = h1.textContent.trim();
-                // 将所有未分类的改为默认
-                // 但为了简单，我们直接设置一个全局默认，在查找时处理
             }
         }
     }
 
-    // 在页面加载完成后构建一次映射
     setTimeout(buildHeadingMap, 500);
 
-    // 查找标题函数：如果映射中有则返回，否则回退到默认
     function findNearestHeading(node) {
         if (textNodeMap.has(node)) {
             return textNodeMap.get(node);
         }
-        // 如果映射中没有（可能是动态新增的），尝试用 closest 兜底
         if (node.parentElement) {
             const heading = node.parentElement.closest('h1, h2, h3');
             if (heading) return heading.textContent.trim();
         }
-        // 最终回退到文章第一个 h1
         const h1 = document.querySelector('#article-body h1');
         return h1 ? h1.textContent.trim() : '未分类';
     }
 
-    // 辅助：提取上下文（前后各10字符，尽量按空格截断）
     function extractContext(text, start, end, maxLen = 10) {
         const fullLen = text.length;
         let ctxStart = Math.max(0, start - maxLen);
@@ -470,7 +455,6 @@ function initSearch() {
     }
 
     async function performSearch(term) {
-        // 如果内容尚未完全渲染，等待渲染完成以确保搜索全面
         if (!window.contentRenderComplete && window.contentRenderPromise) {
             await window.contentRenderPromise;
         }
@@ -480,7 +464,6 @@ function initSearch() {
             return;
         }
         clearHighlight();
-        // 重新构建一次映射，确保最新（因为可能页面内容有变化）
         buildHeadingMap();
         const body = document.getElementById('article-body');
         if (!body) return;
@@ -508,7 +491,7 @@ function initSearch() {
                     start: match.index,
                     end: regex.lastIndex,
                     matchText: match[0],
-                    heading: findNearestHeading(node)   // 使用映射
+                    heading: findNearestHeading(node)
                 });
             }
         }
@@ -519,13 +502,11 @@ function initSearch() {
             results.appendChild(empty);
             return;
         }
-        // 构建结果列表
         matches.forEach((m, idx) => {
             const fullText = m.textNode.textContent;
             const ctx = extractContext(fullText, m.start, m.end, 10);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            // 显示所属标题（无 emoji）
             const headingDiv = document.createElement('div');
             headingDiv.className = 'result-heading';
             headingDiv.textContent = '# ' + m.heading;
@@ -534,7 +515,6 @@ function initSearch() {
             headingDiv.style.fontSize = '0.85rem';
             headingDiv.style.marginBottom = '2px';
             div.appendChild(headingDiv);
-            // 显示上下文，匹配词加粗
             const contextDiv = document.createElement('div');
             contextDiv.className = 'result-context';
             contextDiv.style.fontSize = '0.85rem';
@@ -542,11 +522,8 @@ function initSearch() {
             const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
             contextDiv.innerHTML = displayHtml;
             div.appendChild(contextDiv);
-            // 点击时高亮全部匹配并滚动到该匹配
             div.addEventListener('click', () => {
                 highlightSearchTerm(term.trim(), idx);
-                // 可选关闭面板
-                // toggleSearchPanel();
             });
             results.appendChild(div);
         });
@@ -560,7 +537,6 @@ function initSearch() {
         }, 300);
     });
 
-    // 暴露重建映射函数，以便动态调用
     window.rebuildHeadingMap = buildHeadingMap;
 }
 
@@ -574,7 +550,7 @@ function toggleSearchPanel() {
     }
 }
 
-/* ========== 搜索高亮（黑底白字，圆角，支持指定匹配索引） ========== */
+/* ========== 搜索高亮 ========== */
 let currentHighlights = [];
 
 function clearHighlight() {
@@ -986,28 +962,16 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
 /* ========== 登录、注册、回复、点赞 ========== */
 function restoreUserSession() {
     try {
-        if (typeof getProfileUser === 'function') {
-            const pu = getProfileUser();
-            if (pu) {
-                state.user = pu;
-            } else {
-                const saved = localStorage.getItem('iwp-user');
-                if (saved) {
-                    try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
-                } else {
-                    state.user = null;
-                }
-            }
-        } else if (typeof window.profileUser !== 'undefined' && window.profileUser) {
-            state.user = window.profileUser;
-        } else {
-            const saved = localStorage.getItem('iwp-user');
-            if (saved) {
-                try { state.user = JSON.parse(saved); } catch (e) { state.user = null; }
-            } else {
+        const saved = localStorage.getItem('iwp-user');
+        if (saved) {
+            try {
+                state.user = JSON.parse(saved);
+                return;
+            } catch (e) {
                 state.user = null;
             }
         }
+        state.user = null;
     } catch (e) {
         console.error('restoreUserSession error', e);
         state.user = null;
@@ -1196,7 +1160,6 @@ async function doReply(parentId, sectionId) {
     }
 }
 
-// 点赞防抖 + 单账号一次点赞
 const likeDebounceMap = new Map();
 async function likeComment(commentId, sectionId) {
     if (!state.user) {
@@ -1244,11 +1207,28 @@ function setupGlobalCommentListeners() {
     window.doLogout = doLogout;
 }
 
-document.addEventListener('profile-login', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
-document.addEventListener('profile-logout', () => { try { restoreUserSession(); } catch (e) { console.error(e); } });
-window.addEventListener('storage', (e) => { if (e.key === 'iwp-user') { try { restoreUserSession(); } catch (err) { console.error(err); } } });
+// 登录/登出事件只用于通知，不再触发 restoreUserSession
+document.addEventListener('profile-login', (e) => {
+    // 其他模块（如 Copilot）监听此事件更新 UI
+    // reader.js 自身不再做任何状态覆盖
+});
 
-/* ========== 移动端侧边栏适配（统一外部点击关闭） ========== */
+document.addEventListener('profile-logout', () => {
+    // 其他模块监听此事件更新 UI
+    // reader.js 自身不再做任何状态恢复
+});
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'iwp-user') {
+        try { state.user = e.newValue ? JSON.parse(e.newValue) : null; } catch (err) { state.user = null; }
+        $$('.auth-panel').forEach(p => {
+            const sec = p.closest('.comment-section');
+            if (sec) updateAuthUI(sec.getAttribute('data-section-id'));
+        });
+    }
+});
+
+/* ========== 移动端侧边栏适配 ========== */
 function initMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const app = document.getElementById('app');
@@ -1256,7 +1236,6 @@ function initMobileSidebar() {
     const searchPanel = document.getElementById('search-panel');
     const profilePanel = document.getElementById('profile-panel');
 
-    // 响应式关闭侧栏（宽度>=768时强制关闭）
     function handleResize() {
         if (!sidebar || !app) return;
         if (window.innerWidth >= 768) {
@@ -1271,9 +1250,7 @@ function initMobileSidebar() {
     });
     handleResize();
 
-    // 统一外部点击关闭所有浮层
     document.addEventListener('click', function(e) {
-        // 1. 关闭侧栏（仅移动端）
         if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('sidebar-open')) {
             if (!sidebar.contains(e.target) && !toolbar.contains(e.target)) {
                 sidebar.classList.remove('sidebar-open');
@@ -1281,19 +1258,15 @@ function initMobileSidebar() {
             }
         }
 
-        // 2. 关闭搜索面板（参照 toggleSearchPanel 逻辑）
         if (searchPanel && searchPanel.classList.contains('panel-visible')) {
             if (!searchPanel.contains(e.target) && !toolbar.contains(e.target)) {
-                // 与 toggleSearchPanel 关闭时保持一致：移除类、清除高亮、清空结果
                 searchPanel.classList.remove('panel-visible');
-                // 清除高亮和结果（由 clearHighlight 和清空结果处理）
                 if (typeof clearHighlight === 'function') clearHighlight();
                 const results = document.getElementById('search-results');
                 if (results) results.innerHTML = '';
             }
         }
 
-        // 3. 关闭个人中心面板
         if (profilePanel && profilePanel.style.display === 'block') {
             if (!profilePanel.contains(e.target) && !toolbar.contains(e.target)) {
                 if (typeof closeProfile === 'function') {
