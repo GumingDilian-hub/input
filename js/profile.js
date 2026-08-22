@@ -1,5 +1,7 @@
-/* ========== profile.js (完整稳定版) ========== */
-/* 依赖：reader.js 或 blog.js 提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
+/* ========== profile.js (稳定版：单一状态源) ========== */
+/* 依赖：reader.js 提供 $, CONFIG, state, escapeHtml, safeFetch, doLogin, doRegister, doLogout */
+
+const PROFILE_API = 'https://copilot.2167964516.workers.dev';
 
 function openProfile() {
   const panel = $('#profile-panel');
@@ -20,6 +22,7 @@ async function renderProfileContent() {
   if (!container) return;
   container.innerHTML = '<div style="color:#888;text-align:center;padding:2rem;">加载中...</div>';
 
+  // 直接从 state.user 读取，不再调用任何外部函数
   if (!state.user) {
     renderLoginForm(container);
     return;
@@ -27,12 +30,12 @@ async function renderProfileContent() {
 
   let fullUser = null;
   try {
-    const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
+    const res = await safeFetch(`${PROFILE_API}/users/me`, {
       headers: { 'Authorization': `Bearer ${state.user.token}` }
     });
     if (res && res.user) fullUser = res.user;
   } catch (e) {
-    console.warn('啊我死了', e);
+    console.warn('获取用户信息失败', e);
   }
 
   const user = { ...state.user, ...(fullUser || {}) };
@@ -147,24 +150,34 @@ function renderLoginForm(container) {
 
   const loginBtn = document.createElement('button');
   loginBtn.textContent = '登录';
-  loginBtn.addEventListener('click', () => {
-    userInput.id = 'login-user-profile';
-    passInput.id = 'login-pass-profile';
-    if (typeof doLogin === 'function') {
-      doLogin('profile');
-      setTimeout(renderProfileContent, 500);
-    } else alert('登录模块缺失');
+  loginBtn.addEventListener('click', async () => {
+    const u = document.getElementById('profile-login-user')?.value.trim();
+    const p = document.getElementById('profile-login-pass')?.value;
+    if (!u || !p) return alert('请填写完整');
+    const data = await safeFetch(`${PROFILE_API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    if (data && data.token) {
+      state.user = { username: u, token: data.token };
+      localStorage.setItem('iwp-user', JSON.stringify(state.user));
+      try { window.profileUser = state.user; } catch (e) {}
+      document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      renderProfileContent();
+    } else {
+      alert('登录失败：' + (data?.error || '未知错误'));
+    }
   });
 
   const regBtn = document.createElement('button');
   regBtn.textContent = '注册';
   regBtn.addEventListener('click', () => {
-    userInput.id = 'reg-user-profile';
-    passInput.id = 'reg-pass-profile';
-    if (typeof doRegister === 'function') {
-      sessionStorage.setItem('pending_registration', '1');
-      doRegister('profile');
-    } else alert('注册模块缺失');
+    const u = document.getElementById('profile-login-user')?.value.trim();
+    const p = document.getElementById('profile-login-pass')?.value;
+    if (!u || !p) return alert('请填写完整');
+    // 切换到注册模式
+    showRegisterForm(container, u, p);
   });
 
   btnGroup.appendChild(loginBtn);
@@ -178,6 +191,82 @@ function renderLoginForm(container) {
   hint.style.cssText = 'margin-top:1rem;color:#888;font-size:0.9rem;';
   hint.textContent = '登录后你会由一个人变成一个人';
   container.appendChild(hint);
+}
+
+function showRegisterForm(container, username, password) {
+  container.innerHTML = '';
+
+  const userInput = document.createElement('input');
+  userInput.type = 'text';
+  userInput.placeholder = '用户名';
+  userInput.id = 'profile-reg-user';
+  userInput.value = username || '';
+
+  const passInput = document.createElement('input');
+  passInput.type = 'password';
+  passInput.placeholder = '密码';
+  passInput.id = 'profile-reg-pass';
+  passInput.value = password || '';
+
+  const schoolInput = document.createElement('input');
+  schoolInput.type = 'text';
+  schoolInput.placeholder = '学校（可选）';
+  schoolInput.id = 'profile-reg-school';
+
+  const honorYearInput = document.createElement('input');
+  honorYearInput.type = 'text';
+  honorYearInput.placeholder = '年份（可选）';
+  honorYearInput.id = 'profile-reg-year';
+
+  const honorRankInput = document.createElement('input');
+  honorRankInput.type = 'text';
+  honorRankInput.placeholder = '等级（可选）';
+  honorRankInput.id = 'profile-reg-rank';
+
+  const btnGroup = document.createElement('div');
+  btnGroup.style.cssText = 'display:flex;gap:10px;margin-top:0.5rem;';
+
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← 返回登录';
+  backBtn.style.background = '#555';
+  backBtn.addEventListener('click', () => renderLoginForm(container));
+
+  const regBtn = document.createElement('button');
+  regBtn.textContent = '注册';
+  regBtn.style.background = '#d9534f';
+  regBtn.addEventListener('click', async () => {
+    const u = document.getElementById('profile-reg-user')?.value.trim();
+    const p = document.getElementById('profile-reg-pass')?.value;
+    const school = document.getElementById('profile-reg-school')?.value.trim() || null;
+    const honor_year = document.getElementById('profile-reg-year')?.value.trim() || null;
+    const honor_rank = document.getElementById('profile-reg-rank')?.value.trim() || null;
+    if (!u || !p) return alert('请填写用户名和密码');
+    const data = await safeFetch(`${PROFILE_API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p, school, honor_year, honor_rank })
+    });
+    if (data && data.token) {
+      state.user = { username: u, token: data.token };
+      localStorage.setItem('iwp-user', JSON.stringify(state.user));
+      try { window.profileUser = state.user; } catch (e) {}
+      sessionStorage.setItem('just_registered', '1');
+      document.dispatchEvent(new CustomEvent('profile-login', { detail: state.user }));
+      renderProfileContent();
+    } else {
+      alert('注册失败：' + (data?.error || '未知错误'));
+    }
+  });
+
+  btnGroup.appendChild(backBtn);
+  btnGroup.appendChild(regBtn);
+
+  container.appendChild(userInput);
+  container.appendChild(passInput);
+  container.appendChild(schoolInput);
+  container.appendChild(honorYearInput);
+  container.appendChild(honorRankInput);
+  container.appendChild(btnGroup);
 }
 
 // ========== 编辑资料表单 ==========
@@ -239,7 +328,7 @@ function showEditForm(container, user) {
     }
 
     try {
-      const res = await safeFetch(`${CONFIG.COMMENT_API}/users/me`, {
+      const res = await safeFetch(`${PROFILE_API}/users/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -293,20 +382,15 @@ function createInput(labelText, value = '', type = 'text') {
 }
 
 // ========== 事件同步 ==========
+// 登录/登出事件只用于通知其他模块，profile.js 自身不再做状态覆盖
 document.addEventListener('profile-login', (e) => {
-  try { state.user = e.detail; } catch (err) {}
-  if (sessionStorage.getItem('pending_registration') === '1') {
-    sessionStorage.removeItem('pending_registration');
-    sessionStorage.setItem('just_registered', '1');
-  }
-  if ($('#profile-panel')?.style.display === 'block') {
-    renderProfileContent();
-  }
+  // Copilot 或其他模块监听此事件更新 UI
+  // profile.js 自身不再重新读取状态
 });
 
 document.addEventListener('profile-logout', () => {
-  state.user = null;
-  if ($('#profile-panel')?.style.display === 'block') renderProfileContent();
+  // Copilot 或其他模块监听此事件更新 UI
+  // profile.js 自身不再重新读取状态
 });
 
 window.addEventListener('storage', (e) => {
@@ -316,7 +400,7 @@ window.addEventListener('storage', (e) => {
   }
 });
 
-// ========== 面板关闭逻辑（彻底防止误关） ==========
+// ========== 面板关闭逻辑 ==========
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('profile-panel');
   const btn = document.getElementById('btn-profile');
