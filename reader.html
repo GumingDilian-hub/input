@@ -165,7 +165,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
-        /* ===== 复制按钮（常态显示，黑色圆角，带"复制"文字） ===== */
+        /* ===== 复制按钮 ===== */
         .copy-btn-standalone {
             position: absolute;
             top: 8px;
@@ -176,7 +176,7 @@
             border-radius: 6px !important;
             padding: 4px 10px !important;
             cursor: pointer;
-            opacity: 1 !important;  /* 始终可见 */
+            opacity: 1 !important;
             transition: background 0.2s ease;
             display: flex;
             align-items: center;
@@ -195,7 +195,7 @@
         .copy-btn-standalone .check-svg { fill: #6fcf97 !important; }
         .copy-btn-standalone .status-text { color: #fff !important; }
 
-        /* ===== PDF 封面样式（仅用于截图） ===== */
+        /* ===== PDF 封面样式 ===== */
         .pdf-cover-page {
             width: 794px;
             height: 1123px;
@@ -270,6 +270,7 @@
             <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
             <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
             <button id="btn-profile" class="toolbar-btn" onclick="openProfile()">个人中心</button>
+            <button id="btn-copilot" class="toolbar-btn">Copilot</button>
             <button id="btn-hamburger" class="toolbar-btn" onclick="toggleSidebar()">☰</button>
         </div>
 
@@ -292,12 +293,47 @@
                     <button onclick="collapseAll()" title="全部折叠">－</button>
                 </div>
             </div>
-            <div style="padding: 0.5rem 1rem; background: #252525; border-bottom: 1px solid #444;">
-                <select id="chapter-select" style="width: 100%; padding: 0.4rem; font-size: 0.9rem; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px;">
-                    <option value="">— 快速跳转章节 —</option>
-                </select>
+
+            <!-- 目录视图 -->
+            <div id="sidebar-toc-view" class="sidebar-view">
+                <div style="padding: 0.5rem 1rem; background: #252525; border-bottom: 1px solid #444;">
+                    <select id="chapter-select" style="width: 100%; padding: 0.4rem; font-size: 0.9rem; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px;">
+                        <option value="">— 快速跳转章节 —</option>
+                    </select>
+                </div>
+                <nav id="toc-tree"></nav>
             </div>
-            <nav id="toc-tree"></nav>
+
+            <!-- Copilot 视图 -->
+            <div id="sidebar-copilot-view" class="sidebar-view" style="display:none; flex-direction:column; height:100%;">
+                <div style="padding: 0.5rem 1rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; flex-shrink:0;">
+                    <span style="font-weight:600;">Copilot</span>
+                    <button id="copilot-new-chat" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.9rem;">+ 新对话</button>
+                </div>
+                <div style="padding:0.3rem 1rem; display:flex; gap:0.3rem; flex-wrap:wrap; border-bottom:1px solid #444; flex-shrink:0; align-items:center;">
+                    <button class="copilot-mode-btn toolbar-btn" data-mode="note" style="font-size:0.75rem;">本站笔记</button>
+                    <button class="copilot-mode-btn toolbar-btn" data-mode="textbook" style="font-size:0.75rem;">知识库</button>
+                    <!-- 自定义模型下拉 -->
+                    <div id="copilot-model-dropdown" style="position:relative; display:inline-block;">
+                        <div id="copilot-model-display" style="background:#333; border:1px solid #555; border-radius:4px; padding:2px 8px; cursor:pointer; display:flex; align-items:center; gap:4px; font-size:0.75rem; color:#ddd;">
+                            <span>模型</span>
+                        </div>
+                        <div id="copilot-model-options" style="position:absolute; top:100%; left:0; background:#2d2d2d; border:1px solid #555; border-radius:4px; min-width:180px; max-height:200px; overflow-y:auto; display:none; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+                            <!-- 由 JS 动态填充 -->
+                        </div>
+                    </div>
+                    <input type="file" accept="image/*" id="copilot-image-input" style="display:none;" disabled>
+                    <label id="copilot-image-label" for="copilot-image-input" style="cursor:pointer; font-size:0.75rem; color:#888; opacity:0.3;">图片</label>
+                </div>
+                <div id="copilot-messages" style="flex:1; overflow-y:auto; padding:0.5rem 1rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
+                <div class="copilot-input-wrap" style="padding:0.5rem 1rem; border-top:1px solid #444; flex-shrink:0;">
+                    <textarea id="copilot-input" rows="2" style="width:100%; background:#1e1e1e; border:1px solid #555; border-radius:4px; color:#ddd; padding:0.4rem; resize:vertical; font-family:inherit;"></textarea>
+                    <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+                        <button id="copilot-send" style="background:#333; border:1px solid #555; color:#fff; border-radius:4px; padding:0.2rem 1.2rem; cursor:pointer;">发送</button>
+                    </div>
+                </div>
+                <div id="copilot-history-list" style="border-top:1px solid #444; padding:0.5rem 1rem; max-height:120px; overflow-y:auto; flex-shrink:0;"></div>
+            </div>
         </div>
 
         <div id="resizer"></div>
@@ -319,8 +355,9 @@
     <!-- 主脚本 -->
     <script src="js/reader.js"></script>
     <script src="js/profile.js"></script>
+    <script src="js/copilot.js"></script>
 
-    <!-- ====== 内联：复制按钮 + PDF导出（最终调整版） ====== -->
+    <!-- ====== 内联：复制按钮 + PDF导出 ====== -->
     <script>
     // ---------- 复制按钮模块 ----------
     (function() {
@@ -398,11 +435,10 @@
         } else { initCopy(); }
     })();
 
-    // ---------- PDF导出模块（最终调整版：边距 + scale=3） ----------
+    // ---------- PDF导出模块 ----------
     (function() {
         console.log('[pdf-export] 加载 (最终调整版)');
 
-        // 模态框样式
         const style = document.createElement('style');
         style.textContent = `
             .pdf-modal-overlay {
@@ -519,7 +555,6 @@
         `;
         document.head.appendChild(style);
 
-        // ---------- 注入 PDF 按钮 ----------
         function injectPDFButton() {
             const toolbar = document.getElementById('toolbar');
             if (!toolbar) {
@@ -544,7 +579,6 @@
             toolbar.appendChild(btn);
         }
 
-        // ---------- 模态框 ----------
         let modalInstance = null;
 
         function openModal() {
@@ -583,7 +617,6 @@
             document.body.style.overflow = '';
         }
 
-        // ---------- 渲染 H2 列表 ----------
         function renderChapterList() {
             const container = document.getElementById('pdf-chapter-list');
             if (!container) return;
@@ -640,9 +673,7 @@
             if (info) info.textContent = '已选 ' + checked.length + ' / ' + cbs.length + ' 章';
         }
 
-        // ---------- 核心：稳健的 PDF 生成（带边距、scale=3） ----------
         async function generatePDF() {
-            // 1. 收集勾选信息
             const checkedIds = new Set();
             const checkedLabels = [];
             document.querySelectorAll('#pdf-chapter-list input[type="checkbox"]:checked').forEach(cb => {
@@ -655,22 +686,18 @@
                 return;
             }
 
-            // 2. 关闭模态框
             closeModal();
 
-            // 3. 显示右下角提示
             const toast = document.getElementById('pdf-generating-toast');
             const toastSub = document.getElementById('toast-sub-text');
             if (toast) toast.style.display = 'flex';
             if (toastSub) toastSub.textContent = '准备内容，请稍候...';
 
-            // 4. 等待内容渲染完成
             if (window.contentRenderComplete === false && window.contentRenderPromise) {
                 try { await window.contentRenderPromise; } catch (e) {}
             }
             await new Promise(r => setTimeout(r, 500));
 
-            // 5. 构建内容 HTML
             const body = document.getElementById('article-body');
             const allH2s = body.querySelectorAll('h2');
             let contentHTML = '';
@@ -697,7 +724,6 @@
                 }
             });
 
-            // 兜底：如果 contentHTML 为空，用 .section-wrapper 方式
             if (!contentHTML.trim()) {
                 const wrappers = body.querySelectorAll('.section-wrapper');
                 wrappers.forEach(w => {
@@ -716,7 +742,6 @@
                 });
             }
 
-            // 6. 构建封面
             const coverHTML = `
                 <div class="pdf-cover-page">
                     <img src="images/077.png" class="cover-img" alt="封面" />
@@ -727,7 +752,6 @@
                 </div>
             `;
 
-            // 7. 创建临时容器（带 padding 留边距）
             const container = document.createElement('div');
             container.style.cssText = `
                 position: fixed;
@@ -750,7 +774,6 @@
             document.body.appendChild(container);
             await new Promise(r => setTimeout(r, 200));
 
-            // 8. 等待图片加载
             const imgs = container.querySelectorAll('img');
             if (imgs.length > 0) {
                 await Promise.all(Array.from(imgs).map(img => {
@@ -759,10 +782,8 @@
                 }));
             }
 
-            // 9. 等待公式渲染
             await new Promise(r => setTimeout(r, 300));
 
-            // 10. 分页截图 (scale=3)
             const pageHeight = 1123;
             const totalHeight = container.scrollHeight;
             const totalPages = Math.max(1, Math.ceil(totalHeight / pageHeight));
@@ -770,7 +791,7 @@
             const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
             const pageWidthMM = 210;
             const pageHeightMM = 297;
-            const scale = 3;  // 提高分辨率
+            const scale = 3;
 
             for (let i = 0; i < totalPages; i++) {
                 const yOffset = i * pageHeight;
@@ -801,11 +822,9 @@
                 }
             }
 
-            // 11. 保存
             if (toastSub) toastSub.textContent = '正在保存 PDF...';
             pdf.save('笔记导出.pdf');
 
-            // 12. 清理
             document.body.removeChild(container);
             if (toast) toast.style.display = 'none';
         }
@@ -816,14 +835,12 @@
                        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
-        // 启动
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', injectPDFButton);
         } else { injectPDFButton(); }
     })();
     </script>
 
-    <!-- 原有内联函数 -->
     <script>
         function toggleSearchPanel() {
             var panel = document.getElementById('search-panel');
