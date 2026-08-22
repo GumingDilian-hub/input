@@ -5,7 +5,7 @@
 
 (function() {
   // ---------- 在这里修改 Worker 地址（必填） ----------
-  const WORKER_BASE_URL = 'https://你的worker域名.workers.dev';  // 替换为你的 Worker 域名
+  const WORKER_BASE_URL = 'https://rough-firefly-b2a7.2167964516.workers.dev';  // 替换为你的 Worker 域名
   // ---------------------------------------------------------
 
   // ---------- DOM 引用 ----------
