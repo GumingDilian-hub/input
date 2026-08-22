@@ -1,6 +1,6 @@
 /* ========== reader.js (最终版：统一外部点击关闭) ========== */
 const CONFIG = {
-    COMMENT_API: 'https://woxiangcaoni.2167964516.workers.dev',
+    COMMENT_API: 'https://copilot.2167964516.workers.dev',
     ADMIN_USERNAME: 'loading',
     CHAPTERS: [
         'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
