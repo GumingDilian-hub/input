@@ -1,29 +1,49 @@
-/* IWP Profile — same profile-panel UI contract, unified Worker auth. */
+/* IWP Profile — same profile-panel UI, unified directly with the Worker. */
 (function () {
     'use strict';
 
     const API = 'https://copilot.2167964516.workers.dev';
+    const KEY = 'iwp-user';
     const DEFAULT_AVATAR = 'images/0721.png';
 
-    function ensureAuth() {
-        if (window.SiteAuth) return Promise.resolve(window.SiteAuth);
-        return new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[data-iwp-auth]');
-            if (existing) {
-                existing.addEventListener('load', () => resolve(window.SiteAuth));
-                existing.addEventListener('error', reject);
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = 'js/auth.js';
-            script.dataset.iwpAuth = 'true';
-            script.onload = () => resolve(window.SiteAuth);
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
+    function getUser() {
+        try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { return null; }
     }
 
-    function auth() { return window.SiteAuth; }
+    function setUser(user) {
+        if (user) localStorage.setItem(KEY, JSON.stringify(user));
+        else localStorage.removeItem(KEY);
+        try { if (typeof state !== 'undefined') state.user = user || null; } catch (_) {}
+        window.profileUser = user || null;
+        window.dispatchEvent(new CustomEvent('iwp-auth-changed', { detail: user || null }));
+        document.dispatchEvent(new CustomEvent(user ? 'profile-login' : 'profile-logout', { detail: user || null }));
+    }
+
+    function token() {
+        return getUser()?.token || null;
+    }
+
+    async function request(path, options = {}) {
+        const headers = Object.assign({}, options.headers || {});
+        const t = token();
+        if (t) headers.Authorization = 'Bearer ' + t;
+        if (options.body && typeof options.body !== 'string') {
+            headers['Content-Type'] = 'application/json';
+            options = Object.assign({}, options, { body: JSON.stringify(options.body) });
+        }
+        const res = await fetch(API + path, Object.assign({}, options, { headers }));
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch (_) {}
+        if (!res.ok) {
+            if (res.status === 401) setUser(null);
+            const e = new Error(data.error || ('HTTP ' + res.status));
+            e.status = res.status;
+            e.data = data;
+            throw e;
+        }
+        return data;
+    }
 
     function escape(value) {
         const node = document.createElement('div');
@@ -49,10 +69,7 @@
         const panel = document.getElementById('profile-panel');
         if (!panel) return;
         panel.style.display = 'block';
-        ensureAuth().then(render).catch(() => {
-            const box = document.getElementById('profile-content');
-            if (box) box.innerHTML = '<div style="color:#888;text-align:center;padding:2rem;">登录模块加载失败</div>';
-        });
+        render();
     };
 
     window.closeProfile = function () {
@@ -63,18 +80,18 @@
     async function render() {
         const box = document.getElementById('profile-content');
         if (!box) return;
-        const A = auth();
-        if (!A) return;
         box.innerHTML = '<div style="color:#888;text-align:center;padding:2rem;">加载中...</div>';
-        let user = A.getUser();
+        let user = getUser();
         if (!user?.token) return renderLogin(box);
         try {
-            const data = await A.request('/users/me');
+            const data = await request('/users/me');
             user = Object.assign({}, user, data.user || {});
             if (data.token) user.token = data.token;
-            A.setUser(user);
+            setUser(user);
         } catch (e) {
             if (e.status === 401) return renderLogin(box);
+            box.innerHTML = '<div style="color:#888;text-align:center;padding:2rem;">加载失败：' + escape(e.message) + '</div>';
+            return;
         }
 
         if (sessionStorage.getItem('just_registered') === '1') {
@@ -118,7 +135,7 @@
         editButton.onclick = () => renderEdit(box, user);
         const logoutButton = document.createElement('button');
         logoutButton.textContent = '退出登录';
-        logoutButton.onclick = () => { A.logout(); render(); };
+        logoutButton.onclick = () => { setUser(null); render(); };
         actions.append(publicButton, editButton, logoutButton);
         box.appendChild(actions);
 
@@ -148,8 +165,11 @@
         login.textContent = '登录';
         login.onclick = async () => {
             if (!username.field.value.trim() || !password.field.value) return alert('请填写完整');
-            try { await auth().login(username.field.value.trim(), password.field.value); render(); }
-            catch (e) { alert('登录失败：' + e.message); }
+            try {
+                const data = await request('/login', { method: 'POST', body: { username: username.field.value.trim(), password: password.field.value } });
+                setUser({ username: data.username || username.field.value.trim(), token: data.token });
+                render();
+            } catch (e) { alert('登录失败：' + e.message); }
         };
         const register = document.createElement('button');
         register.textContent = '注册';
@@ -177,13 +197,14 @@
         submit.onclick = async () => {
             if (!username.field.value.trim() || !password.field.value) return alert('请填写用户名和密码');
             try {
-                await auth().register({
+                const data = await request('/register', { method: 'POST', body: {
                     username: username.field.value.trim(),
                     password: password.field.value,
                     school: school.field.value.trim() || null,
                     honor_year: year.field.value.trim() || null,
                     honor_rank: rank.field.value.trim() || null
-                });
+                }});
+                setUser({ username: data.username || username.field.value.trim(), token: data.token });
                 sessionStorage.setItem('just_registered', '1');
                 render();
             } catch (e) { alert('注册失败：' + e.message); }
@@ -230,7 +251,7 @@
                 payload.old_password = oldPassword.field.value;
                 payload.password = newPassword.field.value;
             }
-            try { await auth().update(payload); alert('资料更新成功！'); render(); }
+            try { await request('/users/me', { method: 'PUT', body: payload }).then(data => setUser(Object.assign({}, getUser(), data.user || {}, data.token ? { token: data.token } : {}))); alert('资料更新成功！'); render(); }
             catch (e) { alert('保存失败：' + e.message); }
         };
         actions.append(cancel, save);
@@ -238,14 +259,14 @@
         box.appendChild(wrap);
     }
 
-    window.doLogout = function () { if (auth()) auth().logout(); };
+    window.doLogout = function () { setUser(null); };
 
     window.addEventListener('iwp-auth-changed', () => {
         const panel = document.getElementById('profile-panel');
         if (panel?.style.display === 'block') render();
     });
     window.addEventListener('storage', e => {
-        if (e.key !== 'iwp-user') return;
+        if (e.key !== KEY) return;
         const panel = document.getElementById('profile-panel');
         if (panel?.style.display === 'block') render();
     });
