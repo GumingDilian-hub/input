@@ -25,6 +25,32 @@
         return data;
     }
     function escape(value) { const node = document.createElement('div'); node.textContent = value == null ? '' : String(value); return node.innerHTML; }
+
+    /* blog.js historically consumes these reader.js globals. On reader.html they already exist;
+       on blog.html profile.js supplies the same small Worker-backed bridge. */
+    if (!window.state) window.state = { user: getUser(), comments: {}, scrollSpyActive: false, likedComments: new Set() };
+    if (!window.escapeHtml) window.escapeHtml = escape;
+    if (!window.safeFetch) {
+        window.safeFetch = async function (url, options = {}) {
+            const res = await fetch(url, options);
+            const text = await res.text(); let data = null;
+            try { data = JSON.parse(text); } catch (_) {}
+            if (!res.ok) { const e = new Error(data?.error || ('HTTP ' + res.status)); e.status = res.status; e.body = text; e.parsed = data; throw e; }
+            return res.headers.get('content-type')?.includes('application/json') ? data : text;
+        };
+    }
+    if (!window.doLogin) window.doLogin = async function (username, password) {
+        const data = await request('/login', { method: 'POST', body: { username, password } });
+        setUser({ username: data.username || username, token: data.token });
+        return data;
+    };
+    if (!window.doRegister) window.doRegister = async function (username, password) {
+        const data = await request('/register', { method: 'POST', body: { username, password } });
+        setUser({ username: data.username || username, token: data.token });
+        return data;
+    };
+    if (!window.doLogout) window.doLogout = function () { setUser(null); };
+
     function input(label, value, type = 'text') {
         const wrap = document.createElement('div'); wrap.style.marginBottom = '8px';
         const labelNode = document.createElement('label'); labelNode.textContent = label; labelNode.style.cssText = 'display:block;color:#ccc;margin-bottom:4px;font-size:.9rem;';
@@ -56,7 +82,7 @@
         const actions = document.createElement('div'); actions.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:1.2rem;';
         const publicButton = document.createElement('button'); publicButton.textContent = '查看公开资料'; publicButton.onclick = () => { location.href = 'more.html?user=' + encodeURIComponent(user.username || ''); };
         const editButton = document.createElement('button'); editButton.textContent = '编辑资料'; editButton.onclick = () => renderEdit(box, user);
-        const logoutButton = document.createElement('button'); logoutButton.textContent = '退出登录'; logoutButton.onclick = () => { if (typeof window.doLogout === 'function') window.doLogout(); else setUser(null); render(); };
+        const logoutButton = document.createElement('button'); logoutButton.textContent = '退出登录'; logoutButton.onclick = () => { window.doLogout(); render(); };
         actions.append(publicButton, editButton, logoutButton); box.appendChild(actions);
         const info = document.createElement('div'); info.style.cssText = 'margin-top:1.5rem;padding:1rem;background:#2a2a2a;border-radius:8px;color:#ccc;';
         info.innerHTML = '<div style="margin-bottom:.5rem;"><strong>用户名：</strong>' + escape(user.username) + '</div>' + (user.school ? '<div style="margin-bottom:.5rem;"><strong>学校：</strong>' + escape(user.school) + '</div>' : '') + (user.honor_year ? '<div style="margin-bottom:.5rem;"><strong>年份：</strong>' + escape(user.honor_year) + '</div>' : '') + (user.honor_rank ? '<div><strong>等级：</strong>' + escape(user.honor_rank) + '</div>' : '');
@@ -67,7 +93,7 @@
     function renderLogin(box) {
         box.innerHTML = ''; const username = input('用户名', ''), password = input('密码', '', 'password'), actions = document.createElement('div'); actions.style.cssText = 'display:flex;gap:10px;';
         const login = document.createElement('button'); login.textContent = '登录';
-        login.onclick = async () => { if (!username.field.value.trim() || !password.field.value) return alert('请填写完整'); try { const data = await request('/login', { method: 'POST', body: { username: username.field.value.trim(), password: password.field.value } }); setUser({ username: data.username || username.field.value.trim(), token: data.token }); render(); } catch (e) { alert('登录失败：' + e.message); } };
+        login.onclick = async () => { if (!username.field.value.trim() || !password.field.value) return alert('请填写完整'); try { await window.doLogin(username.field.value.trim(), password.field.value); render(); } catch (e) { alert('登录失败：' + e.message); } };
         const register = document.createElement('button'); register.textContent = '注册'; register.onclick = () => renderRegister(box, username.field.value.trim(), password.field.value); actions.append(login, register); box.append(username.wrap, password.wrap, actions);
     }
     function renderRegister(box, usernameValue, passwordValue) {
