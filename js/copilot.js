@@ -1,19 +1,6 @@
 /* ============================================================
  * IWP Copilot
- * Rollback-compatible client
- *
- * IMPORTANT:
- * Actual reader.html DOM:
- *
- *   #btn-copilot
- *   #sidebar
- *   #sidebar-toc-view
- *   #sidebar-copilot-view
- *
- * Copilot does NOT own a separate sidebar.
- * It switches the existing reader sidebar between:
- *
- *   TOC view <-> Copilot view
+
  * ============================================================ */
 
 (function () {
@@ -47,8 +34,8 @@
     let sessionId = null;
     let busy = false;
     let whiteboard = '';
-    let els = {};
     let copilotOpen = false;
+    let els = {};
 
     const $ = id => document.getElementById(id);
 
@@ -102,9 +89,12 @@
             headers.Authorization = 'Bearer ' + token;
         }
 
-        let requestOptions = Object.assign({}, options);
+        const requestOptions = Object.assign({}, options);
 
-        if (requestOptions.body && typeof requestOptions.body !== 'string') {
+        if (
+            requestOptions.body &&
+            typeof requestOptions.body !== 'string'
+        ) {
             headers['Content-Type'] = 'application/json';
             requestOptions.body = JSON.stringify(requestOptions.body);
         }
@@ -166,9 +156,7 @@
     function fullNoteContext() {
         const article = $('article-body');
 
-        if (!article) {
-            return '';
-        }
+        if (!article) return '';
 
         return String(
             article.innerText ||
@@ -181,12 +169,12 @@
         return fullNoteContext();
     }
 
-    function getWhiteboardContext() {
-        return String(whiteboard || '');
-    }
-
     function setWhiteboard(value) {
         whiteboard = String(value || '');
+    }
+
+    function getWhiteboardContext() {
+        return String(whiteboard || '');
     }
 
     /* ============================================================
@@ -201,6 +189,123 @@
         return VISION_MODELS.some(item => item[0] === modelId);
     }
 
+    /*
+     * 真正生成模型菜单。
+     *
+     * 这是当前仓库缺失的核心部分。
+     */
+    function renderModelOptions() {
+        const container = $('copilot-model-options');
+
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        ALL_MODELS.forEach(item => {
+            const [id, name, logo] = item;
+
+            const option = document.createElement('div');
+
+            option.className = 'copilot-model-option';
+            option.dataset.copilotModel = id;
+            option.setAttribute('role', 'option');
+            option.setAttribute(
+                'aria-selected',
+                id === model ? 'true' : 'false'
+            );
+
+            option.style.cssText =
+                'display:flex;' +
+                'align-items:center;' +
+                'gap:7px;' +
+                'padding:6px 9px;' +
+                'cursor:pointer;' +
+                'color:#ddd;' +
+                'font-size:.75rem;' +
+                'white-space:nowrap;';
+
+            const icon = document.createElement('img');
+
+            icon.src = LOGO + logo;
+            icon.alt = '';
+            icon.style.cssText =
+                'width:18px;height:18px;' +
+                'object-fit:contain;flex-shrink:0;';
+
+            const text = document.createElement('span');
+
+            text.textContent = name;
+
+            option.appendChild(icon);
+            option.appendChild(text);
+
+            option.addEventListener('mouseenter', () => {
+                option.style.background = '#444';
+            });
+
+            option.addEventListener('mouseleave', () => {
+                option.style.background =
+                    id === model ? '#444' : 'transparent';
+            });
+
+            option.addEventListener('click', event => {
+                event.stopPropagation();
+
+                setModel(id);
+
+                const menu = $('copilot-model-options');
+
+                if (menu) {
+                    menu.style.display = 'none';
+                }
+            });
+
+            container.appendChild(option);
+        });
+
+        updateModelOptionsState();
+    }
+
+    function updateModelOptionsState() {
+        document
+            .querySelectorAll('.copilot-model-option')
+            .forEach(option => {
+                const active =
+                    option.dataset.copilotModel === model;
+
+                option.classList.toggle('active', active);
+                option.classList.toggle('selected', active);
+
+                option.setAttribute(
+                    'aria-selected',
+                    active ? 'true' : 'false'
+                );
+
+                option.style.background =
+                    active ? '#444' : 'transparent';
+            });
+    }
+
+    function updateModelDisplay() {
+        const current = findModel(model);
+
+        if (!current) return;
+
+        const text = $('copilot-model-text');
+        const icon = $('copilot-model-icon');
+
+        if (text) {
+            text.textContent = current[1];
+        }
+
+        if (icon) {
+            icon.src = LOGO + current[2];
+        }
+
+        updateModelOptionsState();
+        updateImageUI();
+    }
+
     function setModel(modelId) {
         if (!findModel(modelId)) {
             return false;
@@ -208,92 +313,215 @@
 
         model = modelId;
 
-        document.querySelectorAll('[data-copilot-model]').forEach(node => {
-            const active = node.dataset.copilotModel === modelId;
-
-            node.classList.toggle('active', active);
-            node.classList.toggle('selected', active);
-            node.setAttribute(
-                'aria-selected',
-                active ? 'true' : 'false'
-            );
-        });
-
         updateModelDisplay();
 
         return true;
     }
 
-    function updateModelDisplay() {
-        const current = findModel(model);
+    /* ============================================================
+     * IMAGE UI
+     * ============================================================ */
 
-        if (!current) {
+    function updateImageUI() {
+        const input = $('copilot-image-input');
+        const label = $('copilot-image-label');
+
+        if (!input || !label) return;
+
+        const enabled = isVisionModel(model);
+
+        input.disabled = !enabled;
+
+        label.style.opacity = enabled ? '1' : '.3';
+        label.style.color = enabled ? '#ccc' : '#888';
+        label.style.cursor = enabled ? 'pointer' : 'default';
+
+        if (!enabled) {
+            image = null;
+            input.value = '';
+        }
+    }
+
+    function setImage(value) {
+        image =
+            typeof value === 'string'
+                ? value.trim() || null
+                : null;
+    }
+
+    function clearImage() {
+        image = null;
+
+        const input = $('copilot-image-input');
+
+        if (input) {
+            input.value = '';
+        }
+    }
+
+    function bindImageInput() {
+        const input = $('copilot-image-input');
+
+        if (!input) return;
+
+        if (
+            input.dataset.iwpCopilotImageBound === '1'
+        ) {
+            updateImageUI();
             return;
         }
 
-        const name = current[1];
-        const logo = current[2];
+        input.dataset.iwpCopilotImageBound = '1';
 
-        const text = $('copilot-model-text');
-        const icon = $('copilot-model-icon');
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
 
-        if (text) {
-            text.textContent = name;
-        }
+            if (!file) {
+                image = null;
+                return;
+            }
 
-        if (icon) {
-            icon.src = LOGO + logo;
-        }
+            if (!isVisionModel(model)) {
+                input.value = '';
+                image = null;
+                toast('当前模型不支持图片');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                image = String(reader.result || '');
+            };
+
+            reader.onerror = () => {
+                image = null;
+                toast('图片读取失败');
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        updateImageUI();
     }
 
     /* ============================================================
      * MODE
      * ============================================================ */
 
+    const MODE_NAMES = {
+        note: '本站笔记',
+        textbook: '知识库',
+        whiteboard: '白板AI'
+    };
+
+    function updateModeDisplay() {
+        const text = $('copilot-mode-text');
+
+        if (text) {
+            text.textContent =
+                MODE_NAMES[mode] || '本站笔记';
+        }
+
+        document
+            .querySelectorAll('.copilot-mode-option')
+            .forEach(node => {
+                const active =
+                    node.dataset.mode === mode;
+
+                node.classList.toggle('active', active);
+                node.classList.toggle('selected', active);
+
+                node.style.background =
+                    active ? '#444' : 'transparent';
+
+                node.setAttribute(
+                    'aria-selected',
+                    active ? 'true' : 'false'
+                );
+            });
+    }
+
     function setMode(nextMode) {
-        if (!['note', 'whiteboard', 'textbook'].includes(nextMode)) {
+        if (!MODE_NAMES[nextMode]) {
             return false;
         }
 
         mode = nextMode;
 
-        document.querySelectorAll('[data-copilot-mode]').forEach(node => {
-            const active = node.dataset.copilotMode === nextMode;
-
-            node.classList.toggle('active', active);
-            node.classList.toggle('selected', active);
-
-            node.setAttribute(
-                'aria-selected',
-                active ? 'true' : 'false'
-            );
-        });
-
         updateModeDisplay();
+
+        const options = $('copilot-mode-options');
+
+        if (options) {
+            options.style.display = 'none';
+        }
 
         return true;
     }
 
-    function updateModeDisplay() {
-        const text = $('copilot-mode-text');
+    function bindModeButtons() {
+        const display = $('copilot-mode-display');
+        const options = $('copilot-mode-options');
 
-        if (!text) {
-            return;
+        if (
+            display &&
+            display.dataset.iwpCopilotModeDisplayBound !== '1'
+        ) {
+            display.dataset.iwpCopilotModeDisplayBound = '1';
+
+            display.addEventListener('click', event => {
+                event.stopPropagation();
+
+                if (!options) return;
+
+                options.style.display =
+                    options.style.display === 'block'
+                        ? 'none'
+                        : 'block';
+            });
         }
 
-        const names = {
-            note: '本站笔记',
-            textbook: '知识库',
-            whiteboard: '白板AI'
-        };
+        /*
+         * reader.html 实际使用：
+         * data-mode="note"
+         *
+         * 不再错误寻找 data-copilot-mode。
+         */
+        document
+            .querySelectorAll('.copilot-mode-option[data-mode]')
+            .forEach(node => {
+                if (
+                    node.dataset.iwpCopilotModeBound === '1'
+                ) {
+                    return;
+                }
 
-        text.textContent = names[mode] || '本站笔记';
+                node.dataset.iwpCopilotModeBound = '1';
+
+                node.addEventListener('click', event => {
+                    event.stopPropagation();
+
+                    setMode(node.dataset.mode);
+                });
+
+                node.addEventListener('mouseenter', () => {
+                    node.style.background = '#444';
+                });
+
+                node.addEventListener('mouseleave', () => {
+                    node.style.background =
+                        node.dataset.mode === mode
+                            ? '#444'
+                            : 'transparent';
+                });
+            });
+
+        updateModeDisplay();
     }
 
     /* ============================================================
-     * COPILOT SIDEBAR
-     *
-     * THIS IS THE IMPORTANT FIX.
+     * SIDEBAR
      * ============================================================ */
 
     function getSidebar() {
@@ -313,7 +541,7 @@
     }
 
     function isMobile() {
-        return window.innerWidth < 768;
+        return window.innerWidth <= 768;
     }
 
     function showCopilotView() {
@@ -323,17 +551,19 @@
 
         if (!sidebar || !toc || !copilot) {
             console.warn(
-                '[IWP Copilot] sidebar DOM not found'
+                '[IWP Copilot] Copilot DOM not found'
             );
             return false;
         }
 
         toc.style.display = 'none';
-
         copilot.style.display = 'flex';
 
         copilotOpen = true;
 
+        /*
+         * 移动端必须真正把 sidebar 滑出来。
+         */
         if (isMobile()) {
             sidebar.classList.add('sidebar-open');
 
@@ -353,6 +583,11 @@
 
         refresh();
 
+        /*
+         * 打开 Copilot 时同步历史记录。
+         */
+        refreshHistoryList();
+
         return true;
     }
 
@@ -366,7 +601,6 @@
         }
 
         copilot.style.display = 'none';
-
         toc.style.display = '';
 
         copilotOpen = false;
@@ -392,11 +626,9 @@
     }
 
     function toggleCopilot() {
-        if (copilotOpen) {
-            return hideCopilotView();
-        }
-
-        return showCopilotView();
+        return copilotOpen
+            ? hideCopilotView()
+            : showCopilotView();
     }
 
     function openCopilot() {
@@ -410,16 +642,10 @@
     function isCopilotOpen() {
         const copilot = getCopilotView();
 
-        if (!copilot) {
-            return false;
-        }
+        if (!copilot) return false;
 
         return copilot.style.display !== 'none';
     }
-
-    /* ============================================================
-     * COPILOT BUTTON
-     * ============================================================ */
 
     function bindCopilotButton() {
         const button = getCopilotButton();
@@ -431,13 +657,15 @@
             return;
         }
 
-        if (button.dataset.iwpCopilotBound === '1') {
+        if (
+            button.dataset.iwpCopilotBound === '1'
+        ) {
             return;
         }
 
         button.dataset.iwpCopilotBound = '1';
 
-        button.addEventListener('click', function (event) {
+        button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
 
@@ -450,9 +678,7 @@
      * ============================================================ */
 
     function setLoading(on) {
-        if (!els.messages) {
-            return;
-        }
+        if (!els.messages) return;
 
         let node = $('copilot-thinking-status');
 
@@ -471,8 +697,7 @@
                     '<span class="copilot-spinner" ' +
                     'style="display:inline-block;width:13px;height:13px;' +
                     'border:2px solid #555;border-top-color:#ddd;' +
-                    'border-radius:50%;animation:copilot-spin .8s linear infinite;">' +
-                    '</span>' +
+                    'border-radius:50%;animation:copilot-spin .8s linear infinite;"></span>' +
                     '<span>少女祈祷中...</span>';
 
                 els.messages.appendChild(node);
@@ -483,8 +708,7 @@
                     style.id = 'copilot-spin-style';
 
                     style.textContent =
-                        '@keyframes copilot-spin{' +
-                        'to{transform:rotate(360deg)}}';
+                        '@keyframes copilot-spin{to{transform:rotate(360deg)}}';
 
                     document.head.appendChild(style);
                 }
@@ -493,7 +717,8 @@
             node?.remove();
         }
 
-        els.messages.scrollTop = els.messages.scrollHeight;
+        els.messages.scrollTop =
+            els.messages.scrollHeight;
     }
 
     /* ============================================================
@@ -501,9 +726,7 @@
      * ============================================================ */
 
     function appendMessage(role, text, reasoning) {
-        if (!els.messages) {
-            return null;
-        }
+        if (!els.messages) return null;
 
         const box = document.createElement('div');
 
@@ -532,18 +755,15 @@
             body.textContent = reasoning;
 
             think.append(summary, body);
-
             box.appendChild(think);
         }
 
         const content = document.createElement('div');
 
         content.className = 'copilot-content';
-
         content.textContent = text || '';
 
         box.appendChild(content);
-
         els.messages.appendChild(box);
 
         els.messages.scrollTop =
@@ -571,11 +791,10 @@
         let buffer = '';
 
         while (true) {
-            const { done, value } = await reader.read();
+            const { done, value } =
+                await reader.read();
 
-            if (done) {
-                break;
-            }
+            if (done) break;
 
             buffer += decoder.decode(
                 value,
@@ -593,24 +812,30 @@
                     continue;
                 }
 
-                const raw = line.slice(5).trim();
+                const raw =
+                    line.slice(5).trim();
 
                 if (!raw || raw === '[DONE]') {
                     continue;
                 }
 
                 try {
-                    await onEvent(JSON.parse(raw));
+                    await onEvent(
+                        JSON.parse(raw)
+                    );
                 } catch (_) {}
             }
         }
 
         if (buffer.trim().startsWith('data:')) {
-            const raw = buffer.trim().slice(5).trim();
+            const raw =
+                buffer.trim().slice(5).trim();
 
             if (raw && raw !== '[DONE]') {
                 try {
-                    await onEvent(JSON.parse(raw));
+                    await onEvent(
+                        JSON.parse(raw)
+                    );
                 } catch (_) {}
             }
         }
@@ -621,18 +846,14 @@
      * ============================================================ */
 
     async function send() {
-        if (busy) {
-            return;
-        }
+        if (busy) return;
 
         const input = els.input;
 
         const question =
             String(input?.value || '').trim();
 
-        if (!question) {
-            return;
-        }
+        if (!question) return;
 
         if (!getToken()) {
             toast('请先登录');
@@ -646,7 +867,6 @@
         }
 
         appendMessage('user', question);
-
         setLoading(true);
 
         let context = '';
@@ -673,21 +893,26 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: 'Bearer ' + getToken()
+                        Authorization:
+                            'Bearer ' + getToken()
                     },
                     body: JSON.stringify({
                         mode,
                         model,
-                        messages: history.slice(-20),
-                        chapterContext: context,
-                        whiteboardContext: whiteboard,
+                        messages:
+                            history.slice(-20),
+                        chapterContext:
+                            context,
+                        whiteboardContext:
+                            whiteboard,
                         image
                     })
                 }
             );
 
             if (!response.ok) {
-                const text = await response.text();
+                const text =
+                    await response.text();
 
                 let err = {};
 
@@ -706,8 +931,12 @@
             await readSSE(
                 response,
                 async event => {
-                    if (event.type === 'reasoning') {
-                        reasoning += event.text || '';
+                    if (
+                        event.type ===
+                        'reasoning'
+                    ) {
+                        reasoning +=
+                            event.text || '';
 
                         if (!assistant) {
                             assistant =
@@ -718,20 +947,23 @@
                                 );
                         }
 
-                        const details =
-                            assistant.box.querySelector(
-                                '.copilot-reasoning'
-                            );
-
                         const body =
-                            details?.querySelector('div');
+                            assistant.box
+                                .querySelector(
+                                    '.copilot-reasoning div'
+                                );
 
                         if (body) {
-                            body.textContent = reasoning;
+                            body.textContent =
+                                reasoning;
                         }
 
-                    } else if (event.type === 'content') {
-                        answer += event.text || '';
+                    } else if (
+                        event.type ===
+                        'content'
+                    ) {
+                        answer +=
+                            event.text || '';
 
                         if (!assistant) {
                             assistant =
@@ -750,7 +982,10 @@
                                 els.messages.scrollHeight;
                         }
 
-                    } else if (event.type === 'error') {
+                    } else if (
+                        event.type ===
+                        'error'
+                    ) {
                         throw new Error(
                             event.error ||
                             'stream error'
@@ -764,22 +999,16 @@
                 content: answer
             });
 
-            if (sessionId) {
-                await api(
-                    '/api/history',
-                    {
-                        method: 'POST',
-                        body: {
-                            messages: history,
-                            title:
-                                history.find(
-                                    x => x.role === 'user'
-                                )?.content?.slice(0, 40) ||
-                                '新对话'
-                        }
-                    }
-                );
+            /*
+             * 如果已经有 session，更新它。
+             * 新对话第一次回答后没有 session，
+             * 这里主动创建。
+             */
+            if (history.length >= 2) {
+                await saveHistory();
             }
+
+            await refreshHistoryList();
 
         } catch (error) {
             setLoading(false);
@@ -797,70 +1026,10 @@
             ) {
                 history.pop();
             }
-
         } finally {
             busy = false;
             image = null;
         }
-    }
-
-    /* ============================================================
-     * IMAGE
-     * ============================================================ */
-
-    function setImage(value) {
-        image =
-            typeof value === 'string'
-                ? value.trim() || null
-                : null;
-    }
-
-    function clearImage() {
-        image = null;
-    }
-
-    function bindImageInput() {
-        const input = qs([
-            '#copilot-image',
-            '#copilot-image-input',
-            'input[data-copilot-image]',
-            'input[type="file"].copilot-image'
-        ]);
-
-        if (!input ||
-            input.dataset.iwpCopilotImageBound === '1') {
-            return;
-        }
-
-        input.dataset.iwpCopilotImageBound = '1';
-
-        input.addEventListener(
-            'change',
-            () => {
-                const file = input.files?.[0];
-
-                if (!file) {
-                    image = null;
-                    return;
-                }
-
-                const reader = new FileReader();
-
-                reader.onload = () => {
-                    image =
-                        String(
-                            reader.result || ''
-                        );
-                };
-
-                reader.onerror = () => {
-                    image = null;
-                    toast('图片读取失败');
-                };
-
-                reader.readAsDataURL(file);
-            }
-        );
     }
 
     /* ============================================================
@@ -869,7 +1038,30 @@
 
     async function loadHistoryList() {
         try {
-            return await api('/api/history');
+            const data =
+                await api('/api/history');
+
+            /*
+             * Worker 可能直接返回数组，
+             * 也可能包在 histories/history/data 里面。
+             */
+            if (Array.isArray(data)) {
+                return data;
+            }
+
+            if (Array.isArray(data?.history)) {
+                return data.history;
+            }
+
+            if (Array.isArray(data?.histories)) {
+                return data.histories;
+            }
+
+            if (Array.isArray(data?.data)) {
+                return data.data;
+            }
+
+            return [];
         } catch (error) {
             console.warn(
                 '[IWP Copilot] history list failed:',
@@ -880,10 +1072,143 @@
         }
     }
 
-    async function loadHistory(id) {
-        if (!id) {
-            return null;
+    function getHistoryTitle(item) {
+        return String(
+            item?.title ||
+            item?.name ||
+            item?.messages?.find(
+                x => x?.role === 'user'
+            )?.content ||
+            '新对话'
+        ).slice(0, 40);
+    }
+
+    function getHistoryId(item) {
+        return (
+            item?.id ||
+            item?._id ||
+            item?.sessionId ||
+            item?.session_id ||
+            null
+        );
+    }
+
+    function renderHistoryList(items) {
+        const container =
+            $('copilot-history-list');
+
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (!getToken()) {
+            container.textContent =
+                '登录后显示历史记录';
+            container.style.color = '#777';
+            container.style.fontSize = '.75rem';
+            return;
         }
+
+        if (!items.length) {
+            container.textContent =
+                '暂无历史对话';
+            container.style.color = '#777';
+            container.style.fontSize = '.75rem';
+            return;
+        }
+
+        items.forEach(item => {
+            const id =
+                getHistoryId(item);
+
+            if (!id) return;
+
+            const row =
+                document.createElement('div');
+
+            row.className =
+                'copilot-history-item';
+
+            row.dataset.copilotHistoryId =
+                id;
+
+            row.style.cssText =
+                'padding:5px 7px;' +
+                'margin:2px 0;' +
+                'border-radius:4px;' +
+                'cursor:pointer;' +
+                'font-size:.75rem;' +
+                'color:#aaa;' +
+                'white-space:nowrap;' +
+                'overflow:hidden;' +
+                'text-overflow:ellipsis;';
+
+            row.textContent =
+                getHistoryTitle(item);
+
+            if (String(id) === String(sessionId)) {
+                row.style.background = '#444';
+                row.style.color = '#ddd';
+            }
+
+            row.addEventListener('mouseenter', () => {
+                row.style.background = '#3a3a3a';
+                row.style.color = '#ddd';
+            });
+
+            row.addEventListener('mouseleave', () => {
+                row.style.background =
+                    String(id) === String(sessionId)
+                        ? '#444'
+                        : 'transparent';
+
+                row.style.color =
+                    String(id) === String(sessionId)
+                        ? '#ddd'
+                        : '#aaa';
+            });
+
+            row.addEventListener('click', async () => {
+                try {
+                    await loadHistory(id);
+                } catch (error) {
+                    toast(
+                        error?.message ||
+                        '历史记录加载失败'
+                    );
+                }
+            });
+
+            container.appendChild(row);
+        });
+    }
+
+    async function refreshHistoryList() {
+        const container =
+            $('copilot-history-list');
+
+        if (!container) return;
+
+        if (!getToken()) {
+            renderHistoryList([]);
+            return;
+        }
+
+        container.textContent =
+            '加载历史记录…';
+
+        try {
+            const items =
+                await loadHistoryList();
+
+            renderHistoryList(items);
+        } catch (_) {
+            renderHistoryList([]);
+        }
+    }
+
+    async function loadHistory(id) {
+        if (!id) return null;
 
         const data =
             await api(
@@ -919,7 +1244,9 @@
                             String(
                                 title ||
                                 history.find(
-                                    x => x.role === 'user'
+                                    x =>
+                                        x.role ===
+                                        'user'
                                 )?.content ||
                                 '新对话'
                             ).slice(0, 100)
@@ -935,9 +1262,7 @@
     }
 
     async function deleteHistory(id) {
-        if (!id) {
-            return false;
-        }
+        if (!id) return false;
 
         await api(
             '/api/history/' +
@@ -947,11 +1272,16 @@
             }
         );
 
-        if (sessionId === id) {
+        if (
+            String(sessionId) ===
+            String(id)
+        ) {
             sessionId = null;
             history = [];
             renderHistory();
         }
+
+        await refreshHistoryList();
 
         return true;
     }
@@ -966,48 +1296,49 @@
         }
 
         setLoading(false);
+
+        refreshHistoryList();
     }
 
     function renderHistory() {
-        if (!els.messages) {
-            return;
-        }
+        if (!els.messages) return;
 
         els.messages.innerHTML = '';
 
-        for (const message of history) {
-            if (!message) {
-                continue;
-            }
+        history.forEach(message => {
+            if (!message) return;
 
             if (
                 message.role !== 'user' &&
                 message.role !== 'assistant'
             ) {
-                continue;
+                return;
             }
 
             if (
-                typeof message.content !== 'string'
+                typeof message.content !==
+                'string'
             ) {
-                continue;
+                return;
             }
 
             appendMessage(
                 message.role,
                 message.content
             );
-        }
+        });
     }
 
     /* ============================================================
-     * SEND / INPUT BINDING
+     * SEND / INPUT
      * ============================================================ */
 
     function bindSend() {
         els.messages =
             $('copilot-messages') ||
-            document.querySelector('.copilot-messages');
+            document.querySelector(
+                '.copilot-messages'
+            );
 
         els.input =
             $('copilot-input') ||
@@ -1022,12 +1353,14 @@
             '[data-copilot-send]'
         ]).forEach(button => {
             if (
-                button.dataset.iwpCopilotSendBound === '1'
+                button.dataset.iwpCopilotSendBound ===
+                '1'
             ) {
                 return;
             }
 
-            button.dataset.iwpCopilotSendBound = '1';
+            button.dataset.iwpCopilotSendBound =
+                '1';
 
             button.addEventListener(
                 'click',
@@ -1037,9 +1370,11 @@
 
         if (
             els.input &&
-            els.input.dataset.iwpCopilotInputBound !== '1'
+            els.input.dataset.iwpCopilotInputBound !==
+            '1'
         ) {
-            els.input.dataset.iwpCopilotInputBound = '1';
+            els.input.dataset.iwpCopilotInputBound =
+                '1';
 
             els.input.addEventListener(
                 'keydown',
@@ -1057,105 +1392,35 @@
     }
 
     /* ============================================================
-     * MODE BUTTONS
-     * ============================================================ */
-
-    function bindModeButtons() {
-        document.querySelectorAll(
-            '[data-copilot-mode]'
-        ).forEach(node => {
-            if (
-                node.dataset.iwpCopilotModeBound === '1'
-            ) {
-                return;
-            }
-
-            node.dataset.iwpCopilotModeBound = '1';
-
-            node.addEventListener(
-                'click',
-                () => {
-                    setMode(
-                        node.dataset.copilotMode
-                    );
-                }
-            );
-        });
-
-        const display = $('copilot-mode-display');
-
-        if (
-            display &&
-            display.dataset.iwpCopilotDisplayBound !== '1'
-        ) {
-            display.dataset.iwpCopilotDisplayBound = '1';
-
-            display.addEventListener(
-                'click',
-                event => {
-                    event.stopPropagation();
-
-                    const options =
-                        $('copilot-mode-options');
-
-                    if (!options) {
-                        return;
-                    }
-
-                    options.style.display =
-                        options.style.display === 'block'
-                            ? 'none'
-                            : 'block';
-                }
-            );
-        }
-    }
-
-    /* ============================================================
-     * MODEL BUTTONS
+     * MODEL BINDING
      * ============================================================ */
 
     function bindModelButtons() {
-        document.querySelectorAll(
-            '[data-copilot-model]'
-        ).forEach(node => {
-            if (
-                node.dataset.iwpCopilotModelBound === '1'
-            ) {
-                return;
-            }
+        /*
+         * 菜单是 JS 动态生成的，所以先生成。
+         */
+        renderModelOptions();
 
-            node.dataset.iwpCopilotModelBound = '1';
+        const display =
+            $('copilot-model-display');
 
-            node.addEventListener(
-                'click',
-                () => {
-                    setModel(
-                        node.dataset.copilotModel
-                    );
-                }
-            );
-        });
-
-        const display = $('copilot-model-display');
+        const options =
+            $('copilot-model-options');
 
         if (
             display &&
-            display.dataset.iwpCopilotDisplayBound !== '1'
+            display.dataset.iwpCopilotModelDisplayBound !==
+            '1'
         ) {
-            display.dataset.iwpCopilotDisplayBound = '1';
+            display.dataset.iwpCopilotModelDisplayBound =
+                '1';
 
             display.addEventListener(
                 'click',
                 event => {
                     event.stopPropagation();
 
-                    const options =
-                        $('copilot-model-options');
-
-                    if (!options) {
-                        return;
-                    }
+                    if (!options) return;
 
                     options.style.display =
                         options.style.display === 'block'
@@ -1164,10 +1429,12 @@
                 }
             );
         }
+
+        updateModelDisplay();
     }
 
     /* ============================================================
-     * NEW CHAT / HISTORY
+     * NEW CHAT
      * ============================================================ */
 
     function bindHistoryButtons() {
@@ -1177,51 +1444,76 @@
             '[data-copilot-new-chat]'
         ]).forEach(button => {
             if (
-                button.dataset.iwpCopilotHistoryBound === '1'
+                button.dataset.iwpCopilotHistoryBound ===
+                '1'
             ) {
                 return;
             }
 
-            button.dataset.iwpCopilotHistoryBound = '1';
+            button.dataset.iwpCopilotHistoryBound =
+                '1';
 
             button.addEventListener(
                 'click',
-                newConversation
-            );
-        });
-
-        document.querySelectorAll(
-            '[data-copilot-history-id]'
-        ).forEach(node => {
-            if (
-                node.dataset.iwpCopilotHistoryItemBound === '1'
-            ) {
-                return;
-            }
-
-            node.dataset.iwpCopilotHistoryItemBound = '1';
-
-            node.addEventListener(
-                'click',
-                async () => {
-                    const id =
-                        node.dataset.copilotHistoryId;
-
-                    if (!id) {
-                        return;
-                    }
-
-                    try {
-                        await loadHistory(id);
-                    } catch (error) {
-                        toast(
-                            error?.message ||
-                            '历史记录加载失败'
-                        );
-                    }
+                event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    newConversation();
                 }
             );
         });
+    }
+
+    /* ============================================================
+     * GLOBAL CLICK
+     *
+     * 点击外部关闭两个下拉菜单。
+     * 不影响 Copilot 按钮。
+     * ============================================================ */
+
+    function bindGlobalDropdownClose() {
+        if (window.__IWP_COPILOT_GLOBAL_CLICK__) {
+            return;
+        }
+
+        window.__IWP_COPILOT_GLOBAL_CLICK__ = true;
+
+        document.addEventListener(
+            'click',
+            event => {
+                const modeDrop =
+                    $('copilot-mode-dropdown');
+
+                const modelDrop =
+                    $('copilot-model-dropdown');
+
+                if (
+                    modeDrop &&
+                    !modeDrop.contains(event.target)
+                ) {
+                    const options =
+                        $('copilot-mode-options');
+
+                    if (options) {
+                        options.style.display =
+                            'none';
+                    }
+                }
+
+                if (
+                    modelDrop &&
+                    !modelDrop.contains(event.target)
+                ) {
+                    const options =
+                        $('copilot-model-options');
+
+                    if (options) {
+                        options.style.display =
+                            'none';
+                    }
+                }
+            }
+        );
     }
 
     /* ============================================================
@@ -1231,7 +1523,9 @@
     function refresh() {
         els.messages =
             $('copilot-messages') ||
-            document.querySelector('.copilot-messages');
+            document.querySelector(
+                '.copilot-messages'
+            );
 
         els.input =
             $('copilot-input') ||
@@ -1246,6 +1540,7 @@
         bindImageInput();
         bindSend();
         bindHistoryButtons();
+        bindGlobalDropdownClose();
 
         setMode(mode);
         setModel(model);
@@ -1254,12 +1549,13 @@
     }
 
     /* ============================================================
-     * DYNAMIC DOM
+     * DOM OBSERVER
      * ============================================================ */
 
     function watchDOM() {
         if (
-            typeof MutationObserver === 'undefined' ||
+            typeof MutationObserver ===
+            'undefined' ||
             window.__IWP_COPILOT_OBSERVER__
         ) {
             return;
@@ -1272,8 +1568,10 @@
                 clearTimeout(timer);
 
                 timer = setTimeout(
-                    refresh,
-                    50
+                    () => {
+                        refresh();
+                    },
+                    80
                 );
             });
 
@@ -1331,15 +1629,16 @@
     };
 
     /* ============================================================
-     * START
+     * INIT
      * ============================================================ */
 
     function init() {
-        refresh();
-
         const toc = getTocView();
         const copilot = getCopilotView();
 
+        /*
+         * 初始保持目录。
+         */
         if (toc && copilot) {
             copilot.style.display = 'none';
             toc.style.display = '';
@@ -1347,7 +1646,8 @@
 
         copilotOpen = false;
 
-        const button = getCopilotButton();
+        const button =
+            getCopilotButton();
 
         if (button) {
             button.setAttribute(
@@ -1356,10 +1656,15 @@
             );
         }
 
+        refresh();
+
         watchDOM();
     }
 
-    if (document.readyState === 'loading') {
+    if (
+        document.readyState ===
+        'loading'
+    ) {
         document.addEventListener(
             'DOMContentLoaded',
             init,
