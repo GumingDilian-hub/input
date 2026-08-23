@@ -1,5 +1,5 @@
 /* IWP Copilot — rollback-compatible client
- * UI/DOM contract remains unchanged; authentication is now shared directly
+ * UI/DOM contract remains unchanged; authentication is shared directly
  * through iwp-user/localStorage and the same Worker used by reader.js.
  */
 (function () {
@@ -10,16 +10,15 @@
     const ADMIN = 'loading';
     const TEXT_MODELS = [
         ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super', '1.png'],
-        ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 ultra', '1.png'],
         ['meta/llama-3.3-70b-instruct', 'Meta 3.3', '2.png'],
-        ['nvidia/gpt-oss-120b', 'ChatGPT', '3.png'],
-        ['nvidia/gpt-oss-20b', 'CatGPT', '3.png'],
-        ['minimaxai/minimax-m3', 'MiniMax M3', '5.png'],
-        ['deepseek-ai/deepseek-v4-flash-0731', 'DeepSeek V4', '6.png'],
-        ['z-ai/glm-5.2', 'GLM 5.2', '7.png'],
+        ['openai/gpt-oss-120b', 'ChatGPT', '3.png'],
+        ['openai/gpt-oss-20b', 'CatGPT', '3.png'],
+        ['minimaxai/minimax-m2.5', 'MiniMax', '5.png'],
+        ['deepseek-ai/deepseek-v4-flash', 'DeepSeek V4', '6.png'],
+        ['z-ai/glm4.7', 'GLM 4.7', '7.png'],
         ['google/gemma-4-31b-it', 'Google Gemma 4', '4.png']
     ];
-    const VISION_MODELS = [['meta/llama-3.2-90b-vision-instruct', 'Meta 3.3 视觉', '2.png']];
+    const VISION_MODELS = [['meta/llama-3.2-90b-vision-instruct', 'Meta 3.2 视觉', '2.png']];
     const ALL_MODELS = TEXT_MODELS.concat(VISION_MODELS);
 
     let mode = 'note', model = TEXT_MODELS[0][0], image = null;
@@ -57,24 +56,36 @@
         setTimeout(() => node.remove(), 2200);
     }
 
-    function currentChapter() {
+    function fullNoteContext() {
         const article = $('article-body');
         if (!article) return '';
-        const headings = article.querySelectorAll('h2');
-        let active = null;
-        for (const h of headings) {
-            const r = h.getBoundingClientRect();
-            if (r.top < innerHeight && r.bottom > 0) { active = h; break; }
-        }
-        if (!active) return '';
-        let out = '', node = active;
-        while (node) {
-            if (node !== active && node.tagName === 'H2') break;
-            if (node.tagName === 'H1') break;
-            out += node.textContent + '\n';
-            node = node.nextElementSibling;
-        }
-        return out.trim();
+        return String(article.innerText || article.textContent || '').trim();
+    }
+
+    function currentChapter() {
+        return fullNoteContext();
+    }
+
+    function setLoading(on) {
+        if (!els.messages) return;
+        let node = $('copilot-thinking-status');
+        if (on) {
+            if (!node) {
+                node = document.createElement('div');
+                node.id = 'copilot-thinking-status';
+                node.className = 'copilot-thinking-status';
+                node.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;color:#aaa;font-size:.82rem;opacity:.95;';
+                node.innerHTML = '<span class="copilot-spinner" style="display:inline-block;width:13px;height:13px;border:2px solid #555;border-top-color:#ddd;border-radius:50%;animation:copilot-spin .8s linear infinite;"></span><span>少女祈祷中...</span>';
+                els.messages.appendChild(node);
+                if (!document.getElementById('copilot-spin-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'copilot-spin-style';
+                    style.textContent = '@keyframes copilot-spin{to{transform:rotate(360deg)}}';
+                    document.head.appendChild(style);
+                }
+            }
+            els.messages.scrollTop = els.messages.scrollHeight;
+        } else node?.remove();
     }
 
     function render() {
@@ -82,7 +93,7 @@
         els.messages.innerHTML = '';
         if (!history.length) {
             const u = getUser();
-            els.messages.innerHTML = '<div class="copilot-placeholder">' + (u?.username === ADMIN ? '✨ 管理员模式 - ' : '') + '有什么可以帮你的？</div>';
+            els.messages.innerHTML = '<div class="copilot-placeholder">' + (u?.username === ADMIN ? '管理员模式 - ' : '') + '有什么可以帮你的？</div>';
         }
         history.forEach(m => {
             const box = document.createElement('div');
@@ -118,6 +129,7 @@
         });
         els.messages.scrollTop = els.messages.scrollHeight;
         drawDots();
+        if (busy) setLoading(true);
     }
 
     function drawDots() {
@@ -215,7 +227,7 @@
             reader.onload = () => { ta.value = String(reader.result || ''); $('copilot-whiteboard-status').textContent = `已导入文件: ${file.name} (${ta.value.length} 字)`; };
             reader.readAsText(file);
         };
-        $('wb-from-page').onclick = () => { const text = currentChapter(); if (text) { ta.value = text; toast('已导入当前章节内容'); } else toast('未找到当前章节内容'); };
+        $('wb-from-page').onclick = () => { const text = currentChapter(); if (text) { ta.value = text; toast('已导入当前页面全部内容'); } else toast('未找到当前页面内容'); };
         $('wb-confirm').onclick = () => { whiteboard = ta.value; panel.style.display = 'none'; toast('资料已导入，共 ' + whiteboard.length + ' 字'); };
         $('wb-cancel').onclick = () => { panel.style.display = 'none'; };
     }
@@ -270,6 +282,7 @@
         els.input.value = '';
         updateImageState();
         render();
+        setLoading(true);
         try {
             const messages = history.slice(0, -1).map(m => ({ role: m.role, content: m.content || '' }));
             const payload = { mode, model, messages, chapterContext: currentChapter(), whiteboardContext: whiteboard };
@@ -293,13 +306,12 @@
                     if (!line.startsWith('data:')) continue;
                     const raw = line.slice(5).trim();
                     if (!raw) continue;
-                    try {
-                        const event = JSON.parse(raw);
-                        if (event.type === 'content') assistant.content += event.text || '';
-                        else if (event.type === 'reasoning') assistant.reasoning += event.text || '';
-                        else if (event.type === 'error') throw new Error(event.error || '流式响应错误');
-                        render();
-                    } catch (e) { if (e.message && !/Unexpected end of JSON/.test(e.message)) throw e; }
+                    const event = JSON.parse(raw);
+                    if (event.type === 'content') assistant.content += event.text || '';
+                    else if (event.type === 'reasoning') assistant.reasoning += event.text || '';
+                    else if (event.type === 'error') throw new Error(event.error || '流式响应错误');
+                    render();
+                    setLoading(true);
                 }
             }
             await saveHistory();
@@ -309,6 +321,7 @@
         } finally {
             busy = false;
             els.send.disabled = false;
+            setLoading(false);
             els.input.focus();
         }
     }
@@ -362,6 +375,11 @@
             inputWrap: document.querySelector('.copilot-input-wrap')
         };
         if (!els.btn || !els.copilot || !els.messages || !els.input) return;
+        const guard = document.createElement('div');
+        guard.id = 'copilot-bottom-guard';
+        guard.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:28px;background:linear-gradient(transparent,rgba(15,15,15,.96));pointer-events:none;z-index:20;';
+        if (getComputedStyle(els.copilot).position === 'static') els.copilot.style.position = 'relative';
+        els.copilot.appendChild(guard);
         renderModes(); renderModels(); updateImageState(); updateWhiteboardState(); bind(); render(); loadHistoryList();
     }
 
