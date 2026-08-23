@@ -1,6 +1,8 @@
 /* ============================================================
  * IWP Copilot
-
+ *
+ * Complete rollback-compatible client
+ *
  * ============================================================ */
 
 (function () {
@@ -43,23 +45,34 @@
         for (const selector of selectors) {
             try {
                 const node = document.querySelector(selector);
-                if (node) return node;
+
+                if (node) {
+                    return node;
+                }
             } catch (_) {}
         }
+
         return null;
     }
 
     function qsa(selectors) {
         const result = [];
+
         for (const selector of selectors) {
             try {
-                document.querySelectorAll(selector).forEach(node => {
-                    if (!result.includes(node)) result.push(node);
-                });
+                document
+                    .querySelectorAll(selector)
+                    .forEach(node => {
+                        if (!result.includes(node)) {
+                            result.push(node);
+                        }
+                    });
             } catch (_) {}
         }
+
         return result;
     }
+
 
     /* ============================================================
      * AUTH
@@ -67,7 +80,9 @@
 
     function getUser() {
         try {
-            return JSON.parse(localStorage.getItem('iwp-user') || 'null');
+            return JSON.parse(
+                localStorage.getItem('iwp-user') || 'null'
+            );
         } catch (_) {
             return null;
         }
@@ -77,44 +92,69 @@
         return getUser()?.token || null;
     }
 
+
     /* ============================================================
      * API
      * ============================================================ */
 
     async function api(path, options = {}) {
-        const headers = Object.assign({}, options.headers || {});
+        const headers = Object.assign(
+            {},
+            options.headers || {}
+        );
+
         const token = getToken();
 
         if (token) {
-            headers.Authorization = 'Bearer ' + token;
+            headers.Authorization =
+                'Bearer ' + token;
         }
 
-        const requestOptions = Object.assign({}, options);
+        const requestOptions =
+            Object.assign({}, options);
 
         if (
             requestOptions.body &&
             typeof requestOptions.body !== 'string'
         ) {
-            headers['Content-Type'] = 'application/json';
-            requestOptions.body = JSON.stringify(requestOptions.body);
+            headers['Content-Type'] =
+                'application/json';
+
+            requestOptions.body =
+                JSON.stringify(
+                    requestOptions.body
+                );
         }
 
         requestOptions.headers = headers;
 
-        const response = await fetch(API + path, requestOptions);
-        const text = await response.text();
+        const response =
+            await fetch(
+                API + path,
+                requestOptions
+            );
+
+        const text =
+            await response.text();
 
         let data = {};
 
         try {
-            data = text ? JSON.parse(text) : {};
+            data =
+                text
+                    ? JSON.parse(text)
+                    : {};
         } catch (_) {}
 
         if (!response.ok) {
             throw Object.assign(
-                new Error(data?.error || `HTTP ${response.status}`),
+                new Error(
+                    data?.error ||
+                    `HTTP ${response.status}`
+                ),
                 {
-                    status: response.status,
+                    status:
+                        response.status,
                     data
                 }
             );
@@ -123,16 +163,21 @@
         return data;
     }
 
+
     /* ============================================================
      * TOAST
      * ============================================================ */
 
     function toast(message) {
-        document.querySelector('.copilot-toast')?.remove();
+        document
+            .querySelector('.copilot-toast')
+            ?.remove();
 
-        const node = document.createElement('div');
+        const node =
+            document.createElement('div');
 
-        node.className = 'copilot-toast';
+        node.className =
+            'copilot-toast';
 
         node.style.cssText =
             'position:fixed;bottom:20px;left:50%;' +
@@ -140,23 +185,32 @@
             'background:rgba(0,0,0,.88);color:#eee;' +
             'padding:8px 20px;border-radius:8px;' +
             'font-size:.85rem;z-index:99999;' +
-            'border:1px solid #555;pointer-events:none;';
+            'border:1px solid #555;' +
+            'pointer-events:none;';
 
-        node.textContent = String(message || '');
+        node.textContent =
+            String(message || '');
 
         document.body.appendChild(node);
 
-        setTimeout(() => node.remove(), 2200);
+        setTimeout(
+            () => node.remove(),
+            2200
+        );
     }
+
 
     /* ============================================================
      * CONTEXT
      * ============================================================ */
 
     function fullNoteContext() {
-        const article = $('article-body');
+        const article =
+            $('article-body');
 
-        if (!article) return '';
+        if (!article) {
+            return '';
+        }
 
         return String(
             article.innerText ||
@@ -170,48 +224,79 @@
     }
 
     function setWhiteboard(value) {
-        whiteboard = String(value || '');
+        whiteboard =
+            String(value || '');
     }
 
     function getWhiteboardContext() {
-        return String(whiteboard || '');
+        return String(
+            whiteboard || ''
+        );
     }
+
 
     /* ============================================================
      * MODEL
      * ============================================================ */
 
     function findModel(modelId) {
-        return ALL_MODELS.find(item => item[0] === modelId) || null;
+        return (
+            ALL_MODELS.find(
+                item =>
+                    item[0] === modelId
+            ) || null
+        );
     }
 
     function isVisionModel(modelId) {
-        return VISION_MODELS.some(item => item[0] === modelId);
+        return VISION_MODELS.some(
+            item =>
+                item[0] === modelId
+        );
     }
 
+
     /*
-     * 真正生成模型菜单。
-     *
-     * 这是当前仓库缺失的核心部分。
+     * 生成模型菜单
      */
     function renderModelOptions() {
-        const container = $('copilot-model-options');
+        const container =
+            $('copilot-model-options');
 
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         container.innerHTML = '';
 
         ALL_MODELS.forEach(item => {
-            const [id, name, logo] = item;
+            const [
+                id,
+                name,
+                logo
+            ] = item;
 
-            const option = document.createElement('div');
+            const option =
+                document.createElement(
+                    'div'
+                );
 
-            option.className = 'copilot-model-option';
-            option.dataset.copilotModel = id;
-            option.setAttribute('role', 'option');
+            option.className =
+                'copilot-model-option';
+
+            option.dataset.copilotModel =
+                id;
+
+            option.setAttribute(
+                'role',
+                'option'
+            );
+
             option.setAttribute(
                 'aria-selected',
-                id === model ? 'true' : 'false'
+                id === model
+                    ? 'true'
+                    : 'false'
             );
 
             option.style.cssText =
@@ -224,43 +309,71 @@
                 'font-size:.75rem;' +
                 'white-space:nowrap;';
 
-            const icon = document.createElement('img');
+            const icon =
+                document.createElement(
+                    'img'
+                );
 
-            icon.src = LOGO + logo;
+            icon.src =
+                LOGO + logo;
+
             icon.alt = '';
+
             icon.style.cssText =
-                'width:18px;height:18px;' +
-                'object-fit:contain;flex-shrink:0;';
+                'width:18px;' +
+                'height:18px;' +
+                'object-fit:contain;' +
+                'flex-shrink:0;';
 
-            const text = document.createElement('span');
+            const text =
+                document.createElement(
+                    'span'
+                );
 
-            text.textContent = name;
+            text.textContent =
+                name;
 
             option.appendChild(icon);
             option.appendChild(text);
 
-            option.addEventListener('mouseenter', () => {
-                option.style.background = '#444';
-            });
-
-            option.addEventListener('mouseleave', () => {
-                option.style.background =
-                    id === model ? '#444' : 'transparent';
-            });
-
-            option.addEventListener('click', event => {
-                event.stopPropagation();
-
-                setModel(id);
-
-                const menu = $('copilot-model-options');
-
-                if (menu) {
-                    menu.style.display = 'none';
+            option.addEventListener(
+                'mouseenter',
+                () => {
+                    option.style.background =
+                        '#444';
                 }
-            });
+            );
 
-            container.appendChild(option);
+            option.addEventListener(
+                'mouseleave',
+                () => {
+                    option.style.background =
+                        id === model
+                            ? '#444'
+                            : 'transparent';
+                }
+            );
+
+            option.addEventListener(
+                'click',
+                event => {
+                    event.stopPropagation();
+
+                    setModel(id);
+
+                    const menu =
+                        $('copilot-model-options');
+
+                    if (menu) {
+                        menu.style.display =
+                            'none';
+                    }
+                }
+            );
+
+            container.appendChild(
+                option
+            );
         });
 
         updateModelOptionsState();
@@ -268,38 +381,60 @@
 
     function updateModelOptionsState() {
         document
-            .querySelectorAll('.copilot-model-option')
+            .querySelectorAll(
+                '.copilot-model-option'
+            )
             .forEach(option => {
                 const active =
-                    option.dataset.copilotModel === model;
+                    option.dataset.copilotModel ===
+                    model;
 
-                option.classList.toggle('active', active);
-                option.classList.toggle('selected', active);
+                option.classList.toggle(
+                    'active',
+                    active
+                );
+
+                option.classList.toggle(
+                    'selected',
+                    active
+                );
 
                 option.setAttribute(
                     'aria-selected',
-                    active ? 'true' : 'false'
+                    active
+                        ? 'true'
+                        : 'false'
                 );
 
                 option.style.background =
-                    active ? '#444' : 'transparent';
+                    active
+                        ? '#444'
+                        : 'transparent';
             });
     }
 
     function updateModelDisplay() {
-        const current = findModel(model);
+        const current =
+            findModel(model);
 
-        if (!current) return;
+        if (!current) {
+            return;
+        }
 
-        const text = $('copilot-model-text');
-        const icon = $('copilot-model-icon');
+        const text =
+            $('copilot-model-text');
+
+        const icon =
+            $('copilot-model-icon');
 
         if (text) {
-            text.textContent = current[1];
+            text.textContent =
+                current[1];
         }
 
         if (icon) {
-            icon.src = LOGO + current[2];
+            icon.src =
+                LOGO + current[2];
         }
 
         updateModelOptionsState();
@@ -311,30 +446,50 @@
             return false;
         }
 
-        model = modelId;
+        model =
+            modelId;
 
         updateModelDisplay();
 
         return true;
     }
 
+
     /* ============================================================
      * IMAGE UI
      * ============================================================ */
 
     function updateImageUI() {
-        const input = $('copilot-image-input');
-        const label = $('copilot-image-label');
+        const input =
+            $('copilot-image-input');
 
-        if (!input || !label) return;
+        const label =
+            $('copilot-image-label');
 
-        const enabled = isVisionModel(model);
+        if (!input || !label) {
+            return;
+        }
 
-        input.disabled = !enabled;
+        const enabled =
+            isVisionModel(model);
 
-        label.style.opacity = enabled ? '1' : '.3';
-        label.style.color = enabled ? '#ccc' : '#888';
-        label.style.cursor = enabled ? 'pointer' : 'default';
+        input.disabled =
+            !enabled;
+
+        label.style.opacity =
+            enabled
+                ? '1'
+                : '.3';
+
+        label.style.color =
+            enabled
+                ? '#ccc'
+                : '#888';
+
+        label.style.cursor =
+            enabled
+                ? 'pointer'
+                : 'default';
 
         if (!enabled) {
             image = null;
@@ -352,7 +507,8 @@
     function clearImage() {
         image = null;
 
-        const input = $('copilot-image-input');
+        const input =
+            $('copilot-image-input');
 
         if (input) {
             input.value = '';
@@ -360,50 +516,78 @@
     }
 
     function bindImageInput() {
-        const input = $('copilot-image-input');
+        const input =
+            $('copilot-image-input');
 
-        if (!input) return;
+        if (!input) {
+            return;
+        }
 
         if (
-            input.dataset.iwpCopilotImageBound === '1'
+            input.dataset
+                .iwpCopilotImageBound ===
+            '1'
         ) {
             updateImageUI();
             return;
         }
 
-        input.dataset.iwpCopilotImageBound = '1';
+        input.dataset
+            .iwpCopilotImageBound =
+            '1';
 
-        input.addEventListener('change', () => {
-            const file = input.files?.[0];
+        input.addEventListener(
+            'change',
+            () => {
+                const file =
+                    input.files?.[0];
 
-            if (!file) {
-                image = null;
-                return;
+                if (!file) {
+                    image = null;
+                    return;
+                }
+
+                if (
+                    !isVisionModel(model)
+                ) {
+                    input.value = '';
+                    image = null;
+
+                    toast(
+                        '当前模型不支持图片'
+                    );
+
+                    return;
+                }
+
+                const reader =
+                    new FileReader();
+
+                reader.onload = () => {
+                    image =
+                        String(
+                            reader.result ||
+                            ''
+                        );
+                };
+
+                reader.onerror = () => {
+                    image = null;
+
+                    toast(
+                        '图片读取失败'
+                    );
+                };
+
+                reader.readAsDataURL(
+                    file
+                );
             }
-
-            if (!isVisionModel(model)) {
-                input.value = '';
-                image = null;
-                toast('当前模型不支持图片');
-                return;
-            }
-
-            const reader = new FileReader();
-
-            reader.onload = () => {
-                image = String(reader.result || '');
-            };
-
-            reader.onerror = () => {
-                image = null;
-                toast('图片读取失败');
-            };
-
-            reader.readAsDataURL(file);
-        });
+        );
 
         updateImageUI();
     }
+
 
     /* ============================================================
      * MODE
@@ -416,28 +600,44 @@
     };
 
     function updateModeDisplay() {
-        const text = $('copilot-mode-text');
+        const text =
+            $('copilot-mode-text');
 
         if (text) {
             text.textContent =
-                MODE_NAMES[mode] || '本站笔记';
+                MODE_NAMES[mode] ||
+                '本站笔记';
         }
 
         document
-            .querySelectorAll('.copilot-mode-option')
+            .querySelectorAll(
+                '.copilot-mode-option'
+            )
             .forEach(node => {
                 const active =
-                    node.dataset.mode === mode;
+                    node.dataset.mode ===
+                    mode;
 
-                node.classList.toggle('active', active);
-                node.classList.toggle('selected', active);
+                node.classList.toggle(
+                    'active',
+                    active
+                );
+
+                node.classList.toggle(
+                    'selected',
+                    active
+                );
 
                 node.style.background =
-                    active ? '#444' : 'transparent';
+                    active
+                        ? '#444'
+                        : 'transparent';
 
                 node.setAttribute(
                     'aria-selected',
-                    active ? 'true' : 'false'
+                    active
+                        ? 'true'
+                        : 'false'
                 );
             });
     }
@@ -447,78 +647,108 @@
             return false;
         }
 
-        mode = nextMode;
+        mode =
+            nextMode;
 
         updateModeDisplay();
 
-        const options = $('copilot-mode-options');
+        const options =
+            $('copilot-mode-options');
 
         if (options) {
-            options.style.display = 'none';
+            options.style.display =
+                'none';
         }
 
         return true;
     }
 
     function bindModeButtons() {
-        const display = $('copilot-mode-display');
-        const options = $('copilot-mode-options');
+        const display =
+            $('copilot-mode-display');
+
+        const options =
+            $('copilot-mode-options');
 
         if (
             display &&
-            display.dataset.iwpCopilotModeDisplayBound !== '1'
+            display.dataset
+                .iwpCopilotModeDisplayBound !==
+            '1'
         ) {
-            display.dataset.iwpCopilotModeDisplayBound = '1';
+            display.dataset
+                .iwpCopilotModeDisplayBound =
+                '1';
 
-            display.addEventListener('click', event => {
-                event.stopPropagation();
+            display.addEventListener(
+                'click',
+                event => {
+                    event.stopPropagation();
 
-                if (!options) return;
+                    if (!options) {
+                        return;
+                    }
 
-                options.style.display =
-                    options.style.display === 'block'
-                        ? 'none'
-                        : 'block';
-            });
+                    options.style.display =
+                        options.style.display ===
+                        'block'
+                            ? 'none'
+                            : 'block';
+                }
+            );
         }
 
-        /*
-         * reader.html 实际使用：
-         * data-mode="note"
-         *
-         * 不再错误寻找 data-copilot-mode。
-         */
         document
-            .querySelectorAll('.copilot-mode-option[data-mode]')
+            .querySelectorAll(
+                '.copilot-mode-option[data-mode]'
+            )
             .forEach(node => {
                 if (
-                    node.dataset.iwpCopilotModeBound === '1'
+                    node.dataset
+                        .iwpCopilotModeBound ===
+                    '1'
                 ) {
                     return;
                 }
 
-                node.dataset.iwpCopilotModeBound = '1';
+                node.dataset
+                    .iwpCopilotModeBound =
+                    '1';
 
-                node.addEventListener('click', event => {
-                    event.stopPropagation();
+                node.addEventListener(
+                    'click',
+                    event => {
+                        event.stopPropagation();
 
-                    setMode(node.dataset.mode);
-                });
+                        setMode(
+                            node.dataset.mode
+                        );
+                    }
+                );
 
-                node.addEventListener('mouseenter', () => {
-                    node.style.background = '#444';
-                });
+                node.addEventListener(
+                    'mouseenter',
+                    () => {
+                        node.style.background =
+                            '#444';
+                    }
+                );
 
-                node.addEventListener('mouseleave', () => {
-                    node.style.background =
-                        node.dataset.mode === mode
-                            ? '#444'
-                            : 'transparent';
-                });
+                node.addEventListener(
+                    'mouseleave',
+                    () => {
+                        node.style.background =
+                            node.dataset.mode ===
+                            mode
+                                ? '#444'
+                                : 'transparent';
+                    }
+                );
             });
 
         updateModeDisplay();
     }
+
 
     /* ============================================================
      * SIDEBAR
@@ -544,86 +774,371 @@
         return window.innerWidth <= 768;
     }
 
-    function showCopilotView() {
-        const sidebar = getSidebar();
-        const toc = getTocView();
-        const copilot = getCopilotView();
 
-        if (!sidebar || !toc || !copilot) {
-            console.warn(
-                '[IWP Copilot] Copilot DOM not found'
+    /*
+     * ============================================================
+     * Copilot 自适应布局
+     *
+     * 核心原则：
+     *
+     *   sidebar
+     *       ↓
+     *   Copilot view
+     *       ├── 顶部标题
+     *       ├── 消息区域 ← 唯一滚动区域
+     *       ├── 工具行
+     *       ├── 输入区
+     *       └── 历史按钮 / 历史浮层
+     *
+     * 输入区永远是底部固定 flex 子项。
+     * ============================================================
+     */
+
+    function applyAdaptiveLayout() {
+        let style =
+            $('copilot-adaptive-style');
+
+        if (!style) {
+            style =
+                document.createElement(
+                    'style'
+                );
+
+            style.id =
+                'copilot-adaptive-style';
+
+            style.textContent = `
+                #sidebar-copilot-view {
+                    display: flex !important;
+                    flex: 1 1 auto !important;
+                    flex-direction: column !important;
+                    position: relative !important;
+                    height: auto !important;
+                    min-height: 0 !important;
+                    max-height: none !important;
+                    overflow: hidden !important;
+                }
+
+                #sidebar-copilot-view
+                #copilot-messages-wrapper {
+                    flex: 1 1 0% !important;
+                    min-height: 0 !important;
+                    max-height: none !important;
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                    position: relative !important;
+                }
+
+                #sidebar-copilot-view
+                #copilot-messages {
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    overflow: visible !important;
+                }
+
+                #sidebar-copilot-view
+                #copilot-messages-wrapper
+                #copilot-dots {
+                    pointer-events: none !important;
+                }
+
+                #sidebar-copilot-view
+                #copilot-history-list {
+                    display: none !important;
+                    position: absolute !important;
+
+                    left: 8px !important;
+                    right: 8px !important;
+                    top: 8px !important;
+                    bottom: 8px !important;
+
+                    width: auto !important;
+                    height: auto !important;
+                    max-height: none !important;
+
+                    margin: 0 !important;
+                    padding: 6px !important;
+
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+
+                    background: #222 !important;
+                    border: 1px solid #444 !important;
+                    border-radius: 8px !important;
+
+                    box-shadow:
+                        0 8px 28px rgba(0,0,0,.55) !important;
+
+                    z-index: 100 !important;
+                }
+
+                #sidebar-copilot-view
+                #copilot-history-list.copilot-history-open {
+                    display: block !important;
+                }
+
+                #copilot-history-toggle {
+                    background: transparent;
+                    border: 1px solid #555;
+                    color: #bbb;
+                    border-radius: 5px;
+                    padding: 2px 7px;
+                    cursor: pointer;
+                    font-size: .75rem;
+                    line-height: 1.5;
+                    white-space: nowrap;
+                }
+
+                #copilot-history-toggle:hover,
+                #copilot-history-toggle.active {
+                    background: #333;
+                    color: #fff;
+                }
+            `;
+
+            document.head.appendChild(
+                style
             );
-            return false;
         }
 
-        toc.style.display = 'none';
-        copilot.style.display = 'flex';
+        const view =
+            getCopilotView();
 
-        copilotOpen = true;
+        const messagesWrapper =
+            $('copilot-messages-wrapper');
+
+        const historyList =
+            $('copilot-history-list');
+
+        if (!view) {
+            return;
+        }
 
         /*
-         * 移动端必须真正把 sidebar 滑出来。
+         * 原来的 HTML 把历史列表放在整个
+         * Copilot view 最底部。
+         *
+         * 把它移动到消息滚动容器内部，
+         * 让它成为消息区域上的浮层。
          */
-        if (isMobile()) {
-            sidebar.classList.add('sidebar-open');
+        if (
+            historyList &&
+            messagesWrapper &&
+            historyList.parentElement !==
+            messagesWrapper
+        ) {
+            messagesWrapper.appendChild(
+                historyList
+            );
+        }
 
-            const app = $('app');
+        /*
+         * 输入区保持 flex-shrink:0。
+         *
+         * 找到 copilot-input 所在的直接子元素。
+         */
+        const input =
+            $('copilot-input');
 
-            if (app) {
-                app.classList.add('sidebar-active');
+        if (input) {
+            let row =
+                input.parentElement;
+
+            while (
+                row &&
+                row.parentElement !==
+                view
+            ) {
+                row =
+                    row.parentElement;
+            }
+
+            if (
+                row &&
+                row.parentElement ===
+                view
+            ) {
+                row.style.flex =
+                    '0 0 auto';
+
+                row.style.minHeight =
+                    '0';
             }
         }
 
-        const button = getCopilotButton();
+        /*
+         * 工具行同样不能被压缩。
+         */
+        const send =
+            $('copilot-send');
+
+        if (send) {
+            let row =
+                send.parentElement;
+
+            while (
+                row &&
+                row.parentElement !==
+                view
+            ) {
+                row =
+                    row.parentElement;
+            }
+
+            if (
+                row &&
+                row.parentElement ===
+                view
+            ) {
+                row.style.flex =
+                    '0 0 auto';
+
+                row.style.minHeight =
+                    '0';
+            }
+        }
+
+        bindHistoryToggle();
+    }
+
+
+    function showCopilotView() {
+        const sidebar =
+            getSidebar();
+
+        const toc =
+            getTocView();
+
+        const copilot =
+            getCopilotView();
+
+        if (
+            !sidebar ||
+            !toc ||
+            !copilot
+        ) {
+            console.warn(
+                '[IWP Copilot] Copilot DOM not found'
+            );
+
+            return false;
+        }
+
+        /*
+         * Copilot 打开时不让 sidebar 自己
+         * 再产生第二层滚动。
+         */
+        sidebar.style.overflow =
+            'hidden';
+
+        toc.style.display =
+            'none';
+
+        copilot.style.display =
+            'flex';
+
+        copilotOpen =
+            true;
+
+        if (isMobile()) {
+            sidebar.classList.add(
+                'sidebar-open'
+            );
+
+            const app =
+                $('app');
+
+            if (app) {
+                app.classList.add(
+                    'sidebar-active'
+                );
+            }
+        }
+
+        const button =
+            getCopilotButton();
 
         if (button) {
-            button.classList.add('active');
-            button.setAttribute('aria-expanded', 'true');
+            button.classList.add(
+                'active'
+            );
+
+            button.setAttribute(
+                'aria-expanded',
+                'true'
+            );
         }
 
         refresh();
 
-        /*
-         * 打开 Copilot 时同步历史记录。
-         */
         refreshHistoryList();
 
         return true;
     }
 
-    function hideCopilotView() {
-        const sidebar = getSidebar();
-        const toc = getTocView();
-        const copilot = getCopilotView();
 
-        if (!sidebar || !toc || !copilot) {
+    function hideCopilotView() {
+        const sidebar =
+            getSidebar();
+
+        const toc =
+            getTocView();
+
+        const copilot =
+            getCopilotView();
+
+        if (
+            !sidebar ||
+            !toc ||
+            !copilot
+        ) {
             return false;
         }
 
-        copilot.style.display = 'none';
-        toc.style.display = '';
+        copilot.style.display =
+            'none';
 
-        copilotOpen = false;
+        toc.style.display =
+            '';
+
+        copilotOpen =
+            false;
+
+        sidebar.style.overflow =
+            '';
 
         if (isMobile()) {
-            sidebar.classList.remove('sidebar-open');
+            sidebar.classList.remove(
+                'sidebar-open'
+            );
 
-            const app = $('app');
+            const app =
+                $('app');
 
             if (app) {
-                app.classList.remove('sidebar-active');
+                app.classList.remove(
+                    'sidebar-active'
+                );
             }
         }
 
-        const button = getCopilotButton();
+        const button =
+            getCopilotButton();
 
         if (button) {
-            button.classList.remove('active');
-            button.setAttribute('aria-expanded', 'false');
+            button.classList.remove(
+                'active'
+            );
+
+            button.setAttribute(
+                'aria-expanded',
+                'false'
+            );
         }
 
         return true;
     }
+
 
     function toggleCopilot() {
         return copilotOpen
@@ -631,86 +1146,139 @@
             : showCopilotView();
     }
 
+
     function openCopilot() {
         return showCopilotView();
     }
+
 
     function closeCopilot() {
         return hideCopilotView();
     }
 
+
     function isCopilotOpen() {
-        const copilot = getCopilotView();
+        const copilot =
+            getCopilotView();
 
-        if (!copilot) return false;
+        if (!copilot) {
+            return false;
+        }
 
-        return copilot.style.display !== 'none';
+        return (
+            copilot.style.display !==
+            'none'
+        );
     }
 
+
     function bindCopilotButton() {
-        const button = getCopilotButton();
+        const button =
+            getCopilotButton();
 
         if (!button) {
             console.warn(
                 '[IWP Copilot] #btn-copilot not found'
             );
+
             return;
         }
 
         if (
-            button.dataset.iwpCopilotBound === '1'
+            button.dataset
+                .iwpCopilotBound ===
+            '1'
         ) {
             return;
         }
 
-        button.dataset.iwpCopilotBound = '1';
+        button.dataset
+            .iwpCopilotBound =
+            '1';
 
-        button.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
+        button.addEventListener(
+            'click',
+            event => {
+                event.preventDefault();
+                event.stopPropagation();
 
-            toggleCopilot();
-        });
+                toggleCopilot();
+            }
+        );
     }
+
 
     /* ============================================================
      * LOADING
      * ============================================================ */
 
     function setLoading(on) {
-        if (!els.messages) return;
+        if (!els.messages) {
+            return;
+        }
 
-        let node = $('copilot-thinking-status');
+        let node =
+            $('copilot-thinking-status');
 
         if (on) {
             if (!node) {
-                node = document.createElement('div');
+                node =
+                    document.createElement(
+                        'div'
+                    );
 
-                node.id = 'copilot-thinking-status';
-                node.className = 'copilot-thinking-status';
+                node.id =
+                    'copilot-thinking-status';
+
+                node.className =
+                    'copilot-thinking-status';
 
                 node.style.cssText =
-                    'display:flex;align-items:center;gap:8px;' +
-                    'padding:7px 10px;color:#aaa;font-size:.82rem;';
+                    'display:flex;' +
+                    'align-items:center;' +
+                    'gap:8px;' +
+                    'padding:7px 10px;' +
+                    'color:#aaa;' +
+                    'font-size:.82rem;';
 
                 node.innerHTML =
                     '<span class="copilot-spinner" ' +
-                    'style="display:inline-block;width:13px;height:13px;' +
-                    'border:2px solid #555;border-top-color:#ddd;' +
-                    'border-radius:50%;animation:copilot-spin .8s linear infinite;"></span>' +
+                    'style="' +
+                    'display:inline-block;' +
+                    'width:13px;' +
+                    'height:13px;' +
+                    'border:2px solid #555;' +
+                    'border-top-color:#ddd;' +
+                    'border-radius:50%;' +
+                    'animation:copilot-spin .8s linear infinite;' +
+                    '"></span>' +
                     '<span>少女祈祷中...</span>';
 
-                els.messages.appendChild(node);
+                els.messages.appendChild(
+                    node
+                );
 
-                if (!document.getElementById('copilot-spin-style')) {
-                    const style = document.createElement('style');
+                if (
+                    !document.getElementById(
+                        'copilot-spin-style'
+                    )
+                ) {
+                    const style =
+                        document.createElement(
+                            'style'
+                        );
 
-                    style.id = 'copilot-spin-style';
+                    style.id =
+                        'copilot-spin-style';
 
                     style.textContent =
-                        '@keyframes copilot-spin{to{transform:rotate(360deg)}}';
+                        '@keyframes copilot-spin{' +
+                        'to{transform:rotate(360deg)}' +
+                        '}';
 
-                    document.head.appendChild(style);
+                    document.head.appendChild(
+                        style
+                    );
                 }
             }
         } else {
@@ -721,16 +1289,28 @@
             els.messages.scrollHeight;
     }
 
+
     /* ============================================================
      * MESSAGE
      * ============================================================ */
 
-    function appendMessage(role, text, reasoning) {
-        if (!els.messages) return null;
+    function appendMessage(
+        role,
+        text,
+        reasoning
+    ) {
+        if (!els.messages) {
+            return null;
+        }
 
-        const box = document.createElement('div');
+        const box =
+            document.createElement(
+                'div'
+            );
 
-        box.className = 'copilot-message ' + role;
+        box.className =
+            'copilot-message ' +
+            role;
 
         box.style.cssText =
             'white-space:pre-wrap;' +
@@ -738,33 +1318,64 @@
             'margin:8px 0;';
 
         if (reasoning) {
-            const think = document.createElement('details');
+            const think =
+                document.createElement(
+                    'details'
+                );
 
-            think.className = 'copilot-reasoning';
+            think.className =
+                'copilot-reasoning';
 
-            const summary = document.createElement('summary');
+            const summary =
+                document.createElement(
+                    'summary'
+                );
 
-            summary.textContent = '思考过程';
+            summary.textContent =
+                '思考过程';
 
-            const body = document.createElement('div');
+            const body =
+                document.createElement(
+                    'div'
+                );
 
             body.style.cssText =
                 'white-space:pre-wrap;' +
-                'color:#999;font-size:.85rem;padding:6px 0;';
+                'color:#999;' +
+                'font-size:.85rem;' +
+                'padding:6px 0;';
 
-            body.textContent = reasoning;
+            body.textContent =
+                reasoning;
 
-            think.append(summary, body);
-            box.appendChild(think);
+            think.append(
+                summary,
+                body
+            );
+
+            box.appendChild(
+                think
+            );
         }
 
-        const content = document.createElement('div');
+        const content =
+            document.createElement(
+                'div'
+            );
 
-        content.className = 'copilot-content';
-        content.textContent = text || '';
+        content.className =
+            'copilot-content';
 
-        box.appendChild(content);
-        els.messages.appendChild(box);
+        content.textContent =
+            text || '';
+
+        box.appendChild(
+            content
+        );
+
+        els.messages.appendChild(
+            box
+        );
 
         els.messages.scrollTop =
             els.messages.scrollHeight;
@@ -772,50 +1383,82 @@
         return {
             box,
             content,
-            reasoning: reasoning || ''
+            reasoning:
+                reasoning || ''
         };
     }
+
 
     /* ============================================================
      * SSE
      * ============================================================ */
 
-    async function readSSE(response, onEvent) {
+    async function readSSE(
+        response,
+        onEvent
+    ) {
         if (!response.body) {
-            throw new Error('服务器没有返回流');
+            throw new Error(
+                '服务器没有返回流'
+            );
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const reader =
+            response.body.getReader();
+
+        const decoder =
+            new TextDecoder();
 
         let buffer = '';
 
         while (true) {
-            const { done, value } =
+            const {
+                done,
+                value
+            } =
                 await reader.read();
 
-            if (done) break;
+            if (done) {
+                break;
+            }
 
-            buffer += decoder.decode(
-                value,
-                { stream: true }
-            );
+            buffer +=
+                decoder.decode(
+                    value,
+                    {
+                        stream: true
+                    }
+                );
 
-            const lines = buffer.split('\n');
+            const lines =
+                buffer.split('\n');
 
-            buffer = lines.pop() || '';
+            buffer =
+                lines.pop() || '';
 
-            for (let line of lines) {
-                line = line.trim();
+            for (
+                let line of lines
+            ) {
+                line =
+                    line.trim();
 
-                if (!line.startsWith('data:')) {
+                if (
+                    !line.startsWith(
+                        'data:'
+                    )
+                ) {
                     continue;
                 }
 
                 const raw =
-                    line.slice(5).trim();
+                    line
+                        .slice(5)
+                        .trim();
 
-                if (!raw || raw === '[DONE]') {
+                if (
+                    !raw ||
+                    raw === '[DONE]'
+                ) {
                     continue;
                 }
 
@@ -827,11 +1470,21 @@
             }
         }
 
-        if (buffer.trim().startsWith('data:')) {
+        if (
+            buffer
+                .trim()
+                .startsWith('data:')
+        ) {
             const raw =
-                buffer.trim().slice(5).trim();
+                buffer
+                    .trim()
+                    .slice(5)
+                    .trim();
 
-            if (raw && raw !== '[DONE]') {
+            if (
+                raw &&
+                raw !== '[DONE]'
+            ) {
                 try {
                     await onEvent(
                         JSON.parse(raw)
@@ -840,20 +1493,28 @@
             }
         }
     }
+
 
     /* ============================================================
      * SEND
      * ============================================================ */
 
     async function send() {
-        if (busy) return;
+        if (busy) {
+            return;
+        }
 
-        const input = els.input;
+        const input =
+            els.input;
 
         const question =
-            String(input?.value || '').trim();
+            String(
+                input?.value || ''
+            ).trim();
 
-        if (!question) return;
+        if (!question) {
+            return;
+        }
 
         if (!getToken()) {
             toast('请先登录');
@@ -866,15 +1527,23 @@
             input.value = '';
         }
 
-        appendMessage('user', question);
+        appendMessage(
+            'user',
+            question
+        );
+
         setLoading(true);
 
         let context = '';
 
         if (mode === 'note') {
-            context = currentChapter();
-        } else if (mode === 'whiteboard') {
-            context = getWhiteboardContext();
+            context =
+                currentChapter();
+        } else if (
+            mode === 'whiteboard'
+        ) {
+            context =
+                getWhiteboardContext();
         }
 
         history.push({
@@ -887,28 +1556,41 @@
         let assistant = null;
 
         try {
-            const response = await fetch(
-                API + '/api/chat',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization:
-                            'Bearer ' + getToken()
-                    },
-                    body: JSON.stringify({
-                        mode,
-                        model,
-                        messages:
-                            history.slice(-20),
-                        chapterContext:
-                            context,
-                        whiteboardContext:
-                            whiteboard,
-                        image
-                    })
-                }
-            );
+            const response =
+                await fetch(
+                    API + '/api/chat',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json',
+
+                            Authorization:
+                                'Bearer ' +
+                                getToken()
+                        },
+
+                        body:
+                            JSON.stringify({
+                                mode,
+                                model,
+
+                                messages:
+                                    history.slice(
+                                        -20
+                                    ),
+
+                                chapterContext:
+                                    context,
+
+                                whiteboardContext:
+                                    whiteboard,
+
+                                image
+                            })
+                    }
+                );
 
             if (!response.ok) {
                 const text =
@@ -917,7 +1599,8 @@
                 let err = {};
 
                 try {
-                    err = JSON.parse(text);
+                    err =
+                        JSON.parse(text);
                 } catch (_) {}
 
                 throw new Error(
@@ -931,6 +1614,7 @@
             await readSSE(
                 response,
                 async event => {
+
                     if (
                         event.type ===
                         'reasoning'
@@ -1000,9 +1684,7 @@
             });
 
             /*
-             * 如果已经有 session，更新它。
-             * 新对话第一次回答后没有 session，
-             * 这里主动创建。
+             * 第一次回答也直接创建 history。
              */
             if (history.length >= 2) {
                 await saveHistory();
@@ -1026,11 +1708,17 @@
             ) {
                 history.pop();
             }
+
         } finally {
             busy = false;
+
+            /*
+             * 图片只使用一次。
+             */
             image = null;
         }
     }
+
 
     /* ============================================================
      * HISTORY
@@ -1039,29 +1727,40 @@
     async function loadHistoryList() {
         try {
             const data =
-                await api('/api/history');
+                await api(
+                    '/api/history'
+                );
 
-            /*
-             * Worker 可能直接返回数组，
-             * 也可能包在 histories/history/data 里面。
-             */
             if (Array.isArray(data)) {
                 return data;
             }
 
-            if (Array.isArray(data?.history)) {
+            if (
+                Array.isArray(
+                    data?.history
+                )
+            ) {
                 return data.history;
             }
 
-            if (Array.isArray(data?.histories)) {
+            if (
+                Array.isArray(
+                    data?.histories
+                )
+            ) {
                 return data.histories;
             }
 
-            if (Array.isArray(data?.data)) {
+            if (
+                Array.isArray(
+                    data?.data
+                )
+            ) {
                 return data.data;
             }
 
             return [];
+
         } catch (error) {
             console.warn(
                 '[IWP Copilot] history list failed:',
@@ -1072,16 +1771,23 @@
         }
     }
 
+
     function getHistoryTitle(item) {
         return String(
             item?.title ||
             item?.name ||
             item?.messages?.find(
-                x => x?.role === 'user'
+                x =>
+                    x?.role ===
+                    'user'
             )?.content ||
             '新对话'
-        ).slice(0, 40);
+        ).slice(
+            0,
+            40
+        );
     }
+
 
     function getHistoryId(item) {
         return (
@@ -1093,27 +1799,43 @@
         );
     }
 
-    function renderHistoryList(items) {
+
+    function renderHistoryList(
+        items
+    ) {
         const container =
             $('copilot-history-list');
 
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
-        container.innerHTML = '';
+        container.innerHTML =
+            '';
 
         if (!getToken()) {
             container.textContent =
                 '登录后显示历史记录';
-            container.style.color = '#777';
-            container.style.fontSize = '.75rem';
+
+            container.style.color =
+                '#777';
+
+            container.style.fontSize =
+                '.75rem';
+
             return;
         }
 
         if (!items.length) {
             container.textContent =
                 '暂无历史对话';
-            container.style.color = '#777';
-            container.style.fontSize = '.75rem';
+
+            container.style.color =
+                '#777';
+
+            container.style.fontSize =
+                '.75rem';
+
             return;
         }
 
@@ -1121,15 +1843,20 @@
             const id =
                 getHistoryId(item);
 
-            if (!id) return;
+            if (!id) {
+                return;
+            }
 
             const row =
-                document.createElement('div');
+                document.createElement(
+                    'div'
+                );
 
             row.className =
                 'copilot-history-item';
 
-            row.dataset.copilotHistoryId =
+            row.dataset
+                .copilotHistoryId =
                 id;
 
             row.style.cssText =
@@ -1146,48 +1873,77 @@
             row.textContent =
                 getHistoryTitle(item);
 
-            if (String(id) === String(sessionId)) {
-                row.style.background = '#444';
-                row.style.color = '#ddd';
-            }
-
-            row.addEventListener('mouseenter', () => {
-                row.style.background = '#3a3a3a';
-                row.style.color = '#ddd';
-            });
-
-            row.addEventListener('mouseleave', () => {
+            if (
+                String(id) ===
+                String(sessionId)
+            ) {
                 row.style.background =
-                    String(id) === String(sessionId)
-                        ? '#444'
-                        : 'transparent';
+                    '#444';
 
                 row.style.color =
-                    String(id) === String(sessionId)
-                        ? '#ddd'
-                        : '#aaa';
-            });
+                    '#ddd';
+            }
 
-            row.addEventListener('click', async () => {
-                try {
-                    await loadHistory(id);
-                } catch (error) {
-                    toast(
-                        error?.message ||
-                        '历史记录加载失败'
-                    );
+            row.addEventListener(
+                'mouseenter',
+                () => {
+                    row.style.background =
+                        '#3a3a3a';
+
+                    row.style.color =
+                        '#ddd';
                 }
-            });
+            );
 
-            container.appendChild(row);
+            row.addEventListener(
+                'mouseleave',
+                () => {
+                    row.style.background =
+                        String(id) ===
+                        String(sessionId)
+                            ? '#444'
+                            : 'transparent';
+
+                    row.style.color =
+                        String(id) ===
+                        String(sessionId)
+                            ? '#ddd'
+                            : '#aaa';
+                }
+            );
+
+            row.addEventListener(
+                'click',
+                async () => {
+                    try {
+                        await loadHistory(
+                            id
+                        );
+
+                        closeHistory();
+                    } catch (error) {
+                        toast(
+                            error?.message ||
+                            '历史记录加载失败'
+                        );
+                    }
+                }
+            );
+
+            container.appendChild(
+                row
+            );
         });
     }
+
 
     async function refreshHistoryList() {
         const container =
             $('copilot-history-list');
 
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         if (!getToken()) {
             renderHistoryList([]);
@@ -1201,14 +1957,20 @@
             const items =
                 await loadHistoryList();
 
-            renderHistoryList(items);
+            renderHistoryList(
+                items
+            );
+
         } catch (_) {
             renderHistoryList([]);
         }
     }
 
+
     async function loadHistory(id) {
-        if (!id) return null;
+        if (!id) {
+            return null;
+        }
 
         const data =
             await api(
@@ -1216,10 +1978,13 @@
                 encodeURIComponent(id)
             );
 
-        sessionId = id;
+        sessionId =
+            id;
 
         history =
-            Array.isArray(data?.messages)
+            Array.isArray(
+                data?.messages
+            )
                 ? data.messages
                 : [];
 
@@ -1228,7 +1993,10 @@
         return data;
     }
 
-    async function saveHistory(title) {
+
+    async function saveHistory(
+        title
+    ) {
         if (!getToken()) {
             return null;
         }
@@ -1238,8 +2006,11 @@
                 '/api/history',
                 {
                     method: 'POST',
+
                     body: {
-                        messages: history,
+                        messages:
+                            history,
+
                         title:
                             String(
                                 title ||
@@ -1249,20 +2020,27 @@
                                         'user'
                                 )?.content ||
                                 '新对话'
-                            ).slice(0, 100)
+                            ).slice(
+                                0,
+                                100
+                            )
                     }
                 }
             );
 
         if (data?.id) {
-            sessionId = data.id;
+            sessionId =
+                data.id;
         }
 
         return data;
     }
 
+
     async function deleteHistory(id) {
-        if (!id) return false;
+        if (!id) {
+            return false;
+        }
 
         await api(
             '/api/history/' +
@@ -1278,6 +2056,7 @@
         ) {
             sessionId = null;
             history = [];
+
             renderHistory();
         }
 
@@ -1286,48 +2065,249 @@
         return true;
     }
 
+
     function newConversation() {
         history = [];
+
         sessionId = null;
+
         image = null;
 
         if (els.messages) {
-            els.messages.innerHTML = '';
+            els.messages.innerHTML =
+                '';
         }
 
         setLoading(false);
 
+        closeHistory();
+
         refreshHistoryList();
     }
 
+
     function renderHistory() {
-        if (!els.messages) return;
+        if (!els.messages) {
+            return;
+        }
 
-        els.messages.innerHTML = '';
+        els.messages.innerHTML =
+            '';
 
-        history.forEach(message => {
-            if (!message) return;
+        history.forEach(
+            message => {
+                if (!message) {
+                    return;
+                }
 
-            if (
-                message.role !== 'user' &&
-                message.role !== 'assistant'
-            ) {
-                return;
+                if (
+                    message.role !==
+                        'user' &&
+                    message.role !==
+                        'assistant'
+                ) {
+                    return;
+                }
+
+                if (
+                    typeof message.content !==
+                    'string'
+                ) {
+                    return;
+                }
+
+                appendMessage(
+                    message.role,
+                    message.content
+                );
             }
-
-            if (
-                typeof message.content !==
-                'string'
-            ) {
-                return;
-            }
-
-            appendMessage(
-                message.role,
-                message.content
-            );
-        });
+        );
     }
+
+
+    /* ============================================================
+     * HISTORY TOGGLE
+     *
+     * 历史记录只占消息区域。
+     * 输入框不会被历史列表挤出去。
+     * ============================================================ */
+
+    function openHistory() {
+        const list =
+            $('copilot-history-list');
+
+        const button =
+            $('copilot-history-toggle');
+
+        if (!list) {
+            return;
+        }
+
+        list.classList.add(
+            'copilot-history-open'
+        );
+
+        if (button) {
+            button.classList.add(
+                'active'
+            );
+
+            button.setAttribute(
+                'aria-expanded',
+                'true'
+            );
+
+            button.textContent =
+                '关闭历史';
+        }
+    }
+
+
+    function closeHistory() {
+        const list =
+            $('copilot-history-list');
+
+        const button =
+            $('copilot-history-toggle');
+
+        if (!list) {
+            return;
+        }
+
+        list.classList.remove(
+            'copilot-history-open'
+        );
+
+        if (button) {
+            button.classList.remove(
+                'active'
+            );
+
+            button.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+
+            button.textContent =
+                '历史';
+        }
+    }
+
+
+    function toggleHistory() {
+        const list =
+            $('copilot-history-list');
+
+        if (!list) {
+            return;
+        }
+
+        if (
+            list.classList.contains(
+                'copilot-history-open'
+            )
+        ) {
+            closeHistory();
+        } else {
+            openHistory();
+        }
+    }
+
+
+    function bindHistoryToggle() {
+        const view =
+            getCopilotView();
+
+        if (!view) {
+            return;
+        }
+
+        let button =
+            $('copilot-history-toggle');
+
+        const newChat =
+            $('copilot-new-chat');
+
+        if (!button) {
+            button =
+                document.createElement(
+                    'button'
+                );
+
+            button.id =
+                'copilot-history-toggle';
+
+            button.type =
+                'button';
+
+            button.textContent =
+                '历史';
+
+            button.title =
+                '历史对话';
+
+            button.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+
+            /*
+             * 放到顶部 Copilot 标题栏。
+             */
+            if (
+                newChat &&
+                newChat.parentElement
+            ) {
+                newChat.parentElement.insertBefore(
+                    button,
+                    newChat
+                );
+
+            } else {
+                /*
+                 * 如果 HTML 结构以后变化，
+                 * 仍然可以正常显示。
+                 */
+                view.insertBefore(
+                    button,
+                    view.firstChild
+                );
+
+                button.style.position =
+                    'absolute';
+
+                button.style.top =
+                    '8px';
+
+                button.style.right =
+                    '8px';
+
+                button.style.zIndex =
+                    '20';
+            }
+        }
+
+        if (
+            button.dataset
+                .iwpCopilotHistoryToggleBound !==
+            '1'
+        ) {
+            button.dataset
+                .iwpCopilotHistoryToggleBound =
+                '1';
+
+            button.addEventListener(
+                'click',
+                event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    toggleHistory();
+                }
+            );
+        }
+    }
+
 
     /* ============================================================
      * SEND / INPUT
@@ -1351,39 +2331,47 @@
             '#copilot-send',
             '.copilot-send',
             '[data-copilot-send]'
-        ]).forEach(button => {
-            if (
-                button.dataset.iwpCopilotSendBound ===
-                '1'
-            ) {
-                return;
+        ]).forEach(
+            button => {
+                if (
+                    button.dataset
+                        .iwpCopilotSendBound ===
+                    '1'
+                ) {
+                    return;
+                }
+
+                button.dataset
+                    .iwpCopilotSendBound =
+                    '1';
+
+                button.addEventListener(
+                    'click',
+                    send
+                );
             }
-
-            button.dataset.iwpCopilotSendBound =
-                '1';
-
-            button.addEventListener(
-                'click',
-                send
-            );
-        });
+        );
 
         if (
             els.input &&
-            els.input.dataset.iwpCopilotInputBound !==
+            els.input.dataset
+                .iwpCopilotInputBound !==
             '1'
         ) {
-            els.input.dataset.iwpCopilotInputBound =
+            els.input.dataset
+                .iwpCopilotInputBound =
                 '1';
 
             els.input.addEventListener(
                 'keydown',
                 event => {
                     if (
-                        event.key === 'Enter' &&
+                        event.key ===
+                        'Enter' &&
                         !event.shiftKey
                     ) {
                         event.preventDefault();
+
                         send();
                     }
                 }
@@ -1391,13 +2379,14 @@
         }
     }
 
+
     /* ============================================================
      * MODEL BINDING
      * ============================================================ */
 
     function bindModelButtons() {
         /*
-         * 菜单是 JS 动态生成的，所以先生成。
+         * 菜单是 JS 动态生成的。
          */
         renderModelOptions();
 
@@ -1409,10 +2398,12 @@
 
         if (
             display &&
-            display.dataset.iwpCopilotModelDisplayBound !==
+            display.dataset
+                .iwpCopilotModelDisplayBound !==
             '1'
         ) {
-            display.dataset.iwpCopilotModelDisplayBound =
+            display.dataset
+                .iwpCopilotModelDisplayBound =
                 '1';
 
             display.addEventListener(
@@ -1420,10 +2411,13 @@
                 event => {
                     event.stopPropagation();
 
-                    if (!options) return;
+                    if (!options) {
+                        return;
+                    }
 
                     options.style.display =
-                        options.style.display === 'block'
+                        options.style.display ===
+                        'block'
                             ? 'none'
                             : 'block';
                 }
@@ -1432,6 +2426,7 @@
 
         updateModelDisplay();
     }
+
 
     /* ============================================================
      * NEW CHAT
@@ -1442,27 +2437,33 @@
             '#copilot-new-chat',
             '.copilot-new-chat',
             '[data-copilot-new-chat]'
-        ]).forEach(button => {
-            if (
-                button.dataset.iwpCopilotHistoryBound ===
-                '1'
-            ) {
-                return;
-            }
-
-            button.dataset.iwpCopilotHistoryBound =
-                '1';
-
-            button.addEventListener(
-                'click',
-                event => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    newConversation();
+        ]).forEach(
+            button => {
+                if (
+                    button.dataset
+                        .iwpCopilotHistoryBound ===
+                    '1'
+                ) {
+                    return;
                 }
-            );
-        });
+
+                button.dataset
+                    .iwpCopilotHistoryBound =
+                    '1';
+
+                button.addEventListener(
+                    'click',
+                    event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        newConversation();
+                    }
+                );
+            }
+        );
     }
+
 
     /* ============================================================
      * GLOBAL CLICK
@@ -1472,11 +2473,16 @@
      * ============================================================ */
 
     function bindGlobalDropdownClose() {
-        if (window.__IWP_COPILOT_GLOBAL_CLICK__) {
+        if (
+            window
+                .__IWP_COPILOT_GLOBAL_CLICK__
+        ) {
             return;
         }
 
-        window.__IWP_COPILOT_GLOBAL_CLICK__ = true;
+        window
+            .__IWP_COPILOT_GLOBAL_CLICK__ =
+            true;
 
         document.addEventListener(
             'click',
@@ -1489,7 +2495,9 @@
 
                 if (
                     modeDrop &&
-                    !modeDrop.contains(event.target)
+                    !modeDrop.contains(
+                        event.target
+                    )
                 ) {
                     const options =
                         $('copilot-mode-options');
@@ -1502,7 +2510,9 @@
 
                 if (
                     modelDrop &&
-                    !modelDrop.contains(event.target)
+                    !modelDrop.contains(
+                        event.target
+                    )
                 ) {
                     const options =
                         $('copilot-model-options');
@@ -1512,9 +2522,36 @@
                             'none';
                     }
                 }
+
+                /*
+                 * 历史浮层打开时，
+                 * 点击消息区域外可以关闭。
+                 */
+                const historyList =
+                    $('copilot-history-list');
+
+                const historyButton =
+                    $('copilot-history-toggle');
+
+                if (
+                    historyList &&
+                    historyButton &&
+                    historyList.classList.contains(
+                        'copilot-history-open'
+                    ) &&
+                    !historyList.contains(
+                        event.target
+                    ) &&
+                    !historyButton.contains(
+                        event.target
+                    )
+                ) {
+                    closeHistory();
+                }
             }
         );
     }
+
 
     /* ============================================================
      * REFRESH
@@ -1535,18 +2572,34 @@
             );
 
         bindCopilotButton();
+
         bindModeButtons();
+
         bindModelButtons();
+
         bindImageInput();
+
         bindSend();
+
         bindHistoryButtons();
+
         bindGlobalDropdownClose();
 
+        /*
+         * 最后处理布局。
+         *
+         * 必须放在 DOM binding 之后，
+         * 因为历史列表可能刚刚被动态插入。
+         */
+        applyAdaptiveLayout();
+
         setMode(mode);
+
         setModel(model);
 
         return true;
     }
+
 
     /* ============================================================
      * DOM OBSERVER
@@ -1555,25 +2608,35 @@
     function watchDOM() {
         if (
             typeof MutationObserver ===
-            'undefined' ||
-            window.__IWP_COPILOT_OBSERVER__
+            'undefined'
         ) {
             return;
         }
 
-        let timer = null;
+        if (
+            window
+                .__IWP_COPILOT_OBSERVER__
+        ) {
+            return;
+        }
+
+        let timer =
+            null;
 
         const observer =
-            new MutationObserver(() => {
-                clearTimeout(timer);
+            new MutationObserver(
+                () => {
+                    clearTimeout(timer);
 
-                timer = setTimeout(
-                    () => {
-                        refresh();
-                    },
-                    80
-                );
-            });
+                    timer =
+                        setTimeout(
+                            () => {
+                                refresh();
+                            },
+                            80
+                        );
+                }
+            );
 
         observer.observe(
             document.documentElement,
@@ -1583,9 +2646,11 @@
             }
         );
 
-        window.__IWP_COPILOT_OBSERVER__ =
+        window
+            .__IWP_COPILOT_OBSERVER__ =
             observer;
     }
+
 
     /* ============================================================
      * GLOBAL API
@@ -1611,40 +2676,71 @@
 
         newConversation,
 
-        open: openCopilot,
-        close: closeCopilot,
-        toggle: toggleCopilot,
-        isOpen: isCopilotOpen,
+        open:
+            openCopilot,
+
+        close:
+            closeCopilot,
+
+        toggle:
+            toggleCopilot,
+
+        isOpen:
+            isCopilotOpen,
 
         refresh,
 
-        getMode: () => mode,
-        getModel: () => model,
-        getModels: () => ALL_MODELS.slice(),
-        getHistory: () => history.slice(),
-        getSessionId: () => sessionId,
+        getMode:
+            () => mode,
+
+        getModel:
+            () => model,
+
+        getModels:
+            () =>
+                ALL_MODELS.slice(),
+
+        getHistory:
+            () =>
+                history.slice(),
+
+        getSessionId:
+            () =>
+                sessionId,
 
         getToken,
+
         getUser
     };
+
 
     /* ============================================================
      * INIT
      * ============================================================ */
 
     function init() {
-        const toc = getTocView();
-        const copilot = getCopilotView();
+        const toc =
+            getTocView();
+
+        const copilot =
+            getCopilotView();
 
         /*
          * 初始保持目录。
          */
-        if (toc && copilot) {
-            copilot.style.display = 'none';
-            toc.style.display = '';
+        if (
+            toc &&
+            copilot
+        ) {
+            copilot.style.display =
+                'none';
+
+            toc.style.display =
+                '';
         }
 
-        copilotOpen = false;
+        copilotOpen =
+            false;
 
         const button =
             getCopilotButton();
@@ -1661,6 +2757,7 @@
         watchDOM();
     }
 
+
     if (
         document.readyState ===
         'loading'
@@ -1668,7 +2765,9 @@
         document.addEventListener(
             'DOMContentLoaded',
             init,
-            { once: true }
+            {
+                once: true
+            }
         );
     } else {
         init();
