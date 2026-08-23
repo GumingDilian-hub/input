@@ -1072,3 +1072,150 @@ img.iwp-img-around { float: left; margin: 0.5rem 1rem 0.5rem 0; max-width: 50%; 
         gap: 4px;
     }
 }
+/* ============================================================
+ * Copilot 自适应布局
+ * ============================================================ */
+
+#sidebar {
+    min-height: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+#sidebar-copilot-view {
+    display: none;
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* 消息区占据全部剩余空间 */
+#copilot-messages-wrapper {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 消息内容不要把 flex 父级撑爆 */
+#copilot-messages {
+    min-height: 0;
+}
+
+/* 模式 / 模型工具栏 */
+#sidebar-copilot-view > div:not(#copilot-messages-wrapper):not(.copilot-input-wrap):not(#copilot-history-panel) {
+    flex-shrink: 0 !important;
+}
+
+/* 输入框永远是底部区域 */
+#sidebar-copilot-view .copilot-input-wrap {
+    flex: 0 0 auto !important;
+    min-height: 0;
+    background: #252525;
+}
+
+/* 输入框本身 */
+#copilot-input {
+    min-height: 42px;
+    max-height: 120px;
+}
+
+/* ============================================================
+ * 历史记录
+ * ============================================================ */
+
+#copilot-history-panel {
+    flex: 0 0 auto;
+    min-height: 0;
+    border-top: 1px solid #444;
+    background: #252525;
+}
+
+/* 历史记录按钮 */
+#copilot-history-toggle {
+    width: 100%;
+    height: 34px;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #252525;
+    border: 0;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.78rem;
+    text-align: left;
+}
+
+#copilot-history-toggle:hover {
+    background: #303030;
+    color: #ddd;
+}
+
+#copilot-history-arrow {
+    font-size: 9px;
+    transition: transform 0.15s ease;
+}
+
+/* 历史记录默认关闭 */
+#copilot-history-list {
+    display: none;
+    max-height: 150px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.3rem 0.7rem 0.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 打开状态 */
+#copilot-history-panel.open #copilot-history-list {
+    display: block;
+}
+
+#copilot-history-panel.open #copilot-history-arrow {
+    transform: rotate(180deg);
+}
+
+/* ============================================================
+ * 模型 / 模式菜单
+ * ============================================================ */
+
+#copilot-mode-options,
+#copilot-model-options {
+    z-index: 1000 !important;
+}
+
+/* ============================================================
+ * 手机 / Edge 动态视口
+ * ============================================================ */
+
+@media (max-width: 768px) {
+    #sidebar {
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+
+    #sidebar-copilot-view {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+    }
+
+    #copilot-messages-wrapper {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+    }
+
+    #copilot-history-list {
+        max-height: 120px;
+    }
+
+    #copilot-input {
+        min-height: 40px;
+        max-height: 90px;
+    }
+}
