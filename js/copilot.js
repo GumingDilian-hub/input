@@ -1,54 +1,93 @@
 /* ============================================================
- * IWP Copilot — full rollback-compatible client
+ * IWP Copilot
+ * Complete rollback-compatible client
  *
- * UI / DOM contract remains unchanged.
- *
- * Authentication:
- *   iwp-user / localStorage
+ * UI / DOM contract:
+ *   - 保留现有 Copilot DOM
+ *   - 保留 iwp-user/localStorage 登录方式
+ *   - 保留 reader.js 使用的 Worker
  *
  * Worker:
  *   https://copilot.2167964516.workers.dev
  *
- * Supported modes:
- *   note
- *   whiteboard
- *   textbook
- *
  * Features:
- *   - Multi-model
- *   - Vision model
+ *   - Note
+ *   - Whiteboard
+ *   - Textbook
  *   - SSE streaming
  *   - Reasoning display
+ *   - Image / vision model
  *   - Conversation history
- *   - Whiteboard context
- *   - Textbook mode
- *   - Image input
- *   - Login state
- *   - Existing DOM compatibility
+ *   - Login token
+ *   - Model selection
+ *   - Copilot sidebar toggle
+ *
  * ============================================================ */
 
 (function () {
     'use strict';
 
-    /* ==========================================================
-     * Configuration
-     * ========================================================== */
+    /* ============================================================
+     * CONFIG
+     * ============================================================ */
 
     const API = 'https://copilot.2167964516.workers.dev';
+
     const LOGO = 'images/copilot/';
+
     const ADMIN = 'loading';
 
+    /*
+     * 文本模型
+     *
+     * [model id, display name, logo]
+     */
     const TEXT_MODELS = [
-        ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super', '1.png'],
-        ['meta/llama-3.3-70b-instruct', 'Meta 3.3', '2.png'],
-        ['openai/gpt-oss-120b', 'ChatGPT', '3.png'],
-        ['openai/gpt-oss-20b', 'CatGPT', '3.png'],
-        ['minimaxai/minimax-m3', 'MiniMax', '5.png'],
-        ['deepseek-ai/deepseek-v4-flash', 'DeepSeek V4', '6.png'],
-        ['z-ai/glm4.7', 'GLM 4.7', '7.png'],
-        ['google/gemma-4-31b-it', 'Google Gemma 4', '4.png']
+        [
+            'nvidia/nemotron-3-super-120b-a12b',
+            'NVIDIA 3 super',
+            '1.png'
+        ],
+        [
+            'meta/llama-3.3-70b-instruct',
+            'Meta 3.3',
+            '2.png'
+        ],
+        [
+            'openai/gpt-oss-120b',
+            'ChatGPT',
+            '3.png'
+        ],
+        [
+            'openai/gpt-oss-20b',
+            'CatGPT',
+            '3.png'
+        ],
+        [
+            'minimaxai/minimax-m3',
+            'MiniMax',
+            '5.png'
+        ],
+        [
+            'deepseek-ai/deepseek-v4-flash',
+            'DeepSeek V4',
+            '6.png'
+        ],
+        [
+            'z-ai/glm4.7',
+            'GLM 4.7',
+            '7.png'
+        ],
+        [
+            'google/gemma-4-31b-it',
+            'Google Gemma 4',
+            '4.png'
+        ]
     ];
 
+    /*
+     * 视觉模型
+     */
     const VISION_MODELS = [
         [
             'meta/llama-3.2-90b-vision-instruct',
@@ -57,115 +96,219 @@
         ]
     ];
 
-    const ALL_MODELS = TEXT_MODELS.concat(VISION_MODELS);
+    const ALL_MODELS =
+        TEXT_MODELS.concat(VISION_MODELS);
 
-    const DEFAULT_MODEL = TEXT_MODELS[0][0];
 
-    const MAX_HISTORY_MESSAGES = 100;
-    const SEND_HISTORY_MESSAGES = 20;
-    const MAX_MESSAGE_LENGTH = 20000;
-    const MAX_TITLE_LENGTH = 100;
-
-    /* ==========================================================
-     * Runtime state
-     * ========================================================== */
+    /* ============================================================
+     * STATE
+     * ============================================================ */
 
     let mode = 'note';
-    let model = DEFAULT_MODEL;
+
+    let model =
+        TEXT_MODELS[0][0];
+
     let image = null;
 
     let history = [];
+
     let sessionId = null;
 
     let busy = false;
+
     let whiteboard = '';
 
     let els = {};
 
-    let historyList = [];
-    let initialized = false;
+    /*
+     * 当前 Copilot 是否打开。
+     *
+     * null = 尚未初始化
+     */
+    let copilotOpen = null;
 
-    /* ==========================================================
-     * DOM helpers
-     * ========================================================== */
 
-    const $ = id => document.getElementById(id);
+    /* ============================================================
+     * DOM HELPERS
+     * ============================================================ */
 
-    function query(selectors) {
+    const $ = id =>
+        document.getElementById(id);
+
+
+    function qs(selectors) {
         for (const selector of selectors) {
-            const node = document.querySelector(selector);
-            if (node) return node;
+            try {
+                const node =
+                    document.querySelector(selector);
+
+                if (node) {
+                    return node;
+                }
+            } catch (_) {}
         }
+
         return null;
     }
 
-    function queryAll(selectors) {
+
+    function qsa(selectors) {
         const result = [];
 
         for (const selector of selectors) {
-            document.querySelectorAll(selector).forEach(node => {
-                if (!result.includes(node)) {
-                    result.push(node);
-                }
-            });
+            try {
+                document
+                    .querySelectorAll(selector)
+                    .forEach(node => {
+                        if (!result.includes(node)) {
+                            result.push(node);
+                        }
+                    });
+            } catch (_) {}
         }
 
         return result;
     }
 
-    /* ==========================================================
-     * Authentication
-     * ========================================================== */
+
+    /* ============================================================
+     * AUTH
+     * ============================================================ */
 
     function getUser() {
         try {
             return JSON.parse(
-                localStorage.getItem('iwp-user') || 'null'
+                localStorage.getItem('iwp-user') ||
+                'null'
             );
         } catch (_) {
             return null;
         }
     }
 
+
     function getToken() {
         return getUser()?.token || null;
     }
 
-    function isLoggedIn() {
-        return !!getToken();
+
+    /* ============================================================
+     * API
+     * ============================================================ */
+
+    async function api(path, options = {}) {
+        const headers =
+            Object.assign(
+                {},
+                options.headers || {}
+            );
+
+        const token =
+            getToken();
+
+        if (token) {
+            headers.Authorization =
+                'Bearer ' + token;
+        }
+
+        if (
+            options.body &&
+            typeof options.body !== 'string'
+        ) {
+            headers['Content-Type'] =
+                'application/json';
+
+            options =
+                Object.assign(
+                    {},
+                    options,
+                    {
+                        body:
+                            JSON.stringify(
+                                options.body
+                            )
+                    }
+                );
+        }
+
+        const response =
+            await fetch(
+                API + path,
+                Object.assign(
+                    {},
+                    options,
+                    {
+                        headers
+                    }
+                )
+            );
+
+        const text =
+            await response.text();
+
+        let data = {};
+
+        try {
+            data =
+                JSON.parse(text);
+        } catch (_) {}
+
+        if (!response.ok) {
+            throw Object.assign(
+                new Error(
+                    data?.error ||
+                    `HTTP ${response.status}`
+                ),
+                {
+                    status:
+                        response.status,
+                    data
+                }
+            );
+        }
+
+        return data;
     }
 
-    /* ==========================================================
-     * Toast
-     * ========================================================== */
+
+    /* ============================================================
+     * TOAST
+     * ============================================================ */
 
     function toast(message) {
         document
-            .querySelectorAll('.copilot-toast')
-            .forEach(x => x.remove());
+            .querySelector(
+                '.copilot-toast'
+            )
+            ?.remove();
 
-        const node = document.createElement('div');
+        const node =
+            document.createElement(
+                'div'
+            );
 
-        node.className = 'copilot-toast';
+        node.className =
+            'copilot-toast';
 
-        node.style.cssText = [
-            'position:fixed',
-            'bottom:20px',
-            'left:50%',
-            'transform:translateX(-50%)',
-            'background:rgba(0,0,0,.88)',
-            'color:#eee',
-            'padding:8px 20px',
-            'border-radius:8px',
-            'font-size:.85rem',
-            'z-index:99999',
-            'border:1px solid #555',
-            'max-width:min(90vw,600px)',
-            'text-align:center',
-            'box-sizing:border-box'
-        ].join(';');
+        node.style.cssText =
+            [
+                'position:fixed',
+                'bottom:20px',
+                'left:50%',
+                'transform:translateX(-50%)',
+                'background:rgba(0,0,0,.88)',
+                'color:#eee',
+                'padding:8px 20px',
+                'border-radius:8px',
+                'font-size:.85rem',
+                'z-index:99999',
+                'border:1px solid #555',
+                'pointer-events:none'
+            ].join(';');
 
-        node.textContent = String(message || '');
+        node.textContent =
+            String(message || '');
 
         document.body.appendChild(node);
 
@@ -174,80 +317,17 @@
         }, 2200);
     }
 
-    /* ==========================================================
-     * Generic API
-     * ========================================================== */
 
-    async function api(path, options = {}) {
-        const headers = Object.assign(
-            {},
-            options.headers || {}
-        );
-
-        const token = getToken();
-
-        if (token) {
-            headers.Authorization = 'Bearer ' + token;
-        }
-
-        let requestOptions = Object.assign(
-            {},
-            options
-        );
-
-        if (
-            requestOptions.body &&
-            typeof requestOptions.body !== 'string'
-        ) {
-            headers['Content-Type'] = 'application/json';
-
-            requestOptions.body = JSON.stringify(
-                requestOptions.body
-            );
-        }
-
-        requestOptions.headers = headers;
-
-        const response = await fetch(
-            API + path,
-            requestOptions
-        );
-
-        const text = await response.text();
-
-        let data = {};
-
-        try {
-            data = text
-                ? JSON.parse(text)
-                : {};
-        } catch (_) {
-            data = {};
-        }
-
-        if (!response.ok) {
-            const error = new Error(
-                data?.error ||
-                `HTTP ${response.status}`
-            );
-
-            error.status = response.status;
-            error.data = data;
-
-            throw error;
-        }
-
-        return data;
-    }
-
-    /* ==========================================================
-     * Context
-     * ========================================================== */
+    /* ============================================================
+     * ARTICLE / NOTE CONTEXT
+     * ============================================================ */
 
     function fullNoteContext() {
         const article =
             $('article-body') ||
-            document.querySelector('#article-body');
+            document.querySelector(
+                '#article-body'
+            );
 
         if (!article) {
             return '';
@@ -260,115 +340,133 @@
         ).trim();
     }
 
+
     function currentChapter() {
         return fullNoteContext();
     }
 
+
+    /* ============================================================
+     * WHITEBOARD
+     * ============================================================ */
+
     function getWhiteboardContext() {
         return String(
-            whiteboard ||
-            ''
-        ).trim();
-    }
-
-    /* ==========================================================
-     * Model helpers
-     * ========================================================== */
-
-    function getModel(id) {
-        return ALL_MODELS.find(
-            item => item[0] === id
-        ) || null;
-    }
-
-    function isVisionModel(id) {
-        return VISION_MODELS.some(
-            item => item[0] === id
+            whiteboard || ''
         );
     }
 
-    function setModelInternal(id) {
-        if (!id) return;
 
-        const found = getModel(id);
+    function setWhiteboard(value) {
+        whiteboard =
+            String(value || '');
+    }
+
+
+    /* ============================================================
+     * MODEL HELPERS
+     * ============================================================ */
+
+    function findModel(modelId) {
+        return ALL_MODELS.find(
+            item =>
+                item[0] === modelId
+        ) || null;
+    }
+
+
+    function isVisionModel(modelId) {
+        return VISION_MODELS.some(
+            item =>
+                item[0] === modelId
+        );
+    }
+
+
+    function setModel(modelId) {
+        const found =
+            findModel(modelId);
 
         if (!found) {
-            return;
+            return false;
         }
 
-        model = found[0];
+        model =
+            modelId;
 
-        updateModelUI();
+        /*
+         * 同步可能存在的模型 UI。
+         */
+        document
+            .querySelectorAll(
+                '[data-copilot-model]'
+            )
+            .forEach(node => {
+                const active =
+                    node.dataset.copilotModel ===
+                    modelId;
+
+                node.classList.toggle(
+                    'active',
+                    active
+                );
+
+                node.setAttribute(
+                    'aria-selected',
+                    active
+                        ? 'true'
+                        : 'false'
+                );
+            });
+
+        return true;
     }
 
-    function updateModelUI() {
-        queryAll([
-            '[data-copilot-model]'
-        ]).forEach(node => {
-            const active =
-                node.dataset.copilotModel === model;
 
-            node.classList.toggle(
-                'active',
-                active
-            );
+    function setMode(nextMode) {
+        const valid =
+            [
+                'note',
+                'whiteboard',
+                'textbook'
+            ];
 
-            node.classList.toggle(
-                'selected',
-                active
-            );
-
-            node.setAttribute(
-                'aria-selected',
-                active ? 'true' : 'false'
-            );
-        });
-
-        const current = getModel(model);
-
-        if (!current) {
-            return;
+        if (!valid.includes(nextMode)) {
+            return false;
         }
 
-        const modelName =
-            current[1];
+        mode =
+            nextMode;
 
-        queryAll([
-            '[data-copilot-current-model]',
-            '.copilot-current-model',
-            '#copilot-current-model'
-        ]).forEach(node => {
-            node.textContent = modelName;
-        });
+        document
+            .querySelectorAll(
+                '[data-copilot-mode]'
+            )
+            .forEach(node => {
+                const active =
+                    node.dataset.copilotMode ===
+                    nextMode;
+
+                node.classList.toggle(
+                    'active',
+                    active
+                );
+
+                node.setAttribute(
+                    'aria-selected',
+                    active
+                        ? 'true'
+                        : 'false'
+                );
+            });
+
+        return true;
     }
 
-    function updateModeUI() {
-        queryAll([
-            '[data-copilot-mode]'
-        ]).forEach(node => {
-            const active =
-                node.dataset.copilotMode === mode;
 
-            node.classList.toggle(
-                'active',
-                active
-            );
-
-            node.classList.toggle(
-                'selected',
-                active
-            );
-
-            node.setAttribute(
-                'aria-selected',
-                active ? 'true' : 'false'
-            );
-        });
-    }
-
-    /* ==========================================================
-     * Loading state
-     * ========================================================== */
+    /* ============================================================
+     * THINKING / LOADING
+     * ============================================================ */
 
     function setLoading(on) {
         if (!els.messages) {
@@ -380,9 +478,10 @@
 
         if (on) {
             if (!node) {
-                node = document.createElement(
-                    'div'
-                );
+                node =
+                    document.createElement(
+                        'div'
+                    );
 
                 node.id =
                     'copilot-thinking-status';
@@ -390,31 +489,37 @@
                 node.className =
                     'copilot-thinking-status';
 
-                node.style.cssText = [
-                    'display:flex',
-                    'align-items:center',
-                    'gap:8px',
-                    'padding:7px 10px',
-                    'color:#aaa',
-                    'font-size:.82rem',
-                    'opacity:.95'
-                ].join(';');
+                node.style.cssText =
+                    [
+                        'display:flex',
+                        'align-items:center',
+                        'gap:8px',
+                        'padding:7px 10px',
+                        'color:#aaa',
+                        'font-size:.82rem',
+                        'opacity:.95'
+                    ].join(';');
 
                 node.innerHTML =
-                    '<span class="copilot-spinner" ' +
-                    'style="' +
-                    'display:inline-block;' +
-                    'width:13px;' +
-                    'height:13px;' +
-                    'border:2px solid #555;' +
-                    'border-top-color:#ddd;' +
-                    'border-radius:50%;' +
-                    'animation:copilot-spin .8s linear infinite;' +
-                    '">' +
-                    '</span>' +
-                    '<span>少女祈祷中...</span>';
+                    `
+                    <span
+                        class="copilot-spinner"
+                        style="
+                            display:inline-block;
+                            width:13px;
+                            height:13px;
+                            border:2px solid #555;
+                            border-top-color:#ddd;
+                            border-radius:50%;
+                            animation:copilot-spin .8s linear infinite;
+                        "
+                    ></span>
+                    <span>少女祈祷中...</span>
+                    `;
 
-                els.messages.appendChild(node);
+                els.messages.appendChild(
+                    node
+                );
 
                 if (
                     !document.getElementById(
@@ -430,9 +535,13 @@
                         'copilot-spin-style';
 
                     style.textContent =
-                        '@keyframes copilot-spin{' +
-                        'to{transform:rotate(360deg)}' +
-                        '}';
+                        `
+                        @keyframes copilot-spin {
+                            to {
+                                transform:rotate(360deg)
+                            }
+                        }
+                        `;
 
                     document.head.appendChild(
                         style
@@ -447,9 +556,10 @@
             els.messages.scrollHeight;
     }
 
-    /* ==========================================================
-     * Message rendering
-     * ========================================================== */
+
+    /* ============================================================
+     * MESSAGE
+     * ============================================================ */
 
     function appendMessage(
         role,
@@ -461,25 +571,32 @@
         }
 
         const box =
-            document.createElement('div');
+            document.createElement(
+                'div'
+            );
 
         box.className =
-            'copilot-message ' + role;
+            'copilot-message ' +
+            role;
 
         box.style.cssText =
-            'white-space:pre-wrap;' +
-            'word-break:break-word;' +
-            'margin:8px 0;';
+            [
+                'white-space:pre-wrap',
+                'word-break:break-word',
+                'margin:8px 0'
+            ].join(';');
 
-        let reasoningNode = null;
 
+        /*
+         * Reasoning
+         */
         if (reasoning) {
-            reasoningNode =
+            const think =
                 document.createElement(
                     'details'
                 );
 
-            reasoningNode.className =
+            think.className =
                 'copilot-reasoning';
 
             const summary =
@@ -496,24 +613,30 @@
                 );
 
             body.style.cssText =
-                'white-space:pre-wrap;' +
-                'color:#999;' +
-                'font-size:.85rem;' +
-                'padding:6px 0;';
+                [
+                    'white-space:pre-wrap',
+                    'color:#999',
+                    'font-size:.85rem',
+                    'padding:6px 0'
+                ].join(';');
 
             body.textContent =
                 reasoning;
 
-            reasoningNode.append(
+            think.append(
                 summary,
                 body
             );
 
             box.appendChild(
-                reasoningNode
+                think
             );
         }
 
+
+        /*
+         * Content
+         */
         const content =
             document.createElement(
                 'div'
@@ -544,61 +667,18 @@
         };
     }
 
-    /* ==========================================================
-     * Render existing history
-     * ========================================================== */
 
-    function clearMessages() {
-        if (!els.messages) {
-            return;
-        }
+    /* ============================================================
+     * SSE
+     * ============================================================ */
 
-        els.messages.innerHTML = '';
-    }
-
-    function renderHistory() {
-        clearMessages();
-
-        for (const message of history) {
-            if (!message) continue;
-
-            if (
-                message.role !== 'user' &&
-                message.role !== 'assistant'
-            ) {
-                continue;
-            }
-
-            if (
-                typeof message.content !==
-                'string'
-            ) {
-                continue;
-            }
-
-            appendMessage(
-                message.role,
-                message.content
-            );
-        }
-
-        if (els.messages) {
-            els.messages.scrollTop =
-                els.messages.scrollHeight;
-        }
-    }
-
-    /* ==========================================================
-     * SSE parser
-     * ========================================================== */
-
-    async function readSSE(
+    function readSSE(
         response,
         onEvent
     ) {
         if (!response.body) {
             throw new Error(
-                '浏览器未提供流式响应'
+                '服务器没有返回流'
             );
         }
 
@@ -610,114 +690,102 @@
 
         let buffer = '';
 
-        while (true) {
-            const {
-                done,
-                value
-            } = await reader.read();
+        return (async () => {
+            while (true) {
+                const {
+                    done,
+                    value
+                } =
+                    await reader.read();
 
-            if (done) {
-                break;
-            }
-
-            buffer += decoder.decode(
-                value,
-                {
-                    stream: true
+                if (done) {
+                    break;
                 }
-            );
 
-            const lines =
-                buffer.split('\n');
-
-            buffer =
-                lines.pop() || '';
-
-            for (let line of lines) {
-                line =
-                    line.replace(
-                        /\r$/,
-                        ''
+                buffer +=
+                    decoder.decode(
+                        value,
+                        {
+                            stream: true
+                        }
                     );
 
-                if (
-                    !line.startsWith(
-                        'data:'
-                    )
-                ) {
-                    continue;
-                }
+                const lines =
+                    buffer.split('\n');
 
+                buffer =
+                    lines.pop() || '';
+
+                for (
+                    let line of lines
+                ) {
+                    line =
+                        line.trim();
+
+                    if (
+                        !line.startsWith(
+                            'data:'
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    const raw =
+                        line
+                            .slice(5)
+                            .trim();
+
+                    if (!raw) {
+                        continue;
+                    }
+
+                    try {
+                        const event =
+                            JSON.parse(raw);
+
+                        await onEvent(
+                            event
+                        );
+                    } catch (_) {
+                        /*
+                         * 单个 SSE event 解析失败，
+                         * 不影响后续事件。
+                         */
+                    }
+                }
+            }
+
+            /*
+             * 尝试处理最后残留数据。
+             */
+            if (
+                buffer.trim()
+                    .startsWith('data:')
+            ) {
                 const raw =
-                    line.slice(5).trim();
-
-                if (!raw) {
-                    continue;
-                }
+                    buffer
+                        .trim()
+                        .slice(5)
+                        .trim();
 
                 if (
-                    raw === '[DONE]'
+                    raw &&
+                    raw !== '[DONE]'
                 ) {
-                    await onEvent({
-                        type: 'done'
-                    });
-
-                    continue;
-                }
-
-                try {
-                    await onEvent(
-                        JSON.parse(raw)
-                    );
-                } catch (_) {
-                    /* ignore malformed SSE event */
+                    try {
+                        await onEvent(
+                            JSON.parse(raw)
+                        );
+                    } catch (_) {}
                 }
             }
-        }
-
-        if (buffer.trim()) {
-            const lines =
-                buffer.split('\n');
-
-            for (let line of lines) {
-                line =
-                    line.replace(
-                        /\r$/,
-                        ''
-                    );
-
-                if (
-                    !line.startsWith(
-                        'data:'
-                    )
-                ) {
-                    continue;
-                }
-
-                const raw =
-                    line.slice(5).trim();
-
-                if (
-                    !raw ||
-                    raw === '[DONE]'
-                ) {
-                    continue;
-                }
-
-                try {
-                    await onEvent(
-                        JSON.parse(raw)
-                    );
-                } catch (_) {
-                    /* ignore */
-                }
-            }
-        }
+        })();
     }
 
-    /* ==========================================================
-     * Chat request
-     * ========================================================== */
+
+    /* ============================================================
+     * SEND
+     * ============================================================ */
 
     async function send() {
         if (busy) {
@@ -745,7 +813,6 @@
 
         if (input) {
             input.value = '';
-            input.style.height = '';
         }
 
         appendMessage(
@@ -755,42 +822,40 @@
 
         setLoading(true);
 
-        const context =
-            mode === 'note'
-                ? currentChapter()
-                : mode === 'whiteboard'
-                    ? getWhiteboardContext()
-                    : '';
 
+        /*
+         * Context
+         */
+        let context = '';
+
+        if (mode === 'note') {
+            context =
+                currentChapter();
+        } else if (
+            mode === 'whiteboard'
+        ) {
+            context =
+                getWhiteboardContext();
+        }
+
+
+        /*
+         * History
+         */
         history.push({
             role: 'user',
             content: question
         });
 
-        history =
-            history.slice(
-                -MAX_HISTORY_MESSAGES
-            );
 
         let answer = '';
+
         let reasoning = '';
+
         let assistant = null;
 
-        try {
-            const payload = {
-                mode,
-                model,
-                messages:
-                    history.slice(
-                        -SEND_HISTORY_MESSAGES
-                    ),
-                chapterContext:
-                    context,
-                whiteboardContext:
-                    getWhiteboardContext(),
-                image
-            };
 
+        try {
             const response =
                 await fetch(
                     API + '/api/chat',
@@ -807,47 +872,55 @@
                         },
 
                         body:
-                            JSON.stringify(
-                                payload
-                            )
+                            JSON.stringify({
+                                mode,
+                                model,
+
+                                messages:
+                                    history.slice(
+                                        -20
+                                    ),
+
+                                chapterContext:
+                                    context,
+
+                                whiteboardContext:
+                                    whiteboard,
+
+                                image
+                            })
                     }
                 );
+
 
             if (!response.ok) {
                 const text =
                     await response.text();
 
-                let errorData = {};
+                let err = {};
 
                 try {
-                    errorData =
-                        text
-                            ? JSON.parse(text)
-                            : {};
-                } catch (_) {
-                    errorData = {};
-                }
+                    err =
+                        JSON.parse(text);
+                } catch (_) {}
 
-                const error =
-                    new Error(
-                        errorData.error ||
-                        `HTTP ${response.status}`
-                    );
-
-                error.status =
-                    response.status;
-
-                error.data =
-                    errorData;
-
-                throw error;
+                throw new Error(
+                    err.error ||
+                    `HTTP ${response.status}`
+                );
             }
 
+
             setLoading(false);
+
 
             await readSSE(
                 response,
                 async event => {
+
+                    /*
+                     * Reasoning
+                     */
                     if (
                         event.type ===
                         'reasoning'
@@ -879,12 +952,12 @@
                             body.textContent =
                                 reasoning;
                         }
-
-                        els.messages.scrollTop =
-                            els.messages
-                                .scrollHeight;
                     }
 
+
+                    /*
+                     * Content
+                     */
                     else if (
                         event.type ===
                         'content'
@@ -901,15 +974,19 @@
                                 );
                         }
 
-                        assistant.content
-                            .textContent =
+                        assistant.content.textContent =
                             answer;
 
-                        els.messages.scrollTop =
-                            els.messages
-                                .scrollHeight;
+                        if (els.messages) {
+                            els.messages.scrollTop =
+                                els.messages.scrollHeight;
+                        }
                     }
 
+
+                    /*
+                     * Error
+                     */
                     else if (
                         event.type ===
                         'error'
@@ -920,91 +997,65 @@
                         );
                     }
 
+
+                    /*
+                     * Done
+                     */
                     else if (
                         event.type ===
                         'done'
                     ) {
-                        /* normal completion */
+                        /*
+                         * Worker 正常结束。
+                         */
                     }
                 }
             );
 
-            if (
-                !assistant &&
-                (answer || reasoning)
-            ) {
-                assistant =
-                    appendMessage(
-                        'assistant',
-                        answer,
-                        reasoning
-                    );
-            }
 
+            /*
+             * 保存 assistant message
+             */
             history.push({
                 role: 'assistant',
                 content: answer
             });
 
-            history =
-                history.slice(
-                    -MAX_HISTORY_MESSAGES
-                );
 
             /*
-             * Save conversation.
+             * History
              *
-             * The old implementation only saved when
-             * sessionId existed. Keep compatibility but
-             * also create a session automatically after
-             * the first successful answer.
+             * 只有已经存在 sessionId 时才保存，
+             * 保留原有行为。
              */
-
-            const title =
-                history
-                    .find(
-                        x =>
-                            x?.role ===
-                            'user'
-                    )
-                    ?.content
-                    ?.slice(
-                        0,
-                        MAX_TITLE_LENGTH
-                    ) ||
-                '新对话';
-
-            const saved =
+            if (sessionId) {
                 await api(
                     '/api/history',
                     {
                         method: 'POST',
 
                         body: {
-                            id:
-                                sessionId ||
-                                undefined,
-
                             messages:
                                 history,
 
-                            title
+                            title:
+                                history.find(
+                                    x =>
+                                        x.role ===
+                                        'user'
+                                )?.content
+                                    ?.slice(
+                                        0,
+                                        40
+                                    ) ||
+                                '新对话'
                         }
                     }
                 );
-
-            if (saved?.id) {
-                sessionId =
-                    saved.id;
             }
 
         } catch (error) {
             setLoading(false);
-
-            console.error(
-                '[IWP Copilot]',
-                error
-            );
 
             toast(
                 error?.message ||
@@ -1012,8 +1063,7 @@
             );
 
             /*
-             * Remove the user message if
-             * the request failed.
+             * 发送失败时删除刚刚加入的 user message。
              */
             if (
                 history.length &&
@@ -1023,606 +1073,1072 @@
             ) {
                 history.pop();
             }
+
         } finally {
             busy = false;
-            image = null;
 
-            updateSendState();
+            /*
+             * 图片只使用一次。
+             */
+            image = null;
         }
     }
 
-    /* ==========================================================
-     * New conversation
-     * ========================================================== */
 
-    function newChat() {
-        if (busy) {
+    /* ============================================================
+     * IMAGE
+     * ============================================================ */
+
+    function setImage(value) {
+        if (
+            typeof value !== 'string'
+        ) {
+            image = null;
             return;
         }
 
-        history = [];
-        sessionId = null;
-        image = null;
-
-        clearMessages();
-
-        if (els.input) {
-            els.input.value = '';
-            els.input.focus();
-        }
-
-        toast('已新建对话');
+        image =
+            value.trim() ||
+            null;
     }
 
-    /* ==========================================================
-     * History
-     * ========================================================== */
+
+    function clearImage() {
+        image = null;
+    }
+
+
+    /* ============================================================
+     * HISTORY
+     * ============================================================ */
 
     async function loadHistoryList() {
-        if (!getToken()) {
-            historyList = [];
-            return [];
-        }
-
         try {
-            const result =
-                await api(
-                    '/api/history'
-                );
-
-            historyList =
-                Array.isArray(result)
-                    ? result
-                    : [];
-
-            return historyList;
+            return await api(
+                '/api/history'
+            );
         } catch (error) {
-            console.error(
-                '[IWP Copilot] history list:',
+            console.warn(
+                '[IWP Copilot] history list failed:',
                 error
             );
 
-            if (
-                error?.status === 401
-            ) {
-                historyList = [];
-            }
-
             return [];
         }
     }
+
 
     async function loadHistory(id) {
         if (!id) {
             return null;
         }
 
-        try {
-            const record =
-                await api(
-                    '/api/history/' +
-                    encodeURIComponent(id)
-                );
-
-            sessionId =
-                record?.id ||
-                id;
-
-            history =
-                Array.isArray(
-                    record?.messages
-                )
-                    ? record.messages
-                        .filter(
-                            message =>
-                                message &&
-                                (
-                                    message.role ===
-                                        'user' ||
-                                    message.role ===
-                                        'assistant'
-                                ) &&
-                                typeof message.content ===
-                                    'string'
-                        )
-                        .slice(
-                            -MAX_HISTORY_MESSAGES
-                        )
-                    : [];
-
-            renderHistory();
-
-            return record;
-        } catch (error) {
-            console.error(
-                '[IWP Copilot] load history:',
-                error
+        const data =
+            await api(
+                '/api/history/' +
+                encodeURIComponent(id)
             );
 
-            toast(
-                error?.message ||
-                '读取历史失败'
-            );
+        sessionId =
+            id;
 
+        history =
+            Array.isArray(
+                data?.messages
+            )
+                ? data.messages
+                : [];
+
+        return data;
+    }
+
+
+    async function saveHistory(
+        title
+    ) {
+        if (!getToken()) {
             return null;
         }
+
+        const data =
+            await api(
+                '/api/history',
+                {
+                    method: 'POST',
+
+                    body: {
+                        messages:
+                            history,
+
+                        title:
+                            String(
+                                title ||
+                                history.find(
+                                    x =>
+                                        x.role ===
+                                        'user'
+                                )?.content ||
+                                '新对话'
+                            ).slice(
+                                0,
+                                100
+                            )
+                    }
+                }
+            );
+
+        if (data?.id) {
+            sessionId =
+                data.id;
+        }
+
+        return data;
     }
+
 
     async function deleteHistory(id) {
         if (!id) {
             return false;
         }
 
-        try {
-            await api(
-                '/api/history/' +
-                encodeURIComponent(id),
-                {
-                    method: 'DELETE'
-                }
+        await api(
+            '/api/history/' +
+            encodeURIComponent(id),
+            {
+                method: 'DELETE'
+            }
+        );
+
+        if (
+            sessionId === id
+        ) {
+            sessionId = null;
+            history = [];
+        }
+
+        return true;
+    }
+
+
+    function newConversation() {
+        history = [];
+
+        sessionId = null;
+
+        if (els.messages) {
+            els.messages.innerHTML = '';
+        }
+
+        image = null;
+
+        setLoading(false);
+    }
+
+
+    /* ============================================================
+     * SIDEBAR
+     * ============================================================ */
+
+    /*
+     * 为了兼容你原来的 HTML，这里同时识别几种
+     * 常见 Copilot 侧边栏命名。
+     *
+     * 不会创建新的 sidebar。
+     */
+    const SIDEBAR_SELECTORS = [
+        '#copilot-sidebar',
+        '#copilot-panel',
+        '#copilot-side-panel',
+        '#copilot-drawer',
+        '.copilot-sidebar',
+        '.copilot-panel',
+        '.copilot-side-panel',
+        '.copilot-drawer',
+        '[data-copilot-sidebar]',
+        '[data-copilot-panel]'
+    ];
+
+
+    /*
+     * Copilot 按钮。
+     *
+     * 第一优先级是明确的 data 属性和 id，
+     * 避免误伤其他按钮。
+     */
+    const TOGGLE_BUTTON_SELECTORS = [
+        '[data-copilot-toggle]',
+        '#copilot-toggle',
+        '#copilot-button',
+        '#copilot-btn',
+        '.copilot-toggle',
+        '.copilot-button',
+        '.copilot-btn'
+    ];
+
+
+    function getCopilotSidebar() {
+        return qs(
+            SIDEBAR_SELECTORS
+        );
+    }
+
+
+    function getCopilotToggleButtons() {
+        return qsa(
+            TOGGLE_BUTTON_SELECTORS
+        );
+    }
+
+
+    /*
+     * 检查元素当前是否隐藏。
+     */
+    function elementHidden(element) {
+        if (!element) {
+            return true;
+        }
+
+        if (
+            element.hidden === true
+        ) {
+            return true;
+        }
+
+        if (
+            element.getAttribute(
+                'aria-hidden'
+            ) === 'true'
+        ) {
+            return true;
+        }
+
+        if (
+            element.classList.contains(
+                'hidden'
+            ) ||
+            element.classList.contains(
+                'is-hidden'
+            ) ||
+            element.classList.contains(
+                'closed'
+            ) ||
+            element.classList.contains(
+                'collapsed'
+            )
+        ) {
+            return true;
+        }
+
+        const style =
+            window.getComputedStyle(
+                element
             );
 
-            historyList =
-                historyList.filter(
-                    item =>
-                        item?.id !== id
+        return (
+            style.display === 'none' ||
+            style.visibility === 'hidden'
+        );
+    }
+
+
+    /*
+     * 设置侧边栏状态。
+     *
+     * 这里尽量不改你的原 CSS：
+     *   1. 优先使用 hidden / aria-hidden
+     *   2. 增加 is-open / open
+     *   3. 增加 copilot-closed
+     *
+     * 如果你的 CSS 本来已经控制 open/closed，
+     * 这些 class 可以直接接管。
+     */
+    function setCopilotOpen(
+        open
+    ) {
+        const sidebar =
+            getCopilotSidebar();
+
+        if (!sidebar) {
+            /*
+             * 没找到侧边栏时仍然记录状态，
+             * 等 DOM 出现后再同步。
+             */
+            copilotOpen =
+                !!open;
+
+            return false;
+        }
+
+        copilotOpen =
+            !!open;
+
+
+        /*
+         * 通用 class
+         */
+        sidebar.classList.toggle(
+            'open',
+            copilotOpen
+        );
+
+        sidebar.classList.toggle(
+            'is-open',
+            copilotOpen
+        );
+
+        sidebar.classList.toggle(
+            'closed',
+            !copilotOpen
+        );
+
+        sidebar.classList.toggle(
+            'copilot-closed',
+            !copilotOpen
+        );
+
+
+        /*
+         * aria
+         */
+        sidebar.setAttribute(
+            'aria-hidden',
+            copilotOpen
+                ? 'false'
+                : 'true'
+        );
+
+
+        /*
+         * 不直接使用 display:none，
+         * 除非它本来就使用 hidden。
+         *
+         * 这样可以最大程度避免破坏
+         * 原有 CSS transition。
+         */
+        if (
+            sidebar.hasAttribute(
+                'data-copilot-use-hidden'
+            )
+        ) {
+            sidebar.hidden =
+                !copilotOpen;
+        }
+
+
+        /*
+         * 同步按钮状态
+         */
+        getCopilotToggleButtons()
+            .forEach(button => {
+                button.classList.toggle(
+                    'active',
+                    copilotOpen
                 );
 
-            if (
-                sessionId === id
-            ) {
-                newChat();
-            }
+                button.classList.toggle(
+                    'is-open',
+                    copilotOpen
+                );
 
-            return true;
-        } catch (error) {
-            console.error(
-                '[IWP Copilot] delete history:',
-                error
-            );
+                button.setAttribute(
+                    'aria-expanded',
+                    copilotOpen
+                        ? 'true'
+                        : 'false'
+                );
+            });
 
+
+        return true;
+    }
+
+
+    function isCopilotOpen() {
+        const sidebar =
+            getCopilotSidebar();
+
+        if (!sidebar) {
+            return copilotOpen === true;
+        }
+
+        if (
+            copilotOpen !== null
+        ) {
+            return copilotOpen;
+        }
+
+        return !elementHidden(
+            sidebar
+        );
+    }
+
+
+    /*
+     * 打开
+     */
+    function openCopilot() {
+        return setCopilotOpen(true);
+    }
+
+
+    /*
+     * 关闭
+     */
+    function closeCopilot() {
+        return setCopilotOpen(false);
+    }
+
+
+    /*
+     * 切换
+     *
+     * 这就是新增功能：
+     *
+     * 第一次点击：
+     *     打开
+     *
+     * 再点击：
+     *     关闭
+     *
+     * 再点击：
+     *     打开
+     */
+    function toggleCopilot() {
+        const sidebar =
+            getCopilotSidebar();
+
+        if (!sidebar) {
+            /*
+             * 如果原页面使用的是别的 selector，
+             * 不强行创建 UI。
+             */
             toast(
-                error?.message ||
-                '删除历史失败'
+                '找不到 Copilot 侧边栏'
             );
 
             return false;
         }
+
+        const next =
+            !isCopilotOpen();
+
+        setCopilotOpen(
+            next
+        );
+
+        return next;
     }
 
-    /* ==========================================================
-     * Input / image helpers
-     * ========================================================== */
 
-    function setImage(value) {
-        if (
-            typeof value ===
-            'string' &&
-            value.trim()
-        ) {
-            image =
-                value.trim();
-        } else {
-            image = null;
+    /*
+     * 初始化 sidebar 状态。
+     *
+     * 如果页面本来就是打开状态，
+     * 不强行关闭。
+     */
+    function initSidebarState() {
+        const sidebar =
+            getCopilotSidebar();
+
+        if (!sidebar) {
+            return;
         }
 
-        updateVisionUI();
-    }
-
-    function clearImage() {
-        image = null;
-        updateVisionUI();
-    }
-
-    function updateVisionUI() {
-        const hasImage =
-            !!image;
-
-        queryAll([
-            '[data-copilot-image-status]',
-            '.copilot-image-status',
-            '#copilot-image-status'
-        ]).forEach(node => {
-            node.textContent =
-                hasImage
-                    ? '已添加图片'
-                    : '';
-        });
-
-        queryAll([
-            '[data-copilot-clear-image]',
-            '.copilot-clear-image',
-            '#copilot-clear-image'
-        ]).forEach(node => {
-            node.style.display =
-                hasImage
-                    ? ''
-                    : 'none';
-        });
-    }
-
-    function updateSendState() {
-        const disabled =
-            busy ||
-            !String(
-                els.input?.value || ''
-            ).trim();
-
-        queryAll([
-            '#copilot-send',
-            '.copilot-send',
-            '[data-copilot-send]'
-        ]).forEach(node => {
-            node.disabled =
-                disabled;
-        });
-    }
-
-    /* ==========================================================
-     * Mode
-     * ========================================================== */
-
-    function setModeInternal(value) {
         if (
-            value !== 'note' &&
-            value !== 'whiteboard' &&
-            value !== 'textbook'
+            copilotOpen === null
+        ) {
+            copilotOpen =
+                !elementHidden(
+                    sidebar
+                );
+        }
+
+        /*
+         * 只同步按钮，不重写 sidebar 状态，
+         * 防止加载时破坏原有 CSS。
+         */
+        getCopilotToggleButtons()
+            .forEach(button => {
+                button.setAttribute(
+                    'aria-expanded',
+                    copilotOpen
+                        ? 'true'
+                        : 'false'
+                );
+
+                button.classList.toggle(
+                    'active',
+                    copilotOpen
+                );
+
+                button.classList.toggle(
+                    'is-open',
+                    copilotOpen
+                );
+            });
+    }
+
+
+    /* ============================================================
+     * BIND SIDEBAR BUTTON
+     * ============================================================ */
+
+    function bindCopilotToggle() {
+        const buttons =
+            getCopilotToggleButtons();
+
+        buttons.forEach(button => {
+
+            /*
+             * 防止重复绑定。
+             */
+            if (
+                button.dataset
+                    .iwpCopilotToggleBound ===
+                '1'
+            ) {
+                return;
+            }
+
+            button.dataset
+                .iwpCopilotToggleBound =
+                '1';
+
+
+            button.addEventListener(
+                'click',
+                function (event) {
+
+                    /*
+                     * 阻止原来可能存在的
+                     * click handler 重复打开。
+                     */
+                    event.preventDefault();
+
+                    event.stopPropagation();
+
+                    toggleCopilot();
+                },
+                false
+            );
+        });
+
+        initSidebarState();
+    }
+
+
+    /* ============================================================
+     * MODE BUTTONS
+     * ============================================================ */
+
+    function bindModeButtons() {
+        document
+            .querySelectorAll(
+                '[data-copilot-mode]'
+            )
+            .forEach(node => {
+
+                if (
+                    node.dataset
+                        .iwpCopilotModeBound ===
+                    '1'
+                ) {
+                    return;
+                }
+
+                node.dataset
+                    .iwpCopilotModeBound =
+                    '1';
+
+                node.addEventListener(
+                    'click',
+                    () => {
+                        setMode(
+                            node.dataset
+                                .copilotMode
+                        );
+                    }
+                );
+            });
+    }
+
+
+    /* ============================================================
+     * MODEL BUTTONS
+     * ============================================================ */
+
+    function bindModelButtons() {
+        document
+            .querySelectorAll(
+                '[data-copilot-model]'
+            )
+            .forEach(node => {
+
+                if (
+                    node.dataset
+                        .iwpCopilotModelBound ===
+                    '1'
+                ) {
+                    return;
+                }
+
+                node.dataset
+                    .iwpCopilotModelBound =
+                    '1';
+
+                node.addEventListener(
+                    'click',
+                    () => {
+                        setModel(
+                            node.dataset
+                                .copilotModel
+                        );
+                    }
+                );
+            });
+    }
+
+
+    /* ============================================================
+     * IMAGE INPUT
+     * ============================================================ */
+
+    function bindImageInput() {
+
+        /*
+         * 兼容：
+         *   #copilot-image
+         *   #copilot-image-input
+         *   input[type=file][data-copilot-image]
+         */
+        const input =
+            qs([
+                '#copilot-image',
+                '#copilot-image-input',
+                'input[data-copilot-image]',
+                'input[type="file"].copilot-image'
+            ]);
+
+        if (!input) {
+            return;
+        }
+
+        if (
+            input.dataset
+                .iwpCopilotImageBound ===
+            '1'
         ) {
             return;
         }
 
-        mode = value;
+        input.dataset
+            .iwpCopilotImageBound =
+            '1';
 
-        updateModeUI();
+        input.addEventListener(
+            'change',
+            () => {
+
+                const file =
+                    input.files?.[0];
+
+                if (!file) {
+                    image = null;
+                    return;
+                }
+
+                /*
+                 * Data URL，
+                 * Worker 会直接作为 image_url
+                 * 发送给 NIM。
+                 */
+                const reader =
+                    new FileReader();
+
+                reader.onload = () => {
+                    image =
+                        String(
+                            reader.result ||
+                            ''
+                        );
+                };
+
+                reader.onerror = () => {
+                    image = null;
+
+                    toast(
+                        '图片读取失败'
+                    );
+                };
+
+                reader.readAsDataURL(
+                    file
+                );
+            }
+        );
     }
 
-    /* ==========================================================
-     * Whiteboard
-     * ========================================================== */
 
-    function setWhiteboardContext(value) {
-        whiteboard =
-            String(
-                value || ''
+    /* ============================================================
+     * SEND BUTTON / INPUT
+     * ============================================================ */
+
+    function bindSend() {
+
+        els.messages =
+            $('copilot-messages') ||
+            document.querySelector(
+                '.copilot-messages'
             );
 
-        return whiteboard;
-    }
 
-    /* ==========================================================
-     * DOM bindings
-     * ========================================================== */
+        els.input =
+            $('copilot-input') ||
+            document.querySelector(
+                '.copilot-input, textarea[name="copilot-input"]'
+            );
 
-    function bindSendButton() {
-        const sendButton =
-            query([
+
+        const sendButtons =
+            qsa([
                 '#copilot-send',
                 '.copilot-send',
                 '[data-copilot-send]'
             ]);
 
-        if (!sendButton) {
-            return;
-        }
 
-        if (
-            sendButton.dataset
-                .copilotBound === '1'
-        ) {
-            return;
-        }
+        sendButtons.forEach(
+            sendBtn => {
 
-        sendButton.dataset
-            .copilotBound = '1';
-
-        sendButton.addEventListener(
-            'click',
-            send
-        );
-    }
-
-    function bindInput() {
-        els.input =
-            query([
-                '#copilot-input',
-                '.copilot-input',
-                'textarea[name="copilot-input"]',
-                'input[name="copilot-input"]'
-            ]);
-
-        if (!els.input) {
-            return;
-        }
-
-        if (
-            els.input.dataset
-                .copilotBound === '1'
-        ) {
-            return;
-        }
-
-        els.input.dataset
-            .copilotBound = '1';
-
-        els.input.addEventListener(
-            'keydown',
-            event => {
                 if (
-                    event.key ===
-                    'Enter' &&
-                    !event.shiftKey
+                    sendBtn.dataset
+                        .iwpCopilotSendBound ===
+                    '1'
                 ) {
-                    event.preventDefault();
+                    return;
+                }
 
-                    if (!busy) {
+                sendBtn.dataset
+                    .iwpCopilotSendBound =
+                    '1';
+
+                sendBtn.addEventListener(
+                    'click',
+                    send
+                );
+            }
+        );
+
+
+        if (
+            els.input &&
+            els.input.dataset
+                .iwpCopilotInputBound !==
+            '1'
+        ) {
+
+            els.input.dataset
+                .iwpCopilotInputBound =
+                '1';
+
+            els.input.addEventListener(
+                'keydown',
+                event => {
+
+                    if (
+                        event.key ===
+                        'Enter' &&
+                        !event.shiftKey
+                    ) {
+                        event.preventDefault();
+
                         send();
                     }
                 }
-            }
-        );
-
-        els.input.addEventListener(
-            'input',
-            updateSendState
-        );
-    }
-
-    function bindModes() {
-        queryAll([
-            '[data-copilot-mode]'
-        ]).forEach(node => {
-            if (
-                node.dataset
-                    .copilotBound === '1'
-            ) {
-                return;
-            }
-
-            node.dataset
-                .copilotBound = '1';
-
-            node.addEventListener(
-                'click',
-                () => {
-                    setModeInternal(
-                        node.dataset
-                            .copilotMode
-                    );
-                }
             );
-        });
+        }
     }
 
-    function bindModels() {
-        queryAll([
-            '[data-copilot-model]'
-        ]).forEach(node => {
-            if (
-                node.dataset
-                    .copilotBound === '1'
-            ) {
-                return;
-            }
 
-            node.dataset
-                .copilotBound = '1';
+    /* ============================================================
+     * HISTORY BUTTONS
+     * ============================================================ */
 
-            node.addEventListener(
-                'click',
-                () => {
-                    setModelInternal(
-                        node.dataset
-                            .copilotModel
-                    );
-                }
-            );
-        });
-    }
+    function bindHistoryButtons() {
 
-    function bindNewChat() {
-        queryAll([
-            '[data-copilot-new]',
-            '[data-copilot-new-chat]',
-            '#copilot-new',
+        /*
+         * New conversation
+         */
+        qsa([
             '#copilot-new-chat',
-            '.copilot-new',
-            '.copilot-new-chat'
-        ]).forEach(node => {
+            '.copilot-new-chat',
+            '[data-copilot-new-chat]'
+        ]).forEach(button => {
+
             if (
-                node.dataset
-                    .copilotBound === '1'
+                button.dataset
+                    .iwpCopilotHistoryBound ===
+                '1'
             ) {
                 return;
             }
 
-            node.dataset
-                .copilotBound = '1';
+            button.dataset
+                .iwpCopilotHistoryBound =
+                '1';
 
-            node.addEventListener(
-                'click',
-                newChat
-            );
-        });
-    }
-
-    function bindHistoryControls() {
-        queryAll([
-            '[data-copilot-history-id]'
-        ]).forEach(node => {
-            if (
-                node.dataset
-                    .copilotBound === '1'
-            ) {
-                return;
-            }
-
-            node.dataset
-                .copilotBound = '1';
-
-            node.addEventListener(
-                'click',
-                async () => {
-                    const id =
-                        node.dataset
-                            .copilotHistoryId;
-
-                    if (id) {
-                        await loadHistory(
-                            id
-                        );
-                    }
-                }
-            );
-        });
-    }
-
-    function bindImageControls() {
-        queryAll([
-            '[data-copilot-image-url]'
-        ]).forEach(node => {
-            if (
-                node.dataset
-                    .copilotBound === '1'
-            ) {
-                return;
-            }
-
-            node.dataset
-                .copilotBound = '1';
-
-            node.addEventListener(
+            button.addEventListener(
                 'click',
                 () => {
-                    setImage(
-                        node.dataset
-                            .copilotImageUrl
-                    );
+                    newConversation();
                 }
             );
         });
 
-        queryAll([
-            '[data-copilot-clear-image]',
-            '.copilot-clear-image',
-            '#copilot-clear-image'
-        ]).forEach(node => {
-            if (
+
+        /*
+         * History item
+         */
+        document
+            .querySelectorAll(
+                '[data-copilot-history-id]'
+            )
+            .forEach(node => {
+
+                if (
+                    node.dataset
+                        .iwpCopilotHistoryItemBound ===
+                    '1'
+                ) {
+                    return;
+                }
+
                 node.dataset
-                    .copilotBound === '1'
-            ) {
-                return;
-            }
+                    .iwpCopilotHistoryItemBound =
+                    '1';
 
-            node.dataset
-                .copilotBound = '1';
+                node.addEventListener(
+                    'click',
+                    async () => {
 
-            node.addEventListener(
-                'click',
-                clearImage
-            );
-        });
+                        const id =
+                            node.dataset
+                                .copilotHistoryId;
+
+                        if (!id) {
+                            return;
+                        }
+
+                        try {
+                            await loadHistory(
+                                id
+                            );
+
+                            renderHistory();
+                        } catch (error) {
+                            toast(
+                                error?.message ||
+                                '历史记录加载失败'
+                            );
+                        }
+                    }
+                );
+            });
     }
 
-    function bind() {
-        els.messages =
-            query([
-                '#copilot-messages',
-                '.copilot-messages'
-            ]);
 
-        bindInput();
-        bindSendButton();
-        bindModes();
-        bindModels();
-        bindNewChat();
-        bindHistoryControls();
-        bindImageControls();
+    /* ============================================================
+     * RENDER HISTORY
+     * ============================================================ */
 
-        updateModeUI();
-        updateModelUI();
-        updateVisionUI();
-        updateSendState();
-
-        initialized = true;
-    }
-
-    /* ==========================================================
-     * Dynamic DOM support
-     *
-     * Some IWP pages create Copilot controls after
-     * DOMContentLoaded. A small observer restores bindings
-     * without changing the existing UI.
-     * ========================================================== */
-
-    function observeDOM() {
-        if (
-            window.__IWP_COPILOT_OBSERVER__
-        ) {
+    function renderHistory() {
+        if (!els.messages) {
             return;
         }
 
-        if (!document.body) {
+        els.messages.innerHTML =
+            '';
+
+        for (
+            const message of
+            history
+        ) {
+            if (!message) {
+                continue;
+            }
+
+            if (
+                message.role !==
+                    'user' &&
+                message.role !==
+                    'assistant'
+            ) {
+                continue;
+            }
+
+            if (
+                typeof message.content !==
+                'string'
+            ) {
+                continue;
+            }
+
+            appendMessage(
+                message.role,
+                message.content
+            );
+        }
+    }
+
+
+    /* ============================================================
+     * PUBLIC INIT
+     * ============================================================ */
+
+    function refresh() {
+        els.messages =
+            $('copilot-messages') ||
+            document.querySelector(
+                '.copilot-messages'
+            );
+
+        els.input =
+            $('copilot-input') ||
+            document.querySelector(
+                '.copilot-input, textarea[name="copilot-input"]'
+            );
+
+        bindCopilotToggle();
+        bindModeButtons();
+        bindModelButtons();
+        bindImageInput();
+        bindSend();
+        bindHistoryButtons();
+
+        setMode(mode);
+        setModel(model);
+
+        return true;
+    }
+
+
+    /* ============================================================
+     * DOM READY
+     * ============================================================ */
+
+    function bind() {
+        refresh();
+    }
+
+
+    /*
+     * 某些页面的 Copilot DOM 是动态插入的。
+     *
+     * 因此使用 MutationObserver。
+     *
+     * 只负责寻找并绑定，不修改页面结构。
+     */
+    function watchDOM() {
+        if (
+            typeof MutationObserver ===
+            'undefined'
+        ) {
             return;
         }
 
         const observer =
             new MutationObserver(
                 () => {
-                    if (!initialized) {
-                        return;
-                    }
-
-                    bind();
+                    refresh();
                 }
             );
 
         observer.observe(
-            document.body,
+            document.documentElement,
             {
                 childList: true,
                 subtree: true
             }
         );
-
-        window.__IWP_COPILOT_OBSERVER__ =
-            observer;
     }
 
-    /* ==========================================================
-     * Public API
-     * ========================================================== */
+
+    /* ============================================================
+     * GLOBAL API
+     * ============================================================ */
 
     window.IWPCopilot = {
+
+        /*
+         * HTTP API
+         */
         api,
 
+        /*
+         * Chat
+         */
         send,
 
-        newChat,
+        /*
+         * Mode
+         */
+        setMode,
 
-        loadHistory,
+        /*
+         * Model
+         */
+        setModel,
 
-        loadHistoryList,
+        /*
+         * Whiteboard
+         */
+        setWhiteboard,
 
-        deleteHistory,
-
-        getUser,
-
-        getToken,
-
-        getModel,
-
-        isVisionModel,
-
-        setMode: setModeInternal,
-
-        setModel: setModelInternal,
-
-        setWhiteboard:
-            setWhiteboardContext,
-
+        /*
+         * Image
+         */
         setImage,
 
         clearImage,
+
+        /*
+         * History
+         */
+        loadHistoryList,
+
+        loadHistory,
+
+        saveHistory,
+
+        deleteHistory,
+
+        newConversation,
+
+        /*
+         * Sidebar
+         */
+        open: openCopilot,
+
+        close: closeCopilot,
+
+        toggle: toggleCopilot,
+
+        isOpen: isCopilotOpen,
+
+        /*
+         * Refresh DOM bindings
+         */
+        refresh,
+
+        /*
+         * Useful state getters
+         */
+        getMode: () => mode,
+
+        getModel: () => model,
+
+        getModels: () =>
+            ALL_MODELS.slice(),
 
         getHistory: () =>
             history.slice(),
@@ -1630,48 +2146,15 @@
         getSessionId: () =>
             sessionId,
 
-        getMode: () =>
-            mode,
+        getToken,
 
-        getModelId: () =>
-            model,
-
-        getWhiteboard: () =>
-            whiteboard,
-
-        isBusy: () =>
-            busy,
-
-        models: ALL_MODELS,
-
-        textModels: TEXT_MODELS,
-
-        visionModels:
-            VISION_MODELS,
-
-        config: {
-            API,
-            LOGO,
-            ADMIN,
-            DEFAULT_MODEL
-        }
+        getUser
     };
 
-    /* ==========================================================
-     * Initialization
-     * ========================================================== */
 
-    function init() {
-        bind();
-        observeDOM();
-
-        /*
-         * Do not force-load history here.
-         * Existing IWP UI may decide when the history panel
-         * is opened. The public loadHistoryList() API remains
-         * available for it.
-         */
-    }
+    /* ============================================================
+     * START
+     * ============================================================ */
 
     if (
         document.readyState ===
@@ -1679,13 +2162,17 @@
     ) {
         document.addEventListener(
             'DOMContentLoaded',
-            init,
+            () => {
+                bind();
+                watchDOM();
+            },
             {
                 once: true
             }
         );
     } else {
-        init();
+        bind();
+        watchDOM();
     }
 
 })();
