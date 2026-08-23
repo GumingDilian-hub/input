@@ -1,0 +1,409 @@
+const MAX_USERNAME_LENGTH = 32;
+const MAX_PASSWORD_LENGTH = 128;
+const MAX_TITLE_LENGTH = 200;
+const MAX_CONTENT_LENGTH = 500000;
+const MAX_COMMENT_LENGTH = 5000;
+const ADMIN_USERNAME = 'loading';
+const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct';
+const ROUTER_MODEL = 'nvidia/gpt-oss-20b';
+
+let tocCache = null;
+let tocCacheAt = 0;
+const TOC_TTL = 60 * 60 * 1000;
+
+const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(data), {
+  status,
+  headers: {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    ...extra,
+  },
+});
+
+const tokenOf = request => {
+  const value = request.headers.get('Authorization') || '';
+  return value.startsWith('Bearer ') ? value.slice(7).trim() || null : null;
+};
+
+async function userOf(request, env) {
+  const token = tokenOf(request);
+  if (!token) return null;
+  return env.DB.prepare('SELECT * FROM users WHERE token = ?').bind(token).first();
+}
+
+function safeUser(user) {
+  if (!user) return null;
+  const { password, token, ...rest } = user;
+  return rest;
+}
+
+function bytesHex(bytes) {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function randomHex(n) {
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return bytesHex(a);
+}
+
+function token() {
+  const a = new Uint8Array(32);
+  crypto.getRandomValues(a);
+  let s = '';
+  for (const b of a) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return bytesHex(new Uint8Array(digest));
+}
+
+async function hashPassword(password) {
+  const salt = new Uint8Array(16);
+  crypto.getRandomValues(salt);
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256);
+  return `pbkdf2$100000$${bytesHex(salt)}$${bytesHex(new Uint8Array(bits))}`;
+}
+
+async function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string') return { valid: false, legacy: false };
+  if (/^pbkdf2\$/i.test(stored)) {
+    const p = stored.split('$');
+    if (p.length !== 4) return { valid: false, legacy: false };
+    const iterations = Number(p[1]);
+    if (!Number.isInteger(iterations) || iterations < 1 || !/^[0-9a-f]+$/i.test(p[2]) || !/^[0-9a-f]+$/i.test(p[3])) return { valid: false, legacy: false };
+    try {
+      const salt = new Uint8Array(p[2].match(/../g).map(x => parseInt(x, 16)));
+      const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+      const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, key, p[3].length * 4);
+      return { valid: bytesHex(new Uint8Array(bits)).toLowerCase() === p[3].toLowerCase(), legacy: false };
+    } catch (_) { return { valid: false, legacy: false }; }
+  }
+  if (/^[0-9a-f]{64}$/i.test(stored)) return { valid: (await sha256(password)).toLowerCase() === stored.toLowerCase(), legacy: true };
+  return { valid: false, legacy: false };
+}
+
+async function requestJson(url, options = {}) {
+  const r = await fetch(url, options);
+  const text = await r.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (_) {}
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+
+async function nim(env, payload) {
+  const r = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.NIM}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`NIM ${r.status}: ${await r.text()}`);
+  return r;
+}
+
+async function routeChapter(env, question, toc) {
+  const list = toc.map(x => `${x.id} - ${x.title}`).join('\n');
+  const r = await nim(env, {
+    model: ROUTER_MODEL,
+    messages: [{ role: 'user', content: `章节目录：\n${list}\n\n用户提问：${question}\n\n只输出最匹配的章节编号（如 003），不要输出其他文字。` }],
+    temperature: 0,
+    max_tokens: 20,
+    stream: false,
+  });
+  const data = await r.json();
+  const answer = data?.choices?.[0]?.message?.content || '';
+  return answer.match(/\b(\d{3})\b/)?.[1] || null;
+}
+
+async function getToc(env) {
+  if (tocCache && Date.now() - tocCacheAt < TOC_TTL) return tocCache;
+  const base = String(env.GH_TEXTBOOK || '').replace(/\/$/, '') + '/';
+  const data = await requestJson(base + 'toc.json');
+  if (!Array.isArray(data) || !data.length) throw new Error('toc.json 格式无效');
+  tocCache = data;
+  tocCacheAt = Date.now();
+  return data;
+}
+
+async function chapterText(env, id) {
+  const base = String(env.GH_TEXTBOOK || '').replace(/\/$/, '') + '/';
+  const r = await fetch(`${base}ch_${id}.txt`);
+  if (!r.ok) return null;
+  return r.text();
+}
+
+function trimContext(text, max = 120000) {
+  if (!text) return '（未提供上下文）';
+  if (text.length <= max) return text;
+  return text.slice(0, Math.floor(max * 0.72)) + '\n\n[中间内容已截断]\n\n' + text.slice(-Math.floor(max * 0.28));
+}
+
+function sseStream(upstream) {
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = '';
+  (async () => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          const raw = line.slice(5).trim();
+          if (raw === '[DONE]') {
+            await writer.write(encoder.encode('data: {"type":"done"}\n\n'));
+            continue;
+          }
+          try {
+            const d = JSON.parse(raw)?.choices?.[0]?.delta;
+            if (!d) continue;
+            if (d.reasoning_content) await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', text: d.reasoning_content })}\n\n`));
+            if (d.content) await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'content', text: d.content })}\n\n`));
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`));
+    } finally { await writer.close(); }
+  })();
+  return readable;
+}
+
+async function chat(body, env) {
+  const mode = body.mode || 'note';
+  const model = body.model || DEFAULT_MODEL;
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  const image = typeof body.image === 'string' && body.image ? body.image : null;
+  const lastUser = [...messages].reverse().find(m => m && m.role === 'user');
+  if (!lastUser) return json({ error: 'No user message' }, 400);
+
+  let context = '';
+  if (mode === 'note') context = trimContext(body.chapterContext || '（未提供当前章节上下文）');
+  else if (mode === 'whiteboard') context = trimContext(body.whiteboardContext || '（未导入白板资料）');
+  else if (mode === 'textbook') {
+    const toc = await getToc(env);
+    const id = await routeChapter(env, String(lastUser.content || ''), toc);
+    if (!id) return json({ error: '未找到相关章节' }, 404);
+    const text = await chapterText(env, id);
+    if (!text) return json({ error: `无法获取章节 ${id} 的内容` }, 404);
+    context = trimContext(text);
+  } else return json({ error: 'Invalid mode: ' + mode }, 400);
+
+  const system = `你是一位生物竞赛辅导老师。请严格基于资料回答问题；资料没有相关信息时明确说明。回答结构清晰、分点阐述，使用中文。\n\n资料内容：\n${context}`;
+  const apiMessages = [{ role: 'system', content: system }];
+  for (const m of messages.slice(-20)) {
+    if (!m || !['user', 'assistant'].includes(m.role)) continue;
+    if (typeof m.content !== 'string') continue;
+    apiMessages.push({ role: m.role, content: m.content.slice(0, 20000) });
+  }
+  if (image) {
+    const last = apiMessages[apiMessages.length - 1];
+    if (last?.role === 'user') {
+      last.content = [
+        { type: 'text', text: last.content || '请分析这张图片。' },
+        { type: 'image_url', image_url: { url: image } },
+      ];
+    }
+  }
+
+  const upstream = await nim(env, {
+    model,
+    messages: apiMessages,
+    temperature: 0.7,
+    top_p: 0.95,
+    max_tokens: 4096,
+    stream: true,
+    chat_template_kwargs: { enable_thinking: true },
+  });
+  return new Response(sseStream(upstream), { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' } });
+}
+
+async function historyList(user, env) {
+  return (await env.COPILOT_HISTORY.get(`histlist_${user.username}`, 'json')) || [];
+}
+
+async function handleHistory(request, env, user, path, method) {
+  if (path === '/api/history' && method === 'GET') return json(await historyList(user, env));
+  if (path === '/api/history' && method === 'POST') {
+    const body = await request.json();
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const title = String(body.title || '新对话').slice(0, 100);
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const record = { id, title, messages, updated_at: new Date().toISOString() };
+    await env.COPILOT_HISTORY.put(`hist_${user.username}_${id}`, JSON.stringify(record));
+    const list = await historyList(user, env);
+    await env.COPILOT_HISTORY.put(`histlist_${user.username}`, JSON.stringify([{ id, title, updated_at: record.updated_at }, ...list.filter(x => x.id !== id)].slice(0, 100)));
+    return json({ success: true, id });
+  }
+  const m = path.match(/^\/api\/history\/([^/]+)$/);
+  if (!m) return json({ error: 'Not found' }, 404);
+  const id = decodeURIComponent(m[1]);
+  const key = `hist_${user.username}_${id}`;
+  if (method === 'GET') return json((await env.COPILOT_HISTORY.get(key, 'json')) || { id, messages: [] });
+  if (method === 'DELETE') {
+    await env.COPILOT_HISTORY.delete(key);
+    const list = await historyList(user, env);
+    await env.COPILOT_HISTORY.put(`histlist_${user.username}`, JSON.stringify(list.filter(x => x.id !== id)));
+    return json({ success: true });
+  }
+  return json({ error: 'Method not allowed' }, 405);
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+    if (method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS' } });
+
+    try {
+      if (path === '/register' && method === 'POST') {
+        const b = await request.json();
+        const username = typeof b.username === 'string' ? b.username.trim() : '';
+        const password = typeof b.password === 'string' ? b.password : '';
+        if (!username || !password) return json({ error: '用户名和密码不能为空' }, 400);
+        if (username.length > MAX_USERNAME_LENGTH) return json({ error: `用户名不能超过 ${MAX_USERNAME_LENGTH} 个字符` }, 400);
+        if (password.length > MAX_PASSWORD_LENGTH) return json({ error: `密码不能超过 ${MAX_PASSWORD_LENGTH} 个字符` }, 400);
+        if (await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first()) return json({ error: '用户名已存在' }, 409);
+        const hash = await hashPassword(password);
+        const t = token();
+        await env.DB.prepare('INSERT INTO users (username,password,token,school,honor_year,honor_rank) VALUES (?,?,?,?,?,?)').bind(username, hash, t, b.school || null, b.honor_year || null, b.honor_rank || null).run();
+        return json({ token: t, username });
+      }
+
+      if (path === '/login' && method === 'POST') {
+        const b = await request.json();
+        const username = typeof b.username === 'string' ? b.username.trim() : '';
+        const password = typeof b.password === 'string' ? b.password : '';
+        const user = await env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
+        if (!user) return json({ error: '账号或密码错误' }, 401);
+        const check = await verifyPassword(password, user.password);
+        if (!check.valid) return json({ error: '账号或密码错误' }, 401);
+        if (check.legacy) await env.DB.prepare('UPDATE users SET password = ? WHERE id = ?').bind(await hashPassword(password), user.id).run();
+        return json({ token: user.token, username: user.username });
+      }
+
+      if (path === '/users/me' && method === 'GET') {
+        const u = await userOf(request, env);
+        return u ? json({ user: safeUser(u) }) : json({ error: '未登录' }, 401);
+      }
+
+      if (path === '/users/me' && method === 'PUT') {
+        const u = await userOf(request, env);
+        if (!u) return json({ error: '未登录' }, 401);
+        const b = await request.json();
+        const updates = {};
+        if (b.username !== undefined) {
+          const name = String(b.username).trim();
+          if (!name || name.length > MAX_USERNAME_LENGTH) return json({ error: '用户名无效' }, 400);
+          if (name !== u.username && await env.DB.prepare('SELECT id FROM users WHERE username = ? AND id != ?').bind(name, u.id).first()) return json({ error: '用户名已被占用' }, 409);
+          updates.username = name;
+        }
+        if (b.avatar !== undefined) updates.avatar = typeof b.avatar === 'string' ? b.avatar.trim() : null;
+        if (b.school !== undefined) updates.school = typeof b.school === 'string' ? b.school.trim() : null;
+        if (b.honor_year !== undefined) updates.honor_year = typeof b.honor_year === 'string' ? b.honor_year.trim() : null;
+        if (b.honor_rank !== undefined) updates.honor_rank = typeof b.honor_rank === 'string' ? b.honor_rank.trim() : null;
+        if (b.password) {
+          if (!b.old_password) return json({ error: '修改密码需要提供当前密码' }, 400);
+          if (!(await verifyPassword(b.old_password, u.password)).valid) return json({ error: '当前密码错误' }, 401);
+          updates.password = await hashPassword(String(b.password).slice(0, MAX_PASSWORD_LENGTH));
+          updates.token = token();
+        }
+        if (!Object.keys(updates).length) return json({ error: '没有提供修改字段' }, 400);
+        const keys = Object.keys(updates);
+        const values = keys.map(k => updates[k]);
+        await env.DB.prepare(`UPDATE users SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).bind(...values, u.id).run();
+        const nextName = updates.username || u.username;
+        if (nextName !== u.username) await env.DB.batch([
+          env.DB.prepare('UPDATE posts SET author = ? WHERE author = ?').bind(nextName, u.username),
+          env.DB.prepare('UPDATE comments SET username = ? WHERE username = ?').bind(nextName, u.username),
+        ]);
+        const fresh = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(u.id).first();
+        return json({ user: safeUser(fresh), ...(updates.token ? { token: fresh.token } : {}) });
+      }
+
+      if (path === '/posts' && method === 'GET') {
+        const search = (url.searchParams.get('search') || '').slice(0, 200);
+        const r = await env.DB.prepare(`SELECT p.*,u.avatar,(p.views + p.likes*5 + p.comments_count*10) AS heat_score FROM posts p LEFT JOIN users u ON p.author=u.username WHERE p.title LIKE ? ORDER BY heat_score DESC,p.created_at DESC`).bind(`%${search}%`).all();
+        return json({ posts: r.results || [] });
+      }
+      if (path === '/posts' && method === 'POST') {
+        const u = await userOf(request, env); if (!u) return json({ error: '未登录' }, 401);
+        const b = await request.json(); const title = String(b.title || '').trim(); const content = String(b.content_md || '').trim();
+        if (!title || !content) return json({ error: '标题或内容不能为空' }, 400);
+        if (title.length > MAX_TITLE_LENGTH || content.length > MAX_CONTENT_LENGTH) return json({ error: '文章长度超限' }, 400);
+        await env.DB.prepare('INSERT INTO posts (title,content_md,author) VALUES (?,?,?)').bind(title, content, u.username).run();
+        return json({ success: true });
+      }
+      const post = path.match(/^\/posts\/(\d+)$/);
+      if (post) {
+        const id = Number(post[1]);
+        if (method === 'GET') {
+          const p = await env.DB.prepare('SELECT * FROM posts WHERE id = ?').bind(id).first(); if (!p) return json({ error: 'Not found' }, 404);
+          await env.DB.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').bind(id).run(); p.views = (p.views || 0) + 1;
+          p.author_info = await env.DB.prepare('SELECT avatar,school,honor_year,honor_rank FROM users WHERE username = ?').bind(p.author).first() || {};
+          let liked = false; const u = await userOf(request, env); if (u) liked = !!(await env.DB.prepare('SELECT 1 FROM post_likes WHERE user_id=? AND post_id=?').bind(u.username,id).first());
+          return json({ post:p, next_id:null, liked });
+        }
+        if (method === 'DELETE') {
+          const u = await userOf(request, env); if (!u) return json({ error:'未登录' },401);
+          const p = await env.DB.prepare('SELECT author FROM posts WHERE id=?').bind(id).first(); if (!p) return json({ error:'文章不存在' },404);
+          if (p.author !== u.username) return json({ error:'无权删除这篇文章' },403);
+          await env.DB.batch([env.DB.prepare('DELETE FROM comments WHERE section=?').bind(`blog-${id}`),env.DB.prepare('DELETE FROM post_likes WHERE post_id=?').bind(id),env.DB.prepare('DELETE FROM posts WHERE id=?').bind(id)]);
+          return json({ success:true });
+        }
+      }
+      const pl = path.match(/^\/posts\/(\d+)\/like$/);
+      if (pl && method === 'POST') {
+        const u = await userOf(request, env); if (!u) return json({ error:'未登录' },401); const id=Number(pl[1]);
+        if (!(await env.DB.prepare('SELECT id FROM posts WHERE id=?').bind(id).first())) return json({ error:'文章不存在' },404);
+        const row=await env.DB.prepare('SELECT 1 FROM post_likes WHERE user_id=? AND post_id=?').bind(u.username,id).first();
+        if(row){await env.DB.batch([env.DB.prepare('DELETE FROM post_likes WHERE user_id=? AND post_id=?').bind(u.username,id),env.DB.prepare('UPDATE posts SET likes=CASE WHEN likes>0 THEN likes-1 ELSE 0 END WHERE id=?').bind(id)]);return json({success:true,action:'unliked'});}
+        await env.DB.batch([env.DB.prepare('INSERT INTO post_likes(user_id,post_id) VALUES(?,?)').bind(u.username,id),env.DB.prepare('UPDATE posts SET likes=likes+1 WHERE id=?').bind(id)]); return json({success:true,action:'liked'});
+      }
+
+      if (path.startsWith('/users/') && method === 'GET' && path !== '/users/me' && path !== '/users/hot') {
+        const username = decodeURIComponent(path.slice('/users/'.length)); const u=await env.DB.prepare('SELECT username,avatar,school,honor_year,honor_rank FROM users WHERE username=?').bind(username).first(); if(!u)return json({error:'User not found'},404);
+        const posts=await env.DB.prepare('SELECT id,title,views,likes,comments_count,created_at FROM posts WHERE author=? ORDER BY created_at DESC').bind(username).all(); return json({user:u,posts:posts.results||[]});
+      }
+      if (path === '/users/hot' && method === 'GET') {
+        const r=await env.DB.prepare('SELECT u.username,u.avatar,u.honor_year,u.honor_rank,u.school,SUM(p.views+p.likes*5+p.comments_count*10) AS total_heat FROM users u JOIN posts p ON u.username=p.author GROUP BY u.username ORDER BY total_heat DESC').all(); return json({users:r.results||[]});
+      }
+
+      if (path === '/comments' && method === 'GET') {
+        const section=(url.searchParams.get('section')||'').slice(0,200); if(!section)return json({error:'Missing section'},400);
+        const count=await env.DB.prepare('SELECT COUNT(*) AS total FROM comments WHERE section=?').bind(section).first(); const r=await env.DB.prepare('SELECT * FROM comments WHERE section=? ORDER BY created_at ASC').bind(section).all();
+        const comments=r.results||[]; for(const c of comments){const u=await env.DB.prepare('SELECT avatar FROM users WHERE username=?').bind(c.username).first();c.avatar=u?.avatar||'images/0721.png';} return json({comments,total:count?.total||0});
+      }
+      if (path === '/comments' && method === 'POST') {
+        const u=await userOf(request,env); if(!u)return json({error:'未登录'},401); const b=await request.json(); const section=String(b.section||'').trim(); const content=String(b.content||'').trim(); const parent=b.parent_id==null||b.parent_id===''?null:Number(b.parent_id);
+        if(!section||!content)return json({error:'评论内容不能为空'},400); if(section.length>200||content.length>MAX_COMMENT_LENGTH)return json({error:'评论内容无效'},400); if(parent!==null&&!Number.isInteger(parent))return json({error:'parent_id 无效'},400);
+        if(parent!==null&&!await env.DB.prepare('SELECT id FROM comments WHERE id=? AND section=?').bind(parent,section).first())return json({error:'回复目标不存在'},404);
+        await env.DB.prepare('INSERT INTO comments(section,username,content,parent_id) VALUES(?,?,?,?)').bind(section,u.username,content,parent).run();
+        if(section.startsWith('blog-')&&/^blog-\d+$/.test(section))await env.DB.prepare('UPDATE posts SET comments_count=comments_count+1 WHERE id=?').bind(Number(section.slice(5))).run(); return json({success:true});
+      }
+      const cm=path.match(/^\/comments\/(\d+)(?:\/(like))?$/);
+      if(cm){const id=Number(cm[1]); const u=await userOf(request,env); if(!u)return json({error:'请先登录'},401); const c=await env.DB.prepare('SELECT * FROM comments WHERE id=?').bind(id).first(); if(!c)return json({error:'评论不存在'},404);
+        if(cm[2]==='like'&&method==='POST'){await env.DB.prepare('UPDATE comments SET likes=likes+1 WHERE id=?').bind(id).run();const r=await env.DB.prepare('SELECT likes FROM comments WHERE id=?').bind(id).first();return json({likes:r?.likes||0});}
+        if(method==='DELETE'){if(c.username!==u.username)return json({error:'无权删除这条评论'},403);await env.DB.prepare('UPDATE comments SET parent_id=? WHERE parent_id=?').bind(c.parent_id||null,id).run();await env.DB.prepare('DELETE FROM comments WHERE id=?').bind(id).run();if(c.section.startsWith('blog-')&&/^blog-\d+$/.test(c.section))await env.DB.prepare('UPDATE posts SET comments_count=CASE WHEN comments_count>0 THEN comments_count-1 ELSE 0 END WHERE id=?').bind(Number(c.section.slice(5))).run();return json({success:true});}
+      }
+
+      if (path === '/api/chat' && method === 'POST') { const u=await userOf(request,env); if(!u)return json({error:'请先登录'},401); return chat(await request.json(),env); }
+      if (path.startsWith('/api/history')) { const u=await userOf(request,env); if(!u)return json({error:'Unauthorized'},401); return handleHistory(request,env,u,path,method); }
+
+      return json({ error:'Not found' },404);
+    } catch(e) { console.error('[worker]',e); return json({error:e?.message||'Internal Server Error'},500); }
+  }
+};
