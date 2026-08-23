@@ -1,6 +1,6 @@
-/* IWP Copilot — rollback-compatible full client
- * Keeps the existing Copilot DOM/CSS contract and UI while removing the
- * dependency on the broken main-branch backend implementation.
+/* IWP Copilot — rollback-compatible client
+ * UI/DOM contract remains unchanged; authentication is now shared directly
+ * through iwp-user/localStorage and the same Worker used by reader.js.
  */
 (function () {
     'use strict';
@@ -19,35 +19,17 @@
         ['z-ai/glm-5.2', 'GLM 5.2', '7.png'],
         ['google/gemma-4-31b-it', 'Google Gemma 4', '4.png']
     ];
-    const VISION_MODELS = [
-        ['meta/llama-3.2-90b-vision-instruct', 'Meta 3.3 视觉', '2.png']
-    ];
+    const VISION_MODELS = [['meta/llama-3.2-90b-vision-instruct', 'Meta 3.3 视觉', '2.png']];
     const ALL_MODELS = TEXT_MODELS.concat(VISION_MODELS);
 
-    let mode = 'note';
-    let model = TEXT_MODELS[0][0];
-    let image = null;
-    let history = [];
-    let sessionId = null;
-    let busy = false;
-    let whiteboard = '';
-    let els = {};
-
+    let mode = 'note', model = TEXT_MODELS[0][0], image = null;
+    let history = [], sessionId = null, busy = false, whiteboard = '', els = {};
     const $ = id => document.getElementById(id);
 
-    function getLocalUser() {
+    function getUser() {
         try { return JSON.parse(localStorage.getItem('iwp-user') || 'null'); } catch (_) { return null; }
     }
-
-    function getToken() {
-        if (window.SiteAuth && typeof window.SiteAuth.getToken === 'function') return window.SiteAuth.getToken();
-        return getLocalUser()?.token || null;
-    }
-
-    function getUser() {
-        if (window.SiteAuth && typeof window.SiteAuth.getUser === 'function') return window.SiteAuth.getUser();
-        return getLocalUser();
-    }
+    function getToken() { return getUser()?.token || null; }
 
     async function api(path, options = {}) {
         const headers = Object.assign({}, options.headers || {});
@@ -59,7 +41,7 @@
         }
         const r = await fetch(API + path, Object.assign({}, options, { headers }));
         const text = await r.text();
-        let data = null;
+        let data = {};
         try { data = JSON.parse(text); } catch (_) {}
         if (!r.ok) throw Object.assign(new Error(data?.error || `HTTP ${r.status}`), { status: r.status, data });
         return data;
@@ -85,8 +67,7 @@
             if (r.top < innerHeight && r.bottom > 0) { active = h; break; }
         }
         if (!active) return '';
-        let out = '';
-        let node = active;
+        let out = '', node = active;
         while (node) {
             if (node !== active && node.tagName === 'H2') break;
             if (node.tagName === 'H1') break;
@@ -103,7 +84,7 @@
             const u = getUser();
             els.messages.innerHTML = '<div class="copilot-placeholder">' + (u?.username === ADMIN ? '✨ 管理员模式 - ' : '') + '有什么可以帮你的？</div>';
         }
-        history.forEach((m) => {
+        history.forEach(m => {
             const box = document.createElement('div');
             box.className = 'copilot-msg copilot-msg-' + m.role;
             if (m.image) {
@@ -147,10 +128,7 @@
         for (let i = start; i < count; i++) {
             const dot = document.createElement('div');
             dot.className = 'copilot-dot' + (i === count - 1 ? ' active' : '');
-            dot.onclick = () => {
-                const target = els.messages.querySelectorAll('.copilot-msg-user')[i];
-                target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            };
+            dot.onclick = () => els.messages.querySelectorAll('.copilot-msg-user')[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             els.dots.appendChild(dot);
         }
     }
@@ -164,7 +142,6 @@
             node.textContent = label;
             node.onclick = () => {
                 mode = key;
-                els.modeText.textContent = label;
                 els.modeOptions.style.display = 'none';
                 renderModes();
                 updateImageState();
@@ -187,21 +164,14 @@
         els.modelOptions.appendChild(label);
         VISION_MODELS.forEach(addModel);
         showSelectedModel();
-
         function addModel(item) {
             const node = document.createElement('div');
             node.className = 'copilot-model-option' + (item[0] === model ? ' active' : '');
             const icon = document.createElement('img');
             icon.src = LOGO + item[2];
             icon.style.cssText = 'width:20px;height:20px;margin-right:8px;';
-            const text = document.createTextNode(item[1]);
-            node.append(icon, text);
-            node.onclick = () => {
-                model = item[0];
-                els.modelOptions.style.display = 'none';
-                renderModels();
-                updateImageState();
-            };
+            node.append(icon, document.createTextNode(item[1]));
+            node.onclick = () => { model = item[0]; els.modelOptions.style.display = 'none'; renderModels(); updateImageState(); };
             els.modelOptions.appendChild(node);
         }
     }
@@ -224,54 +194,29 @@
             document.querySelector('.copilot-image-thumb')?.remove();
         }
     }
-
     function updateWhiteboardState() {
         if (els.whiteboardImport) els.whiteboardImport.style.display = mode === 'whiteboard' ? 'inline-block' : 'none';
     }
 
     function openWhiteboard() {
         let panel = $('copilot-whiteboard-panel');
-        if (panel) {
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            return;
-        }
+        if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; return; }
         panel = document.createElement('div');
         panel.id = 'copilot-whiteboard-panel';
         panel.className = 'open';
-        panel.innerHTML = `
-            <textarea id="wb-textarea" placeholder="粘贴资料文本（支持 Markdown）..." style="width:100%;background:#1e1e1e;border:1px solid #555;border-radius:4px;color:#ddd;padding:6px;resize:vertical;font-family:inherit;font-size:.85rem;min-height:80px;"></textarea>
-            <div class="wb-actions">
-                <button id="wb-file" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">上传 .txt</button>
-                <input type="file" id="wb-file-input" accept=".txt" style="display:none">
-                <button id="wb-confirm" style="background:#555;border:1px solid #777;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">确认导入</button>
-                <button id="wb-cancel" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">取消</button>
-                <button id="wb-from-page" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">从当前章节导入</button>
-            </div>
-            <div id="copilot-whiteboard-status" style="font-size:.7rem;color:#888;margin-top:4px;"></div>`;
+        panel.innerHTML = `<textarea id="wb-textarea" placeholder="粘贴资料文本（支持 Markdown）..." style="width:100%;background:#1e1e1e;border:1px solid #555;border-radius:4px;color:#ddd;padding:6px;resize:vertical;font-family:inherit;font-size:.85rem;min-height:80px;"></textarea><div class="wb-actions"><button id="wb-file" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">上传 .txt</button><input type="file" id="wb-file-input" accept=".txt" style="display:none"><button id="wb-confirm" style="background:#555;border:1px solid #777;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">确认导入</button><button id="wb-cancel" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">取消</button><button id="wb-from-page" style="background:#333;border:1px solid #555;color:#ddd;border-radius:4px;padding:2px 10px;font-size:.75rem;cursor:pointer;">从当前章节导入</button></div><div id="copilot-whiteboard-status" style="font-size:.7rem;color:#888;margin-top:4px;"></div>`;
         els.inputWrap.parentNode.insertBefore(panel, els.inputWrap);
         const ta = $('wb-textarea');
         ta.value = whiteboard;
         $('wb-file').onclick = () => $('wb-file-input').click();
         $('wb-file-input').onchange = e => {
-            const file = e.target.files?.[0];
-            if (!file) return;
+            const file = e.target.files?.[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = () => {
-                ta.value = String(reader.result || '');
-                $('copilot-whiteboard-status').textContent = `已导入文件: ${file.name} (${ta.value.length} 字)`;
-            };
+            reader.onload = () => { ta.value = String(reader.result || ''); $('copilot-whiteboard-status').textContent = `已导入文件: ${file.name} (${ta.value.length} 字)`; };
             reader.readAsText(file);
         };
-        $('wb-from-page').onclick = () => {
-            const text = currentChapter();
-            if (text) { ta.value = text; toast('已导入当前章节内容'); }
-            else toast('未找到当前章节内容');
-        };
-        $('wb-confirm').onclick = () => {
-            whiteboard = ta.value;
-            panel.style.display = 'none';
-            toast('资料已导入，共 ' + whiteboard.length + ' 字');
-        };
+        $('wb-from-page').onclick = () => { const text = currentChapter(); if (text) { ta.value = text; toast('已导入当前章节内容'); } else toast('未找到当前章节内容'); };
+        $('wb-confirm').onclick = () => { whiteboard = ta.value; panel.style.display = 'none'; toast('资料已导入，共 ' + whiteboard.length + ' 字'); };
         $('wb-cancel').onclick = () => { panel.style.display = 'none'; };
     }
 
@@ -289,7 +234,6 @@
             });
         } catch (e) { console.warn('[Copilot history]', e); }
     }
-
     async function loadHistory(id) {
         try {
             const record = await api('/api/history/' + encodeURIComponent(id));
@@ -298,7 +242,6 @@
             render();
         } catch (e) { toast('历史记录加载失败：' + e.message); }
     }
-
     async function saveHistory() {
         if (!getToken() || !history.length) return;
         const firstUser = history.find(x => x.role === 'user');
@@ -316,7 +259,6 @@
         if (!getToken()) { toast('请先登录'); return; }
         const text = els.input.value.trim();
         if (!text && !image) return;
-
         busy = true;
         els.send.disabled = true;
         const selectedImage = image;
@@ -328,30 +270,16 @@
         els.input.value = '';
         updateImageState();
         render();
-
         try {
             const messages = history.slice(0, -1).map(m => ({ role: m.role, content: m.content || '' }));
-            const payload = {
-                mode,
-                model,
-                messages,
-                chapterContext: currentChapter(),
-                whiteboardContext: whiteboard
-            };
+            const payload = { mode, model, messages, chapterContext: currentChapter(), whiteboardContext: whiteboard };
             if (selectedImage) payload.image = selectedImage;
-
-            const response = await fetch(API + '/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
-                body: JSON.stringify(payload)
-            });
+            const response = await fetch(API + '/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() }, body: JSON.stringify(payload) });
             if (!response.ok) {
-                let error = null;
-                try { error = await response.json(); } catch (_) {}
+                let error = null; try { error = await response.json(); } catch (_) {}
                 throw new Error(error?.error || `HTTP ${response.status}`);
             }
             if (!response.body) throw new Error('服务器没有返回流式响应');
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -363,15 +291,15 @@
                 buffer = lines.pop() || '';
                 for (const line of lines) {
                     if (!line.startsWith('data:')) continue;
+                    const raw = line.slice(5).trim();
+                    if (!raw) continue;
                     try {
-                        const event = JSON.parse(line.slice(5).trim());
+                        const event = JSON.parse(raw);
                         if (event.type === 'content') assistant.content += event.text || '';
                         else if (event.type === 'reasoning') assistant.reasoning += event.text || '';
                         else if (event.type === 'error') throw new Error(event.error || '流式响应错误');
                         render();
-                    } catch (e) {
-                        if (e.message && e.message !== 'Unexpected end of JSON input') throw e;
-                    }
+                    } catch (e) { if (e.message && !/Unexpected end of JSON/.test(e.message)) throw e; }
                 }
             }
             await saveHistory();
@@ -386,107 +314,57 @@
     }
 
     function newChat() {
-        sessionId = null;
-        history = [];
-        image = null;
-        whiteboard = '';
+        sessionId = null; history = []; image = null; whiteboard = '';
         els.input.value = '';
         $('copilot-whiteboard-panel')?.remove();
-        render();
-        updateImageState();
-        updateWhiteboardState();
+        render(); updateImageState(); updateWhiteboardState();
     }
 
     function bind() {
-        els.btn.onclick = () => {
-            els.copilot.style.display = 'block';
-            if (els.toc) els.toc.style.display = 'none';
-        };
-        els.modeDisplay.onclick = () => {
-            els.modeOptions.style.display = els.modeOptions.style.display === 'block' ? 'none' : 'block';
-            els.modelOptions.style.display = 'none';
-        };
-        els.modelDisplay.onclick = () => {
-            els.modelOptions.style.display = els.modelOptions.style.display === 'block' ? 'none' : 'block';
-            els.modeOptions.style.display = 'none';
-        };
+        els.btn.onclick = () => { els.copilot.style.display = 'block'; if (els.toc) els.toc.style.display = 'none'; };
+        els.modeDisplay.onclick = () => { els.modeOptions.style.display = els.modeOptions.style.display === 'block' ? 'none' : 'block'; els.modelOptions.style.display = 'none'; };
+        els.modelDisplay.onclick = () => { els.modelOptions.style.display = els.modelOptions.style.display === 'block' ? 'none' : 'block'; els.modeOptions.style.display = 'none'; };
         document.addEventListener('click', e => {
             if (!e.target.closest('#copilot-mode-display') && !e.target.closest('#copilot-mode-options')) els.modeOptions.style.display = 'none';
             if (!e.target.closest('#copilot-model-display') && !e.target.closest('#copilot-model-options')) els.modelOptions.style.display = 'none';
         });
         els.send.onclick = send;
-        els.input.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send();
-        });
+        els.input.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
         els.newChat.onclick = newChat;
         els.imageInput.onchange = e => {
-            const file = e.target.files?.[0];
-            if (!file) return;
+            const file = e.target.files?.[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = () => {
                 image = String(reader.result || '');
                 document.querySelector('.copilot-image-thumb')?.remove();
                 const thumb = document.createElement('img');
-                thumb.className = 'copilot-image-thumb';
-                thumb.src = image;
+                thumb.className = 'copilot-image-thumb'; thumb.src = image;
                 thumb.style.cssText = 'max-width:80px;max-height:60px;border-radius:4px;margin:4px;display:block;';
                 els.input.parentNode.insertBefore(thumb, els.input);
             };
             reader.readAsDataURL(file);
         };
         els.whiteboardImport.onclick = openWhiteboard;
-        window.addEventListener('iwp-auth-changed', () => {
-            if (!getToken()) newChat();
-            else loadHistoryList();
-        });
+        window.addEventListener('iwp-auth-changed', () => { if (!getToken()) newChat(); else loadHistoryList(); });
         document.addEventListener('profile-login', loadHistoryList);
         document.addEventListener('profile-logout', newChat);
+        window.addEventListener('storage', e => { if (e.key === 'iwp-user') { if (!getToken()) newChat(); else loadHistoryList(); } });
     }
 
     function init() {
         els = {
-            btn: $('btn-copilot'),
-            copilot: $('sidebar-copilot-view'),
-            toc: $('sidebar-toc-view'),
-            modeDisplay: $('copilot-mode-display'),
-            modeText: $('copilot-mode-text'),
-            modeOptions: $('copilot-mode-options'),
-            modelDisplay: $('copilot-model-display'),
-            modelText: $('copilot-model-text'),
-            modelIcon: $('copilot-model-icon'),
-            modelOptions: $('copilot-model-options'),
-            messages: $('copilot-messages'),
-            dots: $('copilot-dots'),
-            input: $('copilot-input'),
-            send: $('copilot-send'),
-            newChat: $('copilot-new-chat'),
-            history: $('copilot-history-list'),
-            imageInput: $('copilot-image-input'),
-            imageLabel: $('copilot-image-label'),
-            whiteboardImport: $('copilot-whiteboard-import'),
+            btn: $('btn-copilot'), copilot: $('sidebar-copilot-view'), toc: $('sidebar-toc-view'),
+            modeDisplay: $('copilot-mode-display'), modeText: $('copilot-mode-text'), modeOptions: $('copilot-mode-options'),
+            modelDisplay: $('copilot-model-display'), modelText: $('copilot-model-text'), modelIcon: $('copilot-model-icon'),
+            modelOptions: $('copilot-model-options'), messages: $('copilot-messages'), dots: $('copilot-dots'),
+            input: $('copilot-input'), send: $('copilot-send'), newChat: $('copilot-new-chat'), history: $('copilot-history-list'),
+            imageInput: $('copilot-image-input'), imageLabel: $('copilot-image-label'), whiteboardImport: $('copilot-whiteboard-import'),
             inputWrap: document.querySelector('.copilot-input-wrap')
         };
         if (!els.btn || !els.copilot || !els.messages || !els.input) return;
-        renderModes();
-        renderModels();
-        updateImageState();
-        updateWhiteboardState();
-        bind();
-        render();
-        loadHistoryList();
+        renderModes(); renderModels(); updateImageState(); updateWhiteboardState(); bind(); render(); loadHistoryList();
     }
 
-    function boot() {
-        if (window.SiteAuth) init();
-        else {
-            const script = document.createElement('script');
-            script.src = 'js/auth.js';
-            script.onload = init;
-            script.onerror = init;
-            document.head.appendChild(script);
-        }
-    }
-
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
-    else boot();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+    else init();
 })();
