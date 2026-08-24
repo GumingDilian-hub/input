@@ -1102,7 +1102,7 @@
         if (!question) return;
 
         if (!getToken()) {
-            toast('请先登录');
+            toast('请先去个人中心登录');
             return;
         }
 
