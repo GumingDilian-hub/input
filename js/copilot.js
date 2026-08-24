@@ -3,7 +3,7 @@
  * Complete rollback-compatible client
  * 
  * 新增：上下文预算进度条（输入框背景）
- * 修复：SSE 解析跳过非 JSON 行
+ * 修复：SSE 解析跳过非 JSON 行，兼容错误 content-type
  * ============================================================ */
 
 (function () {
@@ -994,73 +994,106 @@
     }
 
     /* ============================================================
-     * SSE (修复：跳过非 JSON 行)
+     * SSE (修复：跳过非 JSON 行，兼容错误 content-type)
      * ============================================================ */
 
-    function readSSE(response, onEvent) {
+    async function readSSE(response, onEvent) {
         if (!response.body) {
             throw new Error('服务器没有返回流');
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const contentType = response.headers.get('content-type') || '';
 
-        let buffer = '';
+        // 如果响应头明确是 SSE，直接走流解析
+        if (contentType.includes('text/event-stream')) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
 
-        return (async () => {
             while (true) {
                 const { done, value } = await reader.read();
-
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
-
-                const lines = buffer.split('\n');
+                const lines = buffer.split(/\r?\n/);
                 buffer = lines.pop() || '';
 
-                for (let line of lines) {
-                    line = line.trim();
-
+                for (const rawLine of lines) {
+                    const line = rawLine.trim();
                     if (!line.startsWith('data:')) continue;
-
                     const raw = line.slice(5).trim();
-
                     if (!raw || raw === '[DONE]') continue;
 
-                    // 修复：只处理以 { 或 [ 开头的行，避免非 JSON 行触发错误
                     if (!raw.startsWith('{') && !raw.startsWith('[')) {
-                        console.warn('[IWP Copilot] 跳过非 JSON 行:', raw);
+                        console.warn('[IWP Copilot] 跳过非 JSON SSE 数据:', raw);
                         continue;
                     }
+                    try {
+                        const event = JSON.parse(raw);
+                        await onEvent(event);
+                    } catch (error) {
+                        console.warn('[IWP Copilot] SSE JSON 解析失败:', error, raw);
+                    }
+                }
+            }
 
+            // 处理尾部残留
+            const last = buffer.trim();
+            if (last.startsWith('data:')) {
+                const raw = last.slice(5).trim();
+                if (raw && raw !== '[DONE]' && (raw.startsWith('{') || raw.startsWith('['))) {
                     try {
                         await onEvent(JSON.parse(raw));
                     } catch (error) {
-                        console.warn(
-                            '[IWP Copilot] SSE 解析失败:',
-                            error,
-                            '原始数据:',
-                            raw
-                        );
+                        console.warn('[IWP Copilot] SSE 尾部解析失败:', error, raw);
                     }
                 }
             }
+            return;
+        }
 
-            const last = buffer.trim();
+        // 如果响应头不是 SSE，可能是错误响应（JSON）或误设的 SSE
+        const text = await response.text();
+        // 先尝试解析为 JSON（正常错误）
+        try {
+            const data = JSON.parse(text);
+            // 如果解析成功，并且有 error 字段，抛出错误
+            if (data && typeof data === 'object') {
+                if (data.error) throw new Error(data.error);
+                // 如果是有数据的正常 JSON，但这里不应该出现，因为 /api/chat 流式不会返回 JSON
+                // 但为了兼容，我们模拟一个 content 事件
+                await onEvent({ type: 'content', text: data.content || data.message || '' });
+                return;
+            }
+        } catch (_) {
+            // JSON 解析失败，继续往下
+        }
 
-            if (last.startsWith('data:')) {
-                const raw = last.slice(5).trim();
-
-                if (raw && raw !== '[DONE]') {
-                    // 同样检查
-                    if (raw.startsWith('{') || raw.startsWith('[')) {
-                        try {
-                            await onEvent(JSON.parse(raw));
-                        } catch (_) {}
-                    }
+        // 如果不是 JSON，检查是否以 "data:" 开头（可能是误设 content-type）
+        if (text.trim().startsWith('data:')) {
+            // 手动按 SSE 解析
+            const lines = text.split(/\r?\n/);
+            for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line.startsWith('data:')) continue;
+                const raw = line.slice(5).trim();
+                if (!raw || raw === '[DONE]') continue;
+                if (!raw.startsWith('{') && !raw.startsWith('[')) {
+                    console.warn('[IWP Copilot] 跳过非 JSON SSE 数据:', raw);
+                    continue;
+                }
+                try {
+                    const event = JSON.parse(raw);
+                    await onEvent(event);
+                } catch (error) {
+                    console.warn('[IWP Copilot] SSE JSON 解析失败:', error, raw);
                 }
             }
-        })();
+            return;
+        }
+
+        // 否则，视为纯文本错误（兜底）
+        throw new Error('服务器返回了未知格式: ' + text.substring(0, 100));
     }
 
     /* ============================================================
