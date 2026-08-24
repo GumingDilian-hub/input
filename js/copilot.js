@@ -4,6 +4,7 @@
  * 
  * 新增：上下文预算进度条（输入框背景）
  * 修复：SSE 解析跳过非 JSON 行，兼容错误 content-type
+ * 修复：错误响应兼容 SSE 格式
  * ============================================================ */
 
 (function () {
@@ -1224,19 +1225,36 @@
                 })
             });
 
+            // ===== 修复：错误响应兼容 SSE 格式 =====
             if (!response.ok) {
                 const text = await response.text();
-
-                let err = {};
-
+                let errMsg = `HTTP ${response.status}`;
+                // 尝试解析为 JSON
                 try {
-                    err = JSON.parse(text);
-                } catch (_) {}
-
-                throw new Error(
-                    err.error || `HTTP ${response.status}`
-                );
+                    const data = JSON.parse(text);
+                    errMsg = data?.error || data?.message || errMsg;
+                } catch (_) {
+                    // 如果不是 JSON，检查是否为 SSE 格式（以 data: 开头）
+                    if (text.trim().startsWith('data:')) {
+                        const lines = text.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data:')) {
+                                const raw = line.slice(5).trim();
+                                if (raw && raw !== '[DONE]') {
+                                    try {
+                                        const data = JSON.parse(raw);
+                                        if (data.error) errMsg = data.error;
+                                        else if (data.message) errMsg = data.message;
+                                        break;
+                                    } catch (_) {}
+                                }
+                            }
+                        }
+                    }
+                }
+                throw new Error(errMsg);
             }
+            // ===== 修复结束 =====
 
             setLoading(false);
 
