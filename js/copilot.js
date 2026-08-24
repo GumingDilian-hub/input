@@ -22,7 +22,9 @@
 
     const TEXT_MODELS = [
         ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super', '1.png'],
+        ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 Ultra', '1.png'],
         ['meta/llama-3.3-70b-instruct', 'Meta 3.3', '2.png'],
+        ['meta/llama-3.2-90b-vision-instruct', 'Meta 3.2 视觉', '2.png']
         ['openai/gpt-oss-120b', 'ChatGPT', '3.png'],
         ['openai/gpt-oss-20b', 'CatGPT', '3.png'],
         ['minimaxai/minimax-m3', 'MiniMax', '5.png'],
