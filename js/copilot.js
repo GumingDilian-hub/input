@@ -21,14 +21,14 @@
     const ADMIN = 'loading';
 
     const TEXT_MODELS = [
-        ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super', '1.png'],
-        ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 Ultra', '1.png'],
+        ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super 120', '1.png'],
+        ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 Ultra 550', '1.png'],
         ['meta/llama-3.3-70b-instruct', 'Meta 3.3', '2.png'],
-        ['openai/gpt-oss-120b', 'ChatGPT', '3.png'],
-        ['openai/gpt-oss-20b', 'CatGPT', '3.png'],
+        ['openai/gpt-oss-120b', 'ChatGPT 120', '3.png'],
+        ['openai/gpt-oss-20b', 'CatGPT 20', '3.png'],
         ['minimaxai/minimax-m3', 'MiniMax', '5.png'],
-        ['deepseek-ai/deepseek-v4-flash', 'DeepSeek V4', '6.png'],
-        ['z-ai/glm4.7', 'GLM 4.7', '7.png'],
+        ['deepseek-ai/deepseek-v4-flash', 'DeepSeek V4（已失效）', '6.png'],
+        ['z-ai/glm4.7', 'GLM 4.7（已失效）', '7.png'],
         ['google/gemma-4-31b-it', 'Google Gemma 4', '4.png']
     ];
 
@@ -40,8 +40,8 @@
 
     const MODE_NAMES = {
         note: '本站笔记',
-        textbook: '知识库',
-        whiteboard: '白板AI'
+        textbook: '竞赛教材',
+        whiteboard: '无参考'
     };
 
     let mode = 'note';
@@ -400,7 +400,7 @@
             reader.onload = () => {
                 image = String(reader.result || '');
                 showImagePreview(image);
-                toast('图片已加载，可发送');
+                toast('我看见了！');
             };
 
             reader.onerror = () => {
