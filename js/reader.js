@@ -75,16 +75,16 @@ function classifyAuthError(err) {
     const body = err.body || '';
 
     if (status === 409 || msg.includes('已存在') || body.includes('已存在')) {
-        return { type: 'USERNAME_EXISTS', friendly: '用户名已被占用，请换一个。' };
+        return { type: 'USERNAME_EXISTS', friendly: '有人与你同名，何尝不是一种缘分。' };
     }
     if (status === 401 || msg.includes('密码') || msg.includes('账号')) {
-        return { type: 'WRONG_CREDENTIALS', friendly: '用户名或密码错误，请重新输入。' };
+        return { type: 'WRONG_CREDENTIALS', friendly: '你是来盗号的吗。' };
     }
     if (status === 400 && (msg.includes('不能为空') || body.includes('不能为空'))) {
-        return { type: 'MISSING_FIELDS', friendly: '请填写完整的用户名和密码。' };
+        return { type: 'MISSING_FIELDS', friendly: '我chovy，输密码给我输好了哇' };
     }
     if (status === 500 || msg.includes('PBKDF2') || body.includes('PBKDF2')) {
-        return { type: 'SERVER_ERROR', friendly: '服务器加密算法错误，请确保 Worker 迭代次数 ≤ 100000。' };
+        return { type: 'SERVER_ERROR', friendly: '找开发者去😡坏了！。' };
     }
     if (status === 0 || msg.includes('fetch') || msg.includes('network')) {
         return { type: 'NETWORK_ERROR', friendly: '网络连接失败，请检查网络后重试。' };
@@ -137,7 +137,7 @@ async function doLogin(usernameOrSection, password) {
             if (window.blogApp && typeof window.blogApp.loadComments === 'function') {
                 window.blogApp.loadComments();
             }
-            alert('✅ 登录成功，欢迎回来 ' + u);
+            alert('达成成就：我回来啦 ' + u);
             return;
         }
         alert('登录失败：未知错误');
@@ -164,7 +164,7 @@ async function doRegister(usernameOrSection, password) {
     }
 
     if (!u || !p) {
-        alert('请填写完整的用户名和密码');
+        alert('我chovy，输密码给我输好了哇');
         return;
     }
 
@@ -193,7 +193,7 @@ async function doRegister(usernameOrSection, password) {
             if (window.blogApp && typeof window.blogApp.loadComments === 'function') {
                 window.blogApp.loadComments();
             }
-            alert('🎉 注册成功！欢迎 ' + u);
+            alert('达成成就：梦开始的地方 ' + u);
             return;
         }
         alert('注册失败：未知错误');
@@ -311,7 +311,7 @@ async function fetchCommentsForSection(sectionId) {
         renderCommentsForSection(sectionId);
         updateAuthUI(sectionId);
     } catch (err) {
-        listEl.innerHTML = '加载失败：' + err.message;
+        listEl.innerHTML = '少女折寿了😭：' + err.message;
     }
 }
 
@@ -379,7 +379,7 @@ function renderCommentNodeRecursive(container, nodes, sectionId) {
         if (node.username === CONFIG.ADMIN_USERNAME) {
             const masterTag = document.createElement('span');
             masterTag.style.cssText = "background:#d9534f;color:white;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:6px;vertical-align:middle;";
-            masterTag.textContent = '未来的我';
+            masterTag.textContent = '黑木大人';
             header.appendChild(masterTag);
         }
 
@@ -504,7 +504,7 @@ function showReplyBox(parentId, sectionId) {
 }
 
 async function doReply(parentId, sectionId) {
-    if (!state.user) return alert('请先登录');
+    if (!state.user) return alert('请先去个人中心登录');
     const input = document.getElementById('reply-input-' + parentId);
     const content = input?.value.trim();
     if (!content) return;
@@ -524,7 +524,7 @@ async function doReply(parentId, sectionId) {
 }
 
 async function likeComment(commentId, sectionId) {
-    if (!state.user) return alert('请先登录');
+    if (!state.user) return alert('请先去个人中心登录');
     if (state.likedComments.has(commentId)) return alert('你已经点过赞了');
     try {
         await safeFetch(CONFIG.COMMENT_API + '/comments/' + commentId + '/like', {
@@ -539,7 +539,7 @@ async function likeComment(commentId, sectionId) {
 }
 
 async function submitComment(sectionId) {
-    if (!state.user) return alert('请先登录');
+    if (!state.user) return alert('请先去个人中心登录');
     const input = document.getElementById('comment-input-' + sectionId);
     const content = input?.value.trim();
     if (!content) return;
@@ -1224,7 +1224,7 @@ function injectCommentSections(body) {
         commentSection.setAttribute('data-section-id', sectionId);
         const toggle = document.createElement('div');
         toggle.className = 'comment-toggle';
-        toggle.textContent = '来喵两句～（点击展开评论区） ';
+        toggle.textContent = '来喵两句吧～点击展开评论区 ';
         const countBadge = document.createElement('span');
         countBadge.className = 'comment-count-badge';
         countBadge.id = 'comment-count-' + sectionId;
@@ -1253,7 +1253,7 @@ function injectCommentSections(body) {
         textarea.rows = 3;
         const submitBtn = document.createElement('button');
         submitBtn.type = 'button';
-        submitBtn.textContent = '说话！';
+        submitBtn.textContent = 'send！';
         submitBtn.addEventListener('click', () => submitComment(sectionId));
         inputArea.appendChild(textarea);
         inputArea.appendChild(submitBtn);
