@@ -1,16 +1,8 @@
 /* ============================================================
  * IWP Copilot
  * Complete rollback-compatible client
- *
- * Based on the existing IWP reader DOM contract.
- *
- * Important:
- *   #sidebar
- *   #sidebar-toc-view
- *   #sidebar-copilot-view
- *   #btn-copilot
- *
- * are intentionally preserved.
+ * 
+ * 新增：上下文预算进度条（输入框背景）
  * ============================================================ */
 
 (function () {
@@ -20,6 +12,7 @@
     const LOGO = 'images/copilot/';
     const ADMIN = 'loading';
 
+    // ===== 模型列表 =====
     const TEXT_MODELS = [
         ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super 120', '1.png'],
         ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 Ultra 550', '1.png'],
@@ -37,6 +30,28 @@
     ];
 
     const ALL_MODELS = TEXT_MODELS.concat(VISION_MODELS);
+
+    // 模型上下文上限（字符数，与 Worker 保持一致）
+    const MODEL_LIMITS = {
+        'nvidia/nemotron-3-super-120b-a12b': 480000,
+        'nvidia/nemotron-3-ultra-550b-a55b': 480000,
+        'meta/llama-3.3-70b-instruct': 60000,
+        'meta/llama-3.2-90b-vision-instruct': 60000,
+        'openai/gpt-oss-120b': 60000,
+        'openai/gpt-oss-20b': 60000,
+        'minimaxai/minimax-m3': 480000,
+        'deepseek-ai/deepseek-v4-flash': 480000,
+        'deepseek-ai/deepseek-v4-flash-0731': 480000,
+        'z-ai/glm4.7': 60000,
+        'google/gemma-4-31b-it': 100000,
+        'google/gemma-4-31b-it': 100000 // 兼容旧名
+    };
+    const DEFAULT_LIMIT = 60000;
+
+    // ===== 预算相关 =====
+    const MAX_BUDGET = 450000;              // 硬上限，与 Worker 一致
+    let usedBudget = 0;
+    let currentModelLimit = DEFAULT_LIMIT;
 
     const MODE_NAMES = {
         note: '本站笔记',
@@ -282,9 +297,11 @@
 
     function setModel(modelId) {
         if (!findModel(modelId)) return false;
-
         model = modelId;
+        // 更新当前模型上限
+        currentModelLimit = MODEL_LIMITS[modelId] || DEFAULT_LIMIT;
         updateModelDisplay();
+        updateBudgetDisplay();   // 刷新进度条
         return true;
     }
 
@@ -326,7 +343,6 @@
         toast('已清除图片');
     }
 
-    /* ---------- 缩略图预览 ---------- */
     function showImagePreview(dataUrl) {
         let container = document.getElementById('copilot-image-preview');
         if (!container) {
@@ -334,12 +350,10 @@
             container.id = 'copilot-image-preview';
             container.style.cssText =
                 'margin:4px 0; display:flex; align-items:center; gap:8px; flex-shrink:0; padding:2px 4px;';
-            // 插入到输入框上方
             const inputWrap = document.querySelector('.copilot-input-wrap');
             if (inputWrap) {
                 inputWrap.parentNode.insertBefore(container, inputWrap);
             } else {
-                // fallback
                 const wrapper = document.getElementById('copilot-messages-wrapper');
                 if (wrapper) wrapper.parentNode.insertBefore(container, wrapper);
             }
@@ -441,10 +455,6 @@
                 breaks: true
             });
 
-            /*
-             * 先保护 LaTeX，避免 marked 把某些数学符号
-             * 当作 Markdown 特殊结构。
-             */
             const mathBlocks = [];
 
             const protectedText = source.replace(
@@ -473,17 +483,10 @@
     function renderAssistantContent(element, text) {
         if (!element) return;
 
-        /*
-         * 流式阶段直接使用 textContent，
-         * 避免每个 token 都重新建立复杂 DOM。
-         */
         const html = renderMarkdown(text);
 
         element.innerHTML = html;
 
-        /*
-         * KaTeX auto-render 已由 reader.html 加载。
-         */
         if (
             typeof renderMathInElement === 'function'
         ) {
@@ -506,9 +509,6 @@
             }
         }
 
-        /*
-         * Highlight.js
-         */
         if (typeof hljs !== 'undefined') {
             element.querySelectorAll('pre code').forEach(block => {
                 try {
@@ -517,10 +517,6 @@
             });
         }
 
-        /*
-         * 表格样式。
-         * 不依赖额外 CSS。
-         */
         element.querySelectorAll('table').forEach(table => {
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
@@ -539,32 +535,20 @@
             });
         });
 
-        /*
-         * Markdown heading。
-         */
         element.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(heading => {
             heading.style.margin = '10px 0 6px';
             heading.style.lineHeight = '1.35';
         });
 
-        /*
-         * 列表。
-         */
         element.querySelectorAll('ul,ol').forEach(list => {
             list.style.paddingLeft = '1.5em';
             list.style.margin = '6px 0';
         });
 
-        /*
-         * 段落。
-         */
         element.querySelectorAll('p').forEach(p => {
             p.style.margin = '5px 0';
         });
 
-        /*
-         * 引用。
-         */
         element.querySelectorAll('blockquote').forEach(blockquote => {
             blockquote.style.margin = '8px 0';
             blockquote.style.padding = '5px 10px';
@@ -572,9 +556,6 @@
             blockquote.style.color = '#aaa';
         });
 
-        /*
-         * 行内代码。
-         */
         element.querySelectorAll('code:not(pre code)').forEach(code => {
             code.style.background = '#333';
             code.style.padding = '1px 4px';
@@ -601,10 +582,19 @@
             node.setAttribute('aria-selected', active ? 'true' : 'false');
             node.style.background = active ? '#444' : 'transparent';
         });
+
+        // 根据当前模式显示/隐藏进度条
+        updateBudgetDisplay();
     }
 
     function setMode(nextMode) {
         if (!MODE_NAMES[nextMode]) return false;
+
+        // 如果是 textbook 模式但预算已耗尽，禁止切换
+        if (nextMode === 'textbook' && usedBudget >= MAX_BUDGET) {
+            toast('上下文已满，无法拉取新资料，请开启新对话');
+            return false;
+        }
 
         mode = nextMode;
         updateModeDisplay();
@@ -641,14 +631,6 @@
 
         if (!display || !options) return;
 
-        /*
-         * 关键修复：
-         *
-         * 不只监听 click。
-         * pointerdown 阶段就阻止事件向外传播，
-         * 避免 reader / sidebar 的 document click
-         * 在 click 到达之前把菜单收掉。
-         */
         if (display.dataset.iwpCopilotModeDisplayBound !== '1') {
             display.dataset.iwpCopilotModeDisplayBound = '1';
 
@@ -680,7 +662,6 @@
             node.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
-                event.stopImmediatePropagation();
 
                 setMode(node.dataset.mode);
             }, true);
@@ -695,10 +676,6 @@
             });
         });
 
-        /*
-         * 自己处理菜单外点击。
-         * 使用 composedPath()，比 contains() 对复杂 DOM 更稳。
-         */
         if (!globalDropdownBound) {
             globalDropdownBound = true;
 
@@ -806,15 +783,6 @@
             return false;
         }
 
-        /*
-         * 原 reader 结构：
-         *
-         * #sidebar
-         *   ├── #sidebar-toc-view
-         *   └── #sidebar-copilot-view
-         *
-         * 这里只切换 view，不创建新的 sidebar。
-         */
         toc.style.display = 'none';
 
         copilot.style.display = 'flex';
@@ -837,9 +805,6 @@
             button.setAttribute('aria-expanded', 'true');
         }
 
-        /*
-         * DOM 已经存在后再绑定一次。
-         */
         refreshCopilotUI();
 
         return true;
@@ -921,9 +886,6 @@
             toggleCopilot();
         });
 
-        /*
-         * 页面初始状态同步。
-         */
         const copilot = getCopilotView();
 
         if (copilot) {
@@ -1090,6 +1052,72 @@
     }
 
     /* ============================================================
+     * BUDGET PROGRESS BAR (Input Background)
+     * ============================================================ */
+
+    function createBudgetProgressBar() {
+        const textarea = els.input;
+        if (!textarea) return;
+        // 仅初始化一次
+        if (textarea.dataset.budgetInited === '1') return;
+        textarea.dataset.budgetInited = '1';
+
+        // 设置初始背景（深色 + 灰色填充）
+        textarea.style.background = '#1e1e1e'; // 基础色
+        textarea.style.backgroundImage = 'linear-gradient(to right, #3a3a3a, #3a3a3a)';
+        textarea.style.backgroundRepeat = 'no-repeat';
+        textarea.style.backgroundSize = '0% 100%';
+        // 背景颜色与基础色一致，填充部分为 #3a3a3a
+        // 文字颜色不变（#ddd）
+        // 保证 placeholder 可见
+        textarea.style.color = '#ddd';
+        // 增加一点内边距防止文字紧贴边缘
+        textarea.style.padding = '0.4rem';
+        // 边框保留原样式
+    }
+
+    function updateBudgetDisplay() {
+        const textarea = els.input;
+        if (!textarea) return;
+
+        // 只在 textbook 模式显示进度条，其他模式隐藏（宽度0）
+        let percent = 0;
+        if (mode === 'textbook') {
+            const limit = currentModelLimit;
+            const used = Math.min(usedBudget, MAX_BUDGET);
+            percent = Math.min((used / limit) * 100, 100);
+        }
+        // 填充宽度为 percent%
+        textarea.style.backgroundSize = percent + '% 100%';
+
+        // 可选：如果百分比较高，加深填充色以增强对比（但保持单色）
+        // 这里保持 #3a3a3a 不变，文字颜色 #ddd 在上面可读
+    }
+
+    // 重置预算（新对话时调用）
+    function resetBudget() {
+        usedBudget = 0;
+        updateBudgetDisplay();
+        // 恢复 textbook 选项可用
+        document.querySelectorAll('.copilot-mode-option[data-mode="textbook"]').forEach(el => {
+            el.style.opacity = '1';
+            el.style.pointerEvents = 'auto';
+        });
+    }
+
+    // 当预算耗尽时禁用 textbook 模式
+    function disableTextbookMode() {
+        if (mode === 'textbook') {
+            setMode('note');
+            toast('上下文已满，已切换到「本站笔记」模式');
+        }
+        document.querySelectorAll('.copilot-mode-option[data-mode="textbook"]').forEach(el => {
+            el.style.opacity = '0.4';
+            el.style.pointerEvents = 'none';
+        });
+    }
+
+    /* ============================================================
      * SEND
      * ============================================================ */
 
@@ -1129,8 +1157,11 @@
         let answer = '';
         let reasoning = '';
         let assistant = null;
+        let budgetUsed = 0;
 
         try {
+            const remaining = Math.max(0, MAX_BUDGET - usedBudget);
+
             const response = await fetch(API + '/api/chat', {
                 method: 'POST',
                 headers: {
@@ -1143,7 +1174,8 @@
                     messages: history.slice(-20),
                     chapterContext: context,
                     whiteboardContext: whiteboard,
-                    image
+                    image,
+                    remaining_budget: remaining
                 })
             });
 
@@ -1196,9 +1228,6 @@
                         );
                     }
 
-                    /*
-                     * Markdown / LaTeX / table 实时渲染。
-                     */
                     renderAssistantContent(
                         assistant.content,
                         answer
@@ -1210,12 +1239,25 @@
                     }
                 }
 
+                else if (event.type === 'budget') {
+                    budgetUsed = event.used || 0;
+                }
+
                 else if (event.type === 'error') {
                     throw new Error(
                         event.error || 'stream error'
                     );
                 }
             });
+
+            // 累加预算
+            if (budgetUsed > 0) {
+                usedBudget = Math.min(usedBudget + budgetUsed, MAX_BUDGET);
+                updateBudgetDisplay();
+                if (usedBudget >= MAX_BUDGET) {
+                    disableTextbookMode();
+                }
+            }
 
             history.push({
                 role: 'assistant',
@@ -1253,7 +1295,7 @@
         } finally {
             busy = false;
             image = null;
-            hideImagePreview();   // 清除缩略图
+            hideImagePreview();
         }
     }
 
@@ -1344,6 +1386,7 @@
         }
 
         setLoading(false);
+        resetBudget(); // 重置预算
     }
 
     function renderHistory() {
@@ -1560,6 +1603,11 @@
                 'textarea[name="copilot-input"]'
             );
 
+        // 创建进度条（背景）
+        if (els.input) {
+            createBudgetProgressBar();
+        }
+
         qsa([
             '#copilot-send',
             '.copilot-send',
@@ -1620,6 +1668,7 @@
 
         updateModeDisplay();
         updateModelDisplay();
+        updateBudgetDisplay();
 
         return true;
     }
@@ -1692,7 +1741,11 @@
         getSessionId: () => sessionId,
 
         getToken,
-        getUser
+        getUser,
+
+        // 预算相关（可选）
+        getBudget: () => ({ used: usedBudget, max: MAX_BUDGET, limit: currentModelLimit }),
+        resetBudget
     };
 
     /* ============================================================
