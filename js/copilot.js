@@ -24,7 +24,6 @@
         ['nvidia/nemotron-3-super-120b-a12b', 'NVIDIA 3 super', '1.png'],
         ['nvidia/nemotron-3-ultra-550b-a55b', 'NVIDIA 3 Ultra', '1.png'],
         ['meta/llama-3.3-70b-instruct', 'Meta 3.3', '2.png'],
-        ['meta/llama-3.2-90b-vision-instruct', 'Meta 3.2 视觉', '2.png']
         ['openai/gpt-oss-120b', 'ChatGPT', '3.png'],
         ['openai/gpt-oss-20b', 'CatGPT', '3.png'],
         ['minimaxai/minimax-m3', 'MiniMax', '5.png'],
@@ -309,18 +308,62 @@
         if (!enabled) {
             image = null;
             input.value = '';
+            hideImagePreview();
         }
     }
 
     function setImage(value) {
         image = typeof value === 'string' ? value.trim() || null : null;
+        if (image) showImagePreview(image);
+        else hideImagePreview();
     }
 
     function clearImage() {
         image = null;
-
         const input = $('copilot-image-input');
         if (input) input.value = '';
+        hideImagePreview();
+        toast('已清除图片');
+    }
+
+    /* ---------- 缩略图预览 ---------- */
+    function showImagePreview(dataUrl) {
+        let container = document.getElementById('copilot-image-preview');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'copilot-image-preview';
+            container.style.cssText =
+                'margin:4px 0; display:flex; align-items:center; gap:8px; flex-shrink:0; padding:2px 4px;';
+            // 插入到输入框上方
+            const inputWrap = document.querySelector('.copilot-input-wrap');
+            if (inputWrap) {
+                inputWrap.parentNode.insertBefore(container, inputWrap);
+            } else {
+                // fallback
+                const wrapper = document.getElementById('copilot-messages-wrapper');
+                if (wrapper) wrapper.parentNode.insertBefore(container, wrapper);
+            }
+        }
+        container.innerHTML = `
+            <img src="${dataUrl}" style="max-height:60px; max-width:120px; border-radius:4px; border:1px solid #555; object-fit:contain;">
+            <button id="copilot-clear-image" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.8rem; padding:0 4px;">✕</button>
+        `;
+        container.style.display = 'flex';
+        const clearBtn = document.getElementById('copilot-clear-image');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                clearImage();
+            });
+        }
+    }
+
+    function hideImagePreview() {
+        const container = document.getElementById('copilot-image-preview');
+        if (container) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+        }
     }
 
     function bindImageInput() {
@@ -339,12 +382,15 @@
 
             if (!file) {
                 image = null;
+                hideImagePreview();
+                toast('未选择文件');
                 return;
             }
 
             if (!isVisionModel(model)) {
                 input.value = '';
                 image = null;
+                hideImagePreview();
                 toast('当前模型不支持图片');
                 return;
             }
@@ -353,11 +399,14 @@
 
             reader.onload = () => {
                 image = String(reader.result || '');
+                showImagePreview(image);
+                toast('图片已加载，可发送');
             };
 
             reader.onerror = () => {
                 image = null;
-                toast('图片读取失败');
+                hideImagePreview();
+                toast('图片读取失败，请重试');
             };
 
             reader.readAsDataURL(file);
@@ -1204,6 +1253,7 @@
         } finally {
             busy = false;
             image = null;
+            hideImagePreview();   // 清除缩略图
         }
     }
 
@@ -1287,6 +1337,7 @@
         history = [];
         sessionId = null;
         image = null;
+        hideImagePreview();
 
         if (els.messages) {
             els.messages.innerHTML = '';
