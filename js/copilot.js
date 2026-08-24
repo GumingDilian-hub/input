@@ -3,6 +3,7 @@
  * Complete rollback-compatible client
  * 
  * 新增：上下文预算进度条（输入框背景）
+ * 修复：SSE 解析跳过非 JSON 行
  * ============================================================ */
 
 (function () {
@@ -993,7 +994,7 @@
     }
 
     /* ============================================================
-     * SSE
+     * SSE (修复：跳过非 JSON 行)
      * ============================================================ */
 
     function readSSE(response, onEvent) {
@@ -1026,12 +1027,20 @@
 
                     if (!raw || raw === '[DONE]') continue;
 
+                    // 修复：只处理以 { 或 [ 开头的行，避免非 JSON 行触发错误
+                    if (!raw.startsWith('{') && !raw.startsWith('[')) {
+                        console.warn('[IWP Copilot] 跳过非 JSON 行:', raw);
+                        continue;
+                    }
+
                     try {
                         await onEvent(JSON.parse(raw));
                     } catch (error) {
                         console.warn(
-                            '[IWP Copilot] SSE event parse failed:',
-                            error
+                            '[IWP Copilot] SSE 解析失败:',
+                            error,
+                            '原始数据:',
+                            raw
                         );
                     }
                 }
@@ -1043,9 +1052,12 @@
                 const raw = last.slice(5).trim();
 
                 if (raw && raw !== '[DONE]') {
-                    try {
-                        await onEvent(JSON.parse(raw));
-                    } catch (_) {}
+                    // 同样检查
+                    if (raw.startsWith('{') || raw.startsWith('[')) {
+                        try {
+                            await onEvent(JSON.parse(raw));
+                        } catch (_) {}
+                    }
                 }
             }
         })();
