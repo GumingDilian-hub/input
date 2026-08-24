@@ -3,7 +3,7 @@
     'use strict';
     const API = 'https://copilot.2167964516.workers.dev';
     const KEY = 'iwp-user';
-    const DEFAULT_AVATAR = 'images/0721.png';
+    const DEFAULT_AVATAR = 'images/0721.jpg';
     let suppressAuthRender = false;
 
     function getUser() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { return null; } }
