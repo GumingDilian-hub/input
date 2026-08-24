@@ -306,14 +306,20 @@
 
             <!-- Copilot 视图 -->
             <div id="sidebar-copilot-view" class="sidebar-view" style="display:none; flex-direction:column; height:100%;">
-                <!-- 顶部 -->
+                <!-- 顶部标题栏（含历史按钮） -->
                 <div style="padding: 0.5rem 1rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; flex-shrink:0;">
                     <span style="font-weight:600;">Copilot</span>
-                    <button id="copilot-new-chat" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.9rem;">+ 新对话</button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button id="copilot-history-toggle" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.9rem;">📜 历史</button>
+                        <button id="copilot-new-chat" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.9rem;">+ 新对话</button>
+                    </div>
                 </div>
 
-                <!-- 消息区域 -->
+                <!-- 消息区域（含历史浮层面板） -->
                 <div id="copilot-messages-wrapper" style="flex:1; overflow-y:auto; position:relative; display:flex; flex-direction:column;">
+                    <!-- 历史记录浮层 -->
+                    <div id="copilot-history-panel" style="display:none; position:absolute; right:8px; top:40px; background:#222; border:1px solid #444; border-radius:8px; min-width:180px; max-height:300px; overflow-y:auto; z-index:100; padding:5px 0;"></div>
+                    <!-- 消息列表 -->
                     <div id="copilot-messages" style="flex:1; padding:0.5rem 1rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
                     <div id="copilot-dots" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:6px; z-index:5; pointer-events:none;"></div>
                 </div>
@@ -359,8 +365,8 @@
                     </div>
                 </div>
 
-                <!-- 历史记录 -->
-                <div id="copilot-history-list" style="border-top:1px solid #444; padding:0.5rem 1rem; max-height:120px; overflow-y:auto; flex-shrink:0;"></div>
+                <!-- 旧的平铺历史列表（已弃用，保留兼容但隐藏） -->
+                <div id="copilot-history-list" style="display:none; border-top:1px solid #444; padding:0.5rem 1rem; max-height:120px; overflow-y:auto; flex-shrink:0;"></div>
             </div>
         </div>
 
