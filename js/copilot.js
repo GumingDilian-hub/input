@@ -1,8 +1,16 @@
 /* ============================================================
  * IWP Copilot
- *
  * Complete rollback-compatible client
  *
+ * Based on the existing IWP reader DOM contract.
+ *
+ * Important:
+ *   #sidebar
+ *   #sidebar-toc-view
+ *   #sidebar-copilot-view
+ *   #btn-copilot
+ *
+ * are intentionally preserved.
  * ============================================================ */
 
 (function () {
@@ -29,6 +37,12 @@
 
     const ALL_MODELS = TEXT_MODELS.concat(VISION_MODELS);
 
+    const MODE_NAMES = {
+        note: '本站笔记',
+        textbook: '知识库',
+        whiteboard: '白板AI'
+    };
+
     let mode = 'note';
     let model = TEXT_MODELS[0][0];
     let image = null;
@@ -38,6 +52,8 @@
     let whiteboard = '';
     let copilotOpen = false;
     let els = {};
+    let modelMenuBound = false;
+    let globalDropdownBound = false;
 
     const $ = id => document.getElementById(id);
 
@@ -45,34 +61,23 @@
         for (const selector of selectors) {
             try {
                 const node = document.querySelector(selector);
-
-                if (node) {
-                    return node;
-                }
+                if (node) return node;
             } catch (_) {}
         }
-
         return null;
     }
 
     function qsa(selectors) {
         const result = [];
-
         for (const selector of selectors) {
             try {
-                document
-                    .querySelectorAll(selector)
-                    .forEach(node => {
-                        if (!result.includes(node)) {
-                            result.push(node);
-                        }
-                    });
+                document.querySelectorAll(selector).forEach(node => {
+                    if (!result.includes(node)) result.push(node);
+                });
             } catch (_) {}
         }
-
         return result;
     }
-
 
     /* ============================================================
      * AUTH
@@ -80,9 +85,7 @@
 
     function getUser() {
         try {
-            return JSON.parse(
-                localStorage.getItem('iwp-user') || 'null'
-            );
+            return JSON.parse(localStorage.getItem('iwp-user') || 'null');
         } catch (_) {
             return null;
         }
@@ -92,125 +95,73 @@
         return getUser()?.token || null;
     }
 
-
     /* ============================================================
      * API
      * ============================================================ */
 
     async function api(path, options = {}) {
-        const headers = Object.assign(
-            {},
-            options.headers || {}
-        );
-
+        const headers = Object.assign({}, options.headers || {});
         const token = getToken();
 
         if (token) {
-            headers.Authorization =
-                'Bearer ' + token;
+            headers.Authorization = 'Bearer ' + token;
         }
 
-        const requestOptions =
-            Object.assign({}, options);
+        const requestOptions = Object.assign({}, options);
 
-        if (
-            requestOptions.body &&
-            typeof requestOptions.body !== 'string'
-        ) {
-            headers['Content-Type'] =
-                'application/json';
-
-            requestOptions.body =
-                JSON.stringify(
-                    requestOptions.body
-                );
+        if (requestOptions.body && typeof requestOptions.body !== 'string') {
+            headers['Content-Type'] = 'application/json';
+            requestOptions.body = JSON.stringify(requestOptions.body);
         }
 
         requestOptions.headers = headers;
 
-        const response =
-            await fetch(
-                API + path,
-                requestOptions
-            );
-
-        const text =
-            await response.text();
+        const response = await fetch(API + path, requestOptions);
+        const text = await response.text();
 
         let data = {};
-
         try {
-            data =
-                text
-                    ? JSON.parse(text)
-                    : {};
+            data = text ? JSON.parse(text) : {};
         } catch (_) {}
 
         if (!response.ok) {
             throw Object.assign(
-                new Error(
-                    data?.error ||
-                    `HTTP ${response.status}`
-                ),
-                {
-                    status:
-                        response.status,
-                    data
-                }
+                new Error(data?.error || `HTTP ${response.status}`),
+                { status: response.status, data }
             );
         }
 
         return data;
     }
 
-
     /* ============================================================
      * TOAST
      * ============================================================ */
 
     function toast(message) {
-        document
-            .querySelector('.copilot-toast')
-            ?.remove();
+        document.querySelector('.copilot-toast')?.remove();
 
-        const node =
-            document.createElement('div');
-
-        node.className =
-            'copilot-toast';
-
+        const node = document.createElement('div');
+        node.className = 'copilot-toast';
         node.style.cssText =
-            'position:fixed;bottom:20px;left:50%;' +
-            'transform:translateX(-50%);' +
-            'background:rgba(0,0,0,.88);color:#eee;' +
-            'padding:8px 20px;border-radius:8px;' +
-            'font-size:.85rem;z-index:99999;' +
-            'border:1px solid #555;' +
-            'pointer-events:none;';
+            'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);' +
+            'background:rgba(0,0,0,.9);color:#eee;padding:8px 20px;' +
+            'border-radius:8px;font-size:.85rem;z-index:99999;' +
+            'border:1px solid #555;pointer-events:none;';
 
-        node.textContent =
-            String(message || '');
-
+        node.textContent = String(message || '');
         document.body.appendChild(node);
 
-        setTimeout(
-            () => node.remove(),
-            2200
-        );
+        setTimeout(() => node.remove(), 2200);
     }
-
 
     /* ============================================================
      * CONTEXT
      * ============================================================ */
 
     function fullNoteContext() {
-        const article =
-            $('article-body');
-
-        if (!article) {
-            return '';
-        }
+        const article = $('article-body');
+        if (!article) return '';
 
         return String(
             article.innerText ||
@@ -224,272 +175,134 @@
     }
 
     function setWhiteboard(value) {
-        whiteboard =
-            String(value || '');
+        whiteboard = String(value || '');
     }
 
     function getWhiteboardContext() {
-        return String(
-            whiteboard || ''
-        );
+        return String(whiteboard || '');
     }
-
 
     /* ============================================================
      * MODEL
      * ============================================================ */
 
     function findModel(modelId) {
-        return (
-            ALL_MODELS.find(
-                item =>
-                    item[0] === modelId
-            ) || null
-        );
+        return ALL_MODELS.find(item => item[0] === modelId) || null;
     }
 
     function isVisionModel(modelId) {
-        return VISION_MODELS.some(
-            item =>
-                item[0] === modelId
-        );
+        return VISION_MODELS.some(item => item[0] === modelId);
     }
 
-
-    /*
-     * 生成模型菜单
-     */
     function renderModelOptions() {
-        const container =
-            $('copilot-model-options');
-
-        if (!container) {
-            return;
-        }
+        const container = $('copilot-model-options');
+        if (!container) return;
 
         container.innerHTML = '';
 
-        ALL_MODELS.forEach(item => {
-            const [
-                id,
-                name,
-                logo
-            ] = item;
+        ALL_MODELS.forEach(([id, name, logo]) => {
+            const option = document.createElement('div');
 
-            const option =
-                document.createElement(
-                    'div'
-                );
-
-            option.className =
-                'copilot-model-option';
-
-            option.dataset.copilotModel =
-                id;
-
-            option.setAttribute(
-                'role',
-                'option'
-            );
-
-            option.setAttribute(
-                'aria-selected',
-                id === model
-                    ? 'true'
-                    : 'false'
-            );
+            option.className = 'copilot-model-option';
+            option.dataset.copilotModel = id;
+            option.setAttribute('role', 'option');
+            option.setAttribute('aria-selected', id === model ? 'true' : 'false');
 
             option.style.cssText =
-                'display:flex;' +
-                'align-items:center;' +
-                'gap:7px;' +
-                'padding:6px 9px;' +
-                'cursor:pointer;' +
-                'color:#ddd;' +
-                'font-size:.75rem;' +
-                'white-space:nowrap;';
+                'display:flex;align-items:center;gap:7px;' +
+                'padding:6px 9px;cursor:pointer;color:#ddd;' +
+                'font-size:.75rem;white-space:nowrap;';
 
-            const icon =
-                document.createElement(
-                    'img'
-                );
-
-            icon.src =
-                LOGO + logo;
-
+            const icon = document.createElement('img');
+            icon.src = LOGO + logo;
             icon.alt = '';
-
             icon.style.cssText =
-                'width:18px;' +
-                'height:18px;' +
-                'object-fit:contain;' +
-                'flex-shrink:0;';
+                'width:18px;height:18px;object-fit:contain;flex-shrink:0;';
 
-            const text =
-                document.createElement(
-                    'span'
-                );
+            const text = document.createElement('span');
+            text.textContent = name;
 
-            text.textContent =
-                name;
+            option.append(icon, text);
 
-            option.appendChild(icon);
-            option.appendChild(text);
+            option.addEventListener('mouseenter', () => {
+                option.style.background = '#444';
+            });
 
-            option.addEventListener(
-                'mouseenter',
-                () => {
-                    option.style.background =
-                        '#444';
-                }
-            );
+            option.addEventListener('mouseleave', () => {
+                option.style.background = id === model ? '#444' : 'transparent';
+            });
 
-            option.addEventListener(
-                'mouseleave',
-                () => {
-                    option.style.background =
-                        id === model
-                            ? '#444'
-                            : 'transparent';
-                }
-            );
+            option.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }, true);
 
-            option.addEventListener(
-                'click',
-                event => {
-                    event.stopPropagation();
+            option.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
 
-                    setModel(id);
+                setModel(id);
 
-                    const menu =
-                        $('copilot-model-options');
+                const menu = $('copilot-model-options');
+                if (menu) menu.style.display = 'none';
+            });
 
-                    if (menu) {
-                        menu.style.display =
-                            'none';
-                    }
-                }
-            );
-
-            container.appendChild(
-                option
-            );
+            container.appendChild(option);
         });
 
         updateModelOptionsState();
     }
 
     function updateModelOptionsState() {
-        document
-            .querySelectorAll(
-                '.copilot-model-option'
-            )
-            .forEach(option => {
-                const active =
-                    option.dataset.copilotModel ===
-                    model;
+        document.querySelectorAll('.copilot-model-option').forEach(option => {
+            const active = option.dataset.copilotModel === model;
 
-                option.classList.toggle(
-                    'active',
-                    active
-                );
-
-                option.classList.toggle(
-                    'selected',
-                    active
-                );
-
-                option.setAttribute(
-                    'aria-selected',
-                    active
-                        ? 'true'
-                        : 'false'
-                );
-
-                option.style.background =
-                    active
-                        ? '#444'
-                        : 'transparent';
-            });
+            option.classList.toggle('active', active);
+            option.classList.toggle('selected', active);
+            option.setAttribute('aria-selected', active ? 'true' : 'false');
+            option.style.background = active ? '#444' : 'transparent';
+        });
     }
 
     function updateModelDisplay() {
-        const current =
-            findModel(model);
+        const current = findModel(model);
+        if (!current) return;
 
-        if (!current) {
-            return;
-        }
+        const text = $('copilot-model-text');
+        const icon = $('copilot-model-icon');
 
-        const text =
-            $('copilot-model-text');
-
-        const icon =
-            $('copilot-model-icon');
-
-        if (text) {
-            text.textContent =
-                current[1];
-        }
-
-        if (icon) {
-            icon.src =
-                LOGO + current[2];
-        }
+        if (text) text.textContent = current[1];
+        if (icon) icon.src = LOGO + current[2];
 
         updateModelOptionsState();
         updateImageUI();
     }
 
     function setModel(modelId) {
-        if (!findModel(modelId)) {
-            return false;
-        }
+        if (!findModel(modelId)) return false;
 
-        model =
-            modelId;
-
+        model = modelId;
         updateModelDisplay();
-
         return true;
     }
 
-
     /* ============================================================
-     * IMAGE UI
+     * IMAGE
      * ============================================================ */
 
     function updateImageUI() {
-        const input =
-            $('copilot-image-input');
+        const input = $('copilot-image-input');
+        const label = $('copilot-image-label');
 
-        const label =
-            $('copilot-image-label');
+        if (!input || !label) return;
 
-        if (!input || !label) {
-            return;
-        }
+        const enabled = isVisionModel(model);
 
-        const enabled =
-            isVisionModel(model);
-
-        input.disabled =
-            !enabled;
-
-        label.style.opacity =
-            enabled
-                ? '1'
-                : '.3';
-
-        label.style.color =
-            enabled
-                ? '#ccc'
-                : '#888';
-
-        label.style.cursor =
-            enabled
-                ? 'pointer'
-                : 'default';
+        input.disabled = !enabled;
+        label.style.opacity = enabled ? '1' : '.3';
+        label.style.color = enabled ? '#ccc' : '#888';
+        label.style.cursor = enabled ? 'pointer' : 'default';
 
         if (!enabled) {
             image = null;
@@ -498,260 +311,418 @@
     }
 
     function setImage(value) {
-        image =
-            typeof value === 'string'
-                ? value.trim() || null
-                : null;
+        image = typeof value === 'string' ? value.trim() || null : null;
     }
 
     function clearImage() {
         image = null;
 
-        const input =
-            $('copilot-image-input');
-
-        if (input) {
-            input.value = '';
-        }
+        const input = $('copilot-image-input');
+        if (input) input.value = '';
     }
 
     function bindImageInput() {
-        const input =
-            $('copilot-image-input');
+        const input = $('copilot-image-input');
+        if (!input) return;
 
-        if (!input) {
-            return;
-        }
-
-        if (
-            input.dataset
-                .iwpCopilotImageBound ===
-            '1'
-        ) {
+        if (input.dataset.iwpCopilotImageBound === '1') {
             updateImageUI();
             return;
         }
 
-        input.dataset
-            .iwpCopilotImageBound =
-            '1';
+        input.dataset.iwpCopilotImageBound = '1';
 
-        input.addEventListener(
-            'change',
-            () => {
-                const file =
-                    input.files?.[0];
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
 
-                if (!file) {
-                    image = null;
-                    return;
-                }
-
-                if (
-                    !isVisionModel(model)
-                ) {
-                    input.value = '';
-                    image = null;
-
-                    toast(
-                        '当前模型不支持图片'
-                    );
-
-                    return;
-                }
-
-                const reader =
-                    new FileReader();
-
-                reader.onload = () => {
-                    image =
-                        String(
-                            reader.result ||
-                            ''
-                        );
-                };
-
-                reader.onerror = () => {
-                    image = null;
-
-                    toast(
-                        '图片读取失败'
-                    );
-                };
-
-                reader.readAsDataURL(
-                    file
-                );
+            if (!file) {
+                image = null;
+                return;
             }
-        );
+
+            if (!isVisionModel(model)) {
+                input.value = '';
+                image = null;
+                toast('当前模型不支持图片');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                image = String(reader.result || '');
+            };
+
+            reader.onerror = () => {
+                image = null;
+                toast('图片读取失败');
+            };
+
+            reader.readAsDataURL(file);
+        });
 
         updateImageUI();
     }
 
+    /* ============================================================
+     * MARKDOWN / LATEX / TABLE RENDERER
+     * ============================================================ */
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderMarkdown(text) {
+        const source = String(text || '');
+
+        if (typeof marked === 'undefined') {
+            return escapeHtml(source).replace(/\n/g, '<br>');
+        }
+
+        try {
+            marked.setOptions({
+                gfm: true,
+                breaks: true
+            });
+
+            /*
+             * 先保护 LaTeX，避免 marked 把某些数学符号
+             * 当作 Markdown 特殊结构。
+             */
+            const mathBlocks = [];
+
+            const protectedText = source.replace(
+                /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|(?<!\$)\$(?!\$)[^\n$]+?\$(?!\$))/g,
+                match => {
+                    const index = mathBlocks.length;
+                    mathBlocks.push(match);
+                    return `@@IWP_MATH_${index}@@`;
+                }
+            );
+
+            let html = marked.parse(protectedText);
+
+            html = html.replace(
+                /@@IWP_MATH_(\d+)@@/g,
+                (_, index) => mathBlocks[Number(index)] || ''
+            );
+
+            return html;
+        } catch (error) {
+            console.warn('[IWP Copilot] markdown render failed:', error);
+            return escapeHtml(source).replace(/\n/g, '<br>');
+        }
+    }
+
+    function renderAssistantContent(element, text) {
+        if (!element) return;
+
+        /*
+         * 流式阶段直接使用 textContent，
+         * 避免每个 token 都重新建立复杂 DOM。
+         */
+        const html = renderMarkdown(text);
+
+        element.innerHTML = html;
+
+        /*
+         * KaTeX auto-render 已由 reader.html 加载。
+         */
+        if (
+            typeof renderMathInElement === 'function'
+        ) {
+            try {
+                renderMathInElement(element, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '\\[', right: '\\]', display: true },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '$', right: '$', display: false }
+                    ],
+                    throwOnError: false,
+                    strict: false
+                });
+            } catch (error) {
+                console.warn(
+                    '[IWP Copilot] KaTeX render failed:',
+                    error
+                );
+            }
+        }
+
+        /*
+         * Highlight.js
+         */
+        if (typeof hljs !== 'undefined') {
+            element.querySelectorAll('pre code').forEach(block => {
+                try {
+                    hljs.highlightElement(block);
+                } catch (_) {}
+            });
+        }
+
+        /*
+         * 表格样式。
+         * 不依赖额外 CSS。
+         */
+        element.querySelectorAll('table').forEach(table => {
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.style.margin = '8px 0';
+            table.style.fontSize = '.88rem';
+
+            table.querySelectorAll('th,td').forEach(cell => {
+                cell.style.border = '1px solid #555';
+                cell.style.padding = '5px 7px';
+                cell.style.verticalAlign = 'top';
+            });
+
+            table.querySelectorAll('th').forEach(th => {
+                th.style.background = '#333';
+                th.style.fontWeight = '600';
+            });
+        });
+
+        /*
+         * Markdown heading。
+         */
+        element.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(heading => {
+            heading.style.margin = '10px 0 6px';
+            heading.style.lineHeight = '1.35';
+        });
+
+        /*
+         * 列表。
+         */
+        element.querySelectorAll('ul,ol').forEach(list => {
+            list.style.paddingLeft = '1.5em';
+            list.style.margin = '6px 0';
+        });
+
+        /*
+         * 段落。
+         */
+        element.querySelectorAll('p').forEach(p => {
+            p.style.margin = '5px 0';
+        });
+
+        /*
+         * 引用。
+         */
+        element.querySelectorAll('blockquote').forEach(blockquote => {
+            blockquote.style.margin = '8px 0';
+            blockquote.style.padding = '5px 10px';
+            blockquote.style.borderLeft = '3px solid #666';
+            blockquote.style.color = '#aaa';
+        });
+
+        /*
+         * 行内代码。
+         */
+        element.querySelectorAll('code:not(pre code)').forEach(code => {
+            code.style.background = '#333';
+            code.style.padding = '1px 4px';
+            code.style.borderRadius = '3px';
+        });
+    }
 
     /* ============================================================
      * MODE
      * ============================================================ */
 
-    const MODE_NAMES = {
-        note: '本站笔记',
-        textbook: '知识库',
-        whiteboard: '白板AI'
-    };
-
     function updateModeDisplay() {
-        const text =
-            $('copilot-mode-text');
+        const text = $('copilot-mode-text');
 
         if (text) {
-            text.textContent =
-                MODE_NAMES[mode] ||
-                '本站笔记';
+            text.textContent = MODE_NAMES[mode] || MODE_NAMES.note;
         }
 
-        document
-            .querySelectorAll(
-                '.copilot-mode-option'
-            )
-            .forEach(node => {
-                const active =
-                    node.dataset.mode ===
-                    mode;
+        document.querySelectorAll('.copilot-mode-option').forEach(node => {
+            const active = node.dataset.mode === mode;
 
-                node.classList.toggle(
-                    'active',
-                    active
-                );
-
-                node.classList.toggle(
-                    'selected',
-                    active
-                );
-
-                node.style.background =
-                    active
-                        ? '#444'
-                        : 'transparent';
-
-                node.setAttribute(
-                    'aria-selected',
-                    active
-                        ? 'true'
-                        : 'false'
-                );
-            });
+            node.classList.toggle('active', active);
+            node.classList.toggle('selected', active);
+            node.setAttribute('aria-selected', active ? 'true' : 'false');
+            node.style.background = active ? '#444' : 'transparent';
+        });
     }
 
     function setMode(nextMode) {
-        if (!MODE_NAMES[nextMode]) {
-            return false;
-        }
+        if (!MODE_NAMES[nextMode]) return false;
 
-        mode =
-            nextMode;
-
+        mode = nextMode;
         updateModeDisplay();
 
-        const options =
-            $('copilot-mode-options');
-
-        if (options) {
-            options.style.display =
-                'none';
-        }
+        const options = $('copilot-mode-options');
+        if (options) options.style.display = 'none';
 
         return true;
     }
 
-    function bindModeButtons() {
-        const display =
-            $('copilot-mode-display');
-
-        const options =
-            $('copilot-mode-options');
-
-        if (
-            display &&
-            display.dataset
-                .iwpCopilotModeDisplayBound !==
-            '1'
-        ) {
-            display.dataset
-                .iwpCopilotModeDisplayBound =
-                '1';
-
-            display.addEventListener(
-                'click',
-                event => {
-                    event.stopPropagation();
-
-                    if (!options) {
-                        return;
-                    }
-
-                    options.style.display =
-                        options.style.display ===
-                        'block'
-                            ? 'none'
-                            : 'block';
-                }
-            );
+    function toggleModeMenu(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
         }
 
-        document
-            .querySelectorAll(
-                '.copilot-mode-option[data-mode]'
-            )
-            .forEach(node => {
-                if (
-                    node.dataset
-                        .iwpCopilotModeBound ===
-                    '1'
-                ) {
-                    return;
+        const options = $('copilot-mode-options');
+        if (!options) return;
+
+        const visible = options.style.display === 'block';
+
+        options.style.display = visible ? 'none' : 'block';
+
+        if (!visible) {
+            options.style.zIndex = '9999';
+        }
+    }
+
+    function bindModeButtons() {
+        const display = $('copilot-mode-display');
+        const options = $('copilot-mode-options');
+        const dropdown = $('copilot-mode-dropdown');
+
+        if (!display || !options) return;
+
+        /*
+         * 关键修复：
+         *
+         * 不只监听 click。
+         * pointerdown 阶段就阻止事件向外传播，
+         * 避免 reader / sidebar 的 document click
+         * 在 click 到达之前把菜单收掉。
+         */
+        if (display.dataset.iwpCopilotModeDisplayBound !== '1') {
+            display.dataset.iwpCopilotModeDisplayBound = '1';
+
+            display.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                toggleModeMenu(event);
+            }, true);
+
+            display.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }, true);
+        }
+
+        document.querySelectorAll('.copilot-mode-option[data-mode]').forEach(node => {
+            if (node.dataset.iwpCopilotModeBound === '1') return;
+
+            node.dataset.iwpCopilotModeBound = '1';
+
+            node.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }, true);
+
+            node.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+
+                setMode(node.dataset.mode);
+            }, true);
+
+            node.addEventListener('mouseenter', () => {
+                node.style.background = '#444';
+            });
+
+            node.addEventListener('mouseleave', () => {
+                node.style.background =
+                    node.dataset.mode === mode ? '#444' : 'transparent';
+            });
+        });
+
+        /*
+         * 自己处理菜单外点击。
+         * 使用 composedPath()，比 contains() 对复杂 DOM 更稳。
+         */
+        if (!globalDropdownBound) {
+            globalDropdownBound = true;
+
+            document.addEventListener('click', event => {
+                const modeDrop = $('copilot-mode-dropdown');
+                const modelDrop = $('copilot-model-dropdown');
+
+                const path = typeof event.composedPath === 'function'
+                    ? event.composedPath()
+                    : [];
+
+                const insideMode =
+                    modeDrop &&
+                    (modeDrop.contains(event.target) || path.includes(modeDrop));
+
+                const insideModel =
+                    modelDrop &&
+                    (modelDrop.contains(event.target) || path.includes(modelDrop));
+
+                if (!insideMode) {
+                    const modeOptions = $('copilot-mode-options');
+                    if (modeOptions) modeOptions.style.display = 'none';
                 }
 
-                node.dataset
-                    .iwpCopilotModeBound =
-                    '1';
-
-                node.addEventListener(
-                    'click',
-                    event => {
-                        event.stopPropagation();
-
-                        setMode(
-                            node.dataset.mode
-                        );
-                    }
-                );
-
-                node.addEventListener(
-                    'mouseenter',
-                    () => {
-                        node.style.background =
-                            '#444';
-                    }
-                );
-
-                node.addEventListener(
-                    'mouseleave',
-                    () => {
-                        node.style.background =
-                            node.dataset.mode ===
-                            mode
-                                ? '#444'
-                                : 'transparent';
-                    }
-                );
+                if (!insideModel) {
+                    const modelOptions = $('copilot-model-options');
+                    if (modelOptions) modelOptions.style.display = 'none';
+                }
             });
+        }
 
         updateModeDisplay();
     }
 
+    /* ============================================================
+     * MODEL DROPDOWN
+     * ============================================================ */
+
+    function bindModelButtons() {
+        const display = $('copilot-model-display');
+        const options = $('copilot-model-options');
+
+        if (!display || !options) return;
+
+        if (display.dataset.iwpCopilotModelDisplayBound !== '1') {
+            display.dataset.iwpCopilotModelDisplayBound = '1';
+
+            display.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+
+                options.style.display =
+                    options.style.display === 'block'
+                        ? 'none'
+                        : 'block';
+            }, true);
+
+            display.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }, true);
+        }
+
+        if (!modelMenuBound) {
+            modelMenuBound = true;
+            renderModelOptions();
+        }
+
+        updateModelDisplay();
+    }
 
     /* ============================================================
-     * SIDEBAR
+     * SIDEBAR / COPILOT VIEW
      * ============================================================ */
 
     function getSidebar() {
@@ -774,371 +745,87 @@
         return window.innerWidth <= 768;
     }
 
-
-    /*
-     * ============================================================
-     * Copilot 自适应布局
-     *
-     * 核心原则：
-     *
-     *   sidebar
-     *       ↓
-     *   Copilot view
-     *       ├── 顶部标题
-     *       ├── 消息区域 ← 唯一滚动区域
-     *       ├── 工具行
-     *       ├── 输入区
-     *       └── 历史按钮 / 历史浮层
-     *
-     * 输入区永远是底部固定 flex 子项。
-     * ============================================================
-     */
-
-    function applyAdaptiveLayout() {
-        let style =
-            $('copilot-adaptive-style');
-
-        if (!style) {
-            style =
-                document.createElement(
-                    'style'
-                );
-
-            style.id =
-                'copilot-adaptive-style';
-
-            style.textContent = `
-                #sidebar-copilot-view {
-                    display: flex !important;
-                    flex: 1 1 auto !important;
-                    flex-direction: column !important;
-                    position: relative !important;
-                    height: auto !important;
-                    min-height: 0 !important;
-                    max-height: none !important;
-                    overflow: hidden !important;
-                }
-
-                #sidebar-copilot-view
-                #copilot-messages-wrapper {
-                    flex: 1 1 0% !important;
-                    min-height: 0 !important;
-                    max-height: none !important;
-                    overflow-y: auto !important;
-                    overflow-x: hidden !important;
-                    position: relative !important;
-                }
-
-                #sidebar-copilot-view
-                #copilot-messages {
-                    flex: 1 1 auto !important;
-                    min-height: 0 !important;
-                    overflow: visible !important;
-                }
-
-                #sidebar-copilot-view
-                #copilot-messages-wrapper
-                #copilot-dots {
-                    pointer-events: none !important;
-                }
-
-                #sidebar-copilot-view
-                #copilot-history-list {
-                    display: none !important;
-                    position: absolute !important;
-
-                    left: 8px !important;
-                    right: 8px !important;
-                    top: 8px !important;
-                    bottom: 8px !important;
-
-                    width: auto !important;
-                    height: auto !important;
-                    max-height: none !important;
-
-                    margin: 0 !important;
-                    padding: 6px !important;
-
-                    overflow-y: auto !important;
-                    overflow-x: hidden !important;
-
-                    background: #222 !important;
-                    border: 1px solid #444 !important;
-                    border-radius: 8px !important;
-
-                    box-shadow:
-                        0 8px 28px rgba(0,0,0,.55) !important;
-
-                    z-index: 100 !important;
-                }
-
-                #sidebar-copilot-view
-                #copilot-history-list.copilot-history-open {
-                    display: block !important;
-                }
-
-                #copilot-history-toggle {
-                    background: transparent;
-                    border: 1px solid #555;
-                    color: #bbb;
-                    border-radius: 5px;
-                    padding: 2px 7px;
-                    cursor: pointer;
-                    font-size: .75rem;
-                    line-height: 1.5;
-                    white-space: nowrap;
-                }
-
-                #copilot-history-toggle:hover,
-                #copilot-history-toggle.active {
-                    background: #333;
-                    color: #fff;
-                }
-            `;
-
-            document.head.appendChild(
-                style
-            );
-        }
-
-        const view =
-            getCopilotView();
-
-        const messagesWrapper =
-            $('copilot-messages-wrapper');
-
-        const historyList =
-            $('copilot-history-list');
-
-        if (!view) {
-            return;
-        }
-
-        /*
-         * 原来的 HTML 把历史列表放在整个
-         * Copilot view 最底部。
-         *
-         * 把它移动到消息滚动容器内部，
-         * 让它成为消息区域上的浮层。
-         */
-        if (
-            historyList &&
-            messagesWrapper &&
-            historyList.parentElement !==
-            messagesWrapper
-        ) {
-            messagesWrapper.appendChild(
-                historyList
-            );
-        }
-
-        /*
-         * 输入区保持 flex-shrink:0。
-         *
-         * 找到 copilot-input 所在的直接子元素。
-         */
-        const input =
-            $('copilot-input');
-
-        if (input) {
-            let row =
-                input.parentElement;
-
-            while (
-                row &&
-                row.parentElement !==
-                view
-            ) {
-                row =
-                    row.parentElement;
-            }
-
-            if (
-                row &&
-                row.parentElement ===
-                view
-            ) {
-                row.style.flex =
-                    '0 0 auto';
-
-                row.style.minHeight =
-                    '0';
-            }
-        }
-
-        /*
-         * 工具行同样不能被压缩。
-         */
-        const send =
-            $('copilot-send');
-
-        if (send) {
-            let row =
-                send.parentElement;
-
-            while (
-                row &&
-                row.parentElement !==
-                view
-            ) {
-                row =
-                    row.parentElement;
-            }
-
-            if (
-                row &&
-                row.parentElement ===
-                view
-            ) {
-                row.style.flex =
-                    '0 0 auto';
-
-                row.style.minHeight =
-                    '0';
-            }
-        }
-
-        bindHistoryToggle();
-    }
-
-
     function showCopilotView() {
-        const sidebar =
-            getSidebar();
+        const sidebar = getSidebar();
+        const toc = getTocView();
+        const copilot = getCopilotView();
 
-        const toc =
-            getTocView();
-
-        const copilot =
-            getCopilotView();
-
-        if (
-            !sidebar ||
-            !toc ||
-            !copilot
-        ) {
-            console.warn(
-                '[IWP Copilot] Copilot DOM not found'
-            );
-
+        if (!sidebar || !toc || !copilot) {
+            console.warn('[IWP Copilot] Copilot DOM not found');
             return false;
         }
 
         /*
-         * Copilot 打开时不让 sidebar 自己
-         * 再产生第二层滚动。
+         * 原 reader 结构：
+         *
+         * #sidebar
+         *   ├── #sidebar-toc-view
+         *   └── #sidebar-copilot-view
+         *
+         * 这里只切换 view，不创建新的 sidebar。
          */
-        sidebar.style.overflow =
-            'hidden';
+        toc.style.display = 'none';
 
-        toc.style.display =
-            'none';
+        copilot.style.display = 'flex';
 
-        copilot.style.display =
-            'flex';
+        copilotOpen = true;
 
-        copilotOpen =
-            true;
+        sidebar.style.overflow = 'hidden';
 
         if (isMobile()) {
-            sidebar.classList.add(
-                'sidebar-open'
-            );
+            sidebar.classList.add('sidebar-open');
 
-            const app =
-                $('app');
-
-            if (app) {
-                app.classList.add(
-                    'sidebar-active'
-                );
-            }
+            const app = $('app');
+            if (app) app.classList.add('copilot-active');
         }
 
-        const button =
-            getCopilotButton();
+        const button = getCopilotButton();
 
         if (button) {
-            button.classList.add(
-                'active'
-            );
-
-            button.setAttribute(
-                'aria-expanded',
-                'true'
-            );
+            button.classList.add('active');
+            button.setAttribute('aria-expanded', 'true');
         }
 
-        refresh();
-
-        refreshHistoryList();
+        /*
+         * DOM 已经存在后再绑定一次。
+         */
+        refreshCopilotUI();
 
         return true;
     }
-
 
     function hideCopilotView() {
-        const sidebar =
-            getSidebar();
+        const sidebar = getSidebar();
+        const toc = getTocView();
+        const copilot = getCopilotView();
 
-        const toc =
-            getTocView();
-
-        const copilot =
-            getCopilotView();
-
-        if (
-            !sidebar ||
-            !toc ||
-            !copilot
-        ) {
+        if (!sidebar || !toc || !copilot) {
             return false;
         }
 
-        copilot.style.display =
-            'none';
+        copilot.style.display = 'none';
+        toc.style.display = '';
 
-        toc.style.display =
-            '';
+        copilotOpen = false;
 
-        copilotOpen =
-            false;
-
-        sidebar.style.overflow =
-            '';
+        sidebar.style.overflow = '';
 
         if (isMobile()) {
-            sidebar.classList.remove(
-                'sidebar-open'
-            );
+            sidebar.classList.remove('sidebar-open');
 
-            const app =
-                $('app');
-
-            if (app) {
-                app.classList.remove(
-                    'sidebar-active'
-                );
-            }
+            const app = $('app');
+            if (app) app.classList.remove('copilot-active');
         }
 
-        const button =
-            getCopilotButton();
+        const button = getCopilotButton();
 
         if (button) {
-            button.classList.remove(
-                'active'
-            );
-
-            button.setAttribute(
-                'aria-expanded',
-                'false'
-            );
+            button.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
         }
 
         return true;
     }
-
 
     function toggleCopilot() {
         return copilotOpen
@@ -1146,375 +833,222 @@
             : showCopilotView();
     }
 
-
     function openCopilot() {
         return showCopilotView();
     }
-
 
     function closeCopilot() {
         return hideCopilotView();
     }
 
-
     function isCopilotOpen() {
-        const copilot =
-            getCopilotView();
+        const copilot = getCopilotView();
 
-        if (!copilot) {
-            return false;
-        }
+        if (!copilot) return false;
 
-        return (
-            copilot.style.display !==
-            'none'
-        );
+        return copilot.style.display !== 'none';
     }
-
 
     function bindCopilotButton() {
-        const button =
-            getCopilotButton();
+        const button = getCopilotButton();
 
         if (!button) {
-            console.warn(
-                '[IWP Copilot] #btn-copilot not found'
-            );
-
+            console.warn('[IWP Copilot] #btn-copilot not found');
             return;
         }
 
-        if (
-            button.dataset
-                .iwpCopilotBound ===
-            '1'
-        ) {
+        if (button.dataset.iwpCopilotBound === '1') {
             return;
         }
 
-        button.dataset
-            .iwpCopilotBound =
-            '1';
+        button.dataset.iwpCopilotBound = '1';
 
-        button.addEventListener(
-            'click',
-            event => {
-                event.preventDefault();
-                event.stopPropagation();
+        button.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
 
-                toggleCopilot();
-            }
+            toggleCopilot();
+        });
+
+        /*
+         * 页面初始状态同步。
+         */
+        const copilot = getCopilotView();
+
+        if (copilot) {
+            copilotOpen = copilot.style.display !== 'none';
+        }
+
+        button.classList.toggle('active', copilotOpen);
+        button.setAttribute(
+            'aria-expanded',
+            copilotOpen ? 'true' : 'false'
         );
     }
-
 
     /* ============================================================
      * LOADING
      * ============================================================ */
 
     function setLoading(on) {
-        if (!els.messages) {
-            return;
-        }
+        if (!els.messages) return;
 
-        let node =
-            $('copilot-thinking-status');
+        let node = $('copilot-thinking-status');
 
         if (on) {
             if (!node) {
-                node =
-                    document.createElement(
-                        'div'
-                    );
-
-                node.id =
-                    'copilot-thinking-status';
-
-                node.className =
-                    'copilot-thinking-status';
-
+                node = document.createElement('div');
+                node.id = 'copilot-thinking-status';
                 node.style.cssText =
-                    'display:flex;' +
-                    'align-items:center;' +
-                    'gap:8px;' +
-                    'padding:7px 10px;' +
-                    'color:#aaa;' +
-                    'font-size:.82rem;';
+                    'display:flex;align-items:center;gap:8px;' +
+                    'padding:7px 10px;color:#aaa;font-size:.82rem;';
 
                 node.innerHTML =
-                    '<span class="copilot-spinner" ' +
-                    'style="' +
-                    'display:inline-block;' +
-                    'width:13px;' +
-                    'height:13px;' +
-                    'border:2px solid #555;' +
-                    'border-top-color:#ddd;' +
-                    'border-radius:50%;' +
-                    'animation:copilot-spin .8s linear infinite;' +
-                    '"></span>' +
-                    '<span>少女祈祷中...</span>';
+                    '<span style="' +
+                    'display:inline-block;width:13px;height:13px;' +
+                    'border:2px solid #555;border-top-color:#ddd;' +
+                    'border-radius:50%;animation:copilot-spin .8s linear infinite;' +
+                    '"></span><span>少女祈祷中...</span>';
 
-                els.messages.appendChild(
-                    node
-                );
+                els.messages.appendChild(node);
 
-                if (
-                    !document.getElementById(
-                        'copilot-spin-style'
-                    )
-                ) {
-                    const style =
-                        document.createElement(
-                            'style'
-                        );
-
-                    style.id =
-                        'copilot-spin-style';
-
+                if (!document.getElementById('copilot-spin-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'copilot-spin-style';
                     style.textContent =
-                        '@keyframes copilot-spin{' +
-                        'to{transform:rotate(360deg)}' +
-                        '}';
-
-                    document.head.appendChild(
-                        style
-                    );
+                        '@keyframes copilot-spin{to{transform:rotate(360deg)}}';
+                    document.head.appendChild(style);
                 }
             }
         } else {
             node?.remove();
         }
 
-        els.messages.scrollTop =
-            els.messages.scrollHeight;
+        els.messages.scrollTop = els.messages.scrollHeight;
     }
-
 
     /* ============================================================
      * MESSAGE
      * ============================================================ */
 
-    function appendMessage(
-        role,
-        text,
-        reasoning
-    ) {
-        if (!els.messages) {
-            return null;
-        }
+    function appendMessage(role, text, reasoning) {
+        if (!els.messages) return null;
 
-        const box =
-            document.createElement(
-                'div'
-            );
-
-        box.className =
-            'copilot-message ' +
-            role;
+        const box = document.createElement('div');
+        box.className = 'copilot-message ' + role;
 
         box.style.cssText =
-            'white-space:pre-wrap;' +
-            'word-break:break-word;' +
-            'margin:8px 0;';
+            'white-space:normal;word-break:break-word;margin:8px 0;' +
+            'line-height:1.55;';
 
         if (reasoning) {
-            const think =
-                document.createElement(
-                    'details'
-                );
+            const think = document.createElement('details');
+            think.className = 'copilot-reasoning';
 
-            think.className =
-                'copilot-reasoning';
+            const summary = document.createElement('summary');
+            summary.textContent = '思考过程';
 
-            const summary =
-                document.createElement(
-                    'summary'
-                );
-
-            summary.textContent =
-                '思考过程';
-
-            const body =
-                document.createElement(
-                    'div'
-                );
-
+            const body = document.createElement('div');
             body.style.cssText =
-                'white-space:pre-wrap;' +
-                'color:#999;' +
-                'font-size:.85rem;' +
-                'padding:6px 0;';
+                'white-space:pre-wrap;color:#999;font-size:.85rem;padding:6px 0;';
+            body.textContent = reasoning;
 
-            body.textContent =
-                reasoning;
-
-            think.append(
-                summary,
-                body
-            );
-
-            box.appendChild(
-                think
-            );
+            think.append(summary, body);
+            box.appendChild(think);
         }
 
-        const content =
-            document.createElement(
-                'div'
-            );
+        const content = document.createElement('div');
+        content.className = 'copilot-content';
 
-        content.className =
-            'copilot-content';
+        if (role === 'assistant') {
+            renderAssistantContent(content, text || '');
+        } else {
+            content.textContent = text || '';
+            content.style.whiteSpace = 'pre-wrap';
+        }
 
-        content.textContent =
-            text || '';
+        box.appendChild(content);
+        els.messages.appendChild(box);
 
-        box.appendChild(
-            content
-        );
-
-        els.messages.appendChild(
-            box
-        );
-
-        els.messages.scrollTop =
-            els.messages.scrollHeight;
+        els.messages.scrollTop = els.messages.scrollHeight;
 
         return {
             box,
             content,
-            reasoning:
-                reasoning || ''
+            reasoning: reasoning || ''
         };
     }
-
 
     /* ============================================================
      * SSE
      * ============================================================ */
 
-    async function readSSE(
-        response,
-        onEvent
-    ) {
+    function readSSE(response, onEvent) {
         if (!response.body) {
-            throw new Error(
-                '服务器没有返回流'
-            );
+            throw new Error('服务器没有返回流');
         }
 
-        const reader =
-            response.body.getReader();
-
-        const decoder =
-            new TextDecoder();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
         let buffer = '';
 
-        while (true) {
-            const {
-                done,
-                value
-            } =
-                await reader.read();
+        return (async () => {
+            while (true) {
+                const { done, value } = await reader.read();
 
-            if (done) {
-                break;
-            }
+                if (done) break;
 
-            buffer +=
-                decoder.decode(
-                    value,
-                    {
-                        stream: true
+                buffer += decoder.decode(value, { stream: true });
+
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (let line of lines) {
+                    line = line.trim();
+
+                    if (!line.startsWith('data:')) continue;
+
+                    const raw = line.slice(5).trim();
+
+                    if (!raw || raw === '[DONE]') continue;
+
+                    try {
+                        await onEvent(JSON.parse(raw));
+                    } catch (error) {
+                        console.warn(
+                            '[IWP Copilot] SSE event parse failed:',
+                            error
+                        );
                     }
-                );
-
-            const lines =
-                buffer.split('\n');
-
-            buffer =
-                lines.pop() || '';
-
-            for (
-                let line of lines
-            ) {
-                line =
-                    line.trim();
-
-                if (
-                    !line.startsWith(
-                        'data:'
-                    )
-                ) {
-                    continue;
                 }
+            }
 
-                const raw =
-                    line
-                        .slice(5)
-                        .trim();
+            const last = buffer.trim();
 
-                if (
-                    !raw ||
-                    raw === '[DONE]'
-                ) {
-                    continue;
+            if (last.startsWith('data:')) {
+                const raw = last.slice(5).trim();
+
+                if (raw && raw !== '[DONE]') {
+                    try {
+                        await onEvent(JSON.parse(raw));
+                    } catch (_) {}
                 }
-
-                try {
-                    await onEvent(
-                        JSON.parse(raw)
-                    );
-                } catch (_) {}
             }
-        }
-
-        if (
-            buffer
-                .trim()
-                .startsWith('data:')
-        ) {
-            const raw =
-                buffer
-                    .trim()
-                    .slice(5)
-                    .trim();
-
-            if (
-                raw &&
-                raw !== '[DONE]'
-            ) {
-                try {
-                    await onEvent(
-                        JSON.parse(raw)
-                    );
-                } catch (_) {}
-            }
-        }
+        })();
     }
-
 
     /* ============================================================
      * SEND
      * ============================================================ */
 
     async function send() {
-        if (busy) {
-            return;
-        }
+        if (busy) return;
 
-        const input =
-            els.input;
+        const input = els.input;
+        const question = String(input?.value || '').trim();
 
-        const question =
-            String(
-                input?.value || ''
-            ).trim();
-
-        if (!question) {
-            return;
-        }
+        if (!question) return;
 
         if (!getToken()) {
             toast('请先登录');
@@ -1523,27 +1057,17 @@
 
         busy = true;
 
-        if (input) {
-            input.value = '';
-        }
+        if (input) input.value = '';
 
-        appendMessage(
-            'user',
-            question
-        );
-
+        appendMessage('user', question);
         setLoading(true);
 
         let context = '';
 
         if (mode === 'note') {
-            context =
-                currentChapter();
-        } else if (
-            mode === 'whiteboard'
-        ) {
-            context =
-                getWhiteboardContext();
+            context = currentChapter();
+        } else if (mode === 'whiteboard') {
+            context = getWhiteboardContext();
         }
 
         history.push({
@@ -1556,141 +1080,110 @@
         let assistant = null;
 
         try {
-            const response =
-                await fetch(
-                    API + '/api/chat',
-                    {
-                        method: 'POST',
-
-                        headers: {
-                            'Content-Type':
-                                'application/json',
-
-                            Authorization:
-                                'Bearer ' +
-                                getToken()
-                        },
-
-                        body:
-                            JSON.stringify({
-                                mode,
-                                model,
-
-                                messages:
-                                    history.slice(
-                                        -20
-                                    ),
-
-                                chapterContext:
-                                    context,
-
-                                whiteboardContext:
-                                    whiteboard,
-
-                                image
-                            })
-                    }
-                );
+            const response = await fetch(API + '/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + getToken()
+                },
+                body: JSON.stringify({
+                    mode,
+                    model,
+                    messages: history.slice(-20),
+                    chapterContext: context,
+                    whiteboardContext: whiteboard,
+                    image
+                })
+            });
 
             if (!response.ok) {
-                const text =
-                    await response.text();
+                const text = await response.text();
 
                 let err = {};
 
                 try {
-                    err =
-                        JSON.parse(text);
+                    err = JSON.parse(text);
                 } catch (_) {}
 
                 throw new Error(
-                    err.error ||
-                    `HTTP ${response.status}`
+                    err.error || `HTTP ${response.status}`
                 );
             }
 
             setLoading(false);
 
-            await readSSE(
-                response,
-                async event => {
+            await readSSE(response, async event => {
+                if (event.type === 'reasoning') {
+                    reasoning += event.text || '';
 
-                    if (
-                        event.type ===
-                        'reasoning'
-                    ) {
-                        reasoning +=
-                            event.text || '';
-
-                        if (!assistant) {
-                            assistant =
-                                appendMessage(
-                                    'assistant',
-                                    '',
-                                    reasoning
-                                );
-                        }
-
-                        const body =
-                            assistant.box
-                                .querySelector(
-                                    '.copilot-reasoning div'
-                                );
-
-                        if (body) {
-                            body.textContent =
-                                reasoning;
-                        }
-
-                    } else if (
-                        event.type ===
-                        'content'
-                    ) {
-                        answer +=
-                            event.text || '';
-
-                        if (!assistant) {
-                            assistant =
-                                appendMessage(
-                                    'assistant',
-                                    '',
-                                    reasoning
-                                );
-                        }
-
-                        assistant.content.textContent =
-                            answer;
-
-                        if (els.messages) {
-                            els.messages.scrollTop =
-                                els.messages.scrollHeight;
-                        }
-
-                    } else if (
-                        event.type ===
-                        'error'
-                    ) {
-                        throw new Error(
-                            event.error ||
-                            'stream error'
+                    if (!assistant) {
+                        assistant = appendMessage(
+                            'assistant',
+                            '',
+                            reasoning
                         );
                     }
+
+                    const body =
+                        assistant.box.querySelector(
+                            '.copilot-reasoning > div'
+                        );
+
+                    if (body) {
+                        body.textContent = reasoning;
+                    }
                 }
-            );
+
+                else if (event.type === 'content') {
+                    answer += event.text || '';
+
+                    if (!assistant) {
+                        assistant = appendMessage(
+                            'assistant',
+                            '',
+                            reasoning
+                        );
+                    }
+
+                    /*
+                     * Markdown / LaTeX / table 实时渲染。
+                     */
+                    renderAssistantContent(
+                        assistant.content,
+                        answer
+                    );
+
+                    if (els.messages) {
+                        els.messages.scrollTop =
+                            els.messages.scrollHeight;
+                    }
+                }
+
+                else if (event.type === 'error') {
+                    throw new Error(
+                        event.error || 'stream error'
+                    );
+                }
+            });
 
             history.push({
                 role: 'assistant',
                 content: answer
             });
 
-            /*
-             * 第一次回答也直接创建 history。
-             */
-            if (history.length >= 2) {
-                await saveHistory();
+            if (sessionId) {
+                await api('/api/history', {
+                    method: 'POST',
+                    body: {
+                        messages: history,
+                        title:
+                            history.find(
+                                x => x.role === 'user'
+                            )?.content?.slice(0, 40) ||
+                            '新对话'
+                    }
+                });
             }
-
-            await refreshHistoryList();
 
         } catch (error) {
             setLoading(false);
@@ -1702,23 +1195,15 @@
 
             if (
                 history.length &&
-                history[
-                    history.length - 1
-                ]?.role === 'user'
+                history[history.length - 1]?.role === 'user'
             ) {
                 history.pop();
             }
-
         } finally {
             busy = false;
-
-            /*
-             * 图片只使用一次。
-             */
             image = null;
         }
     }
-
 
     /* ============================================================
      * HISTORY
@@ -1726,588 +1211,285 @@
 
     async function loadHistoryList() {
         try {
-            const data =
-                await api(
-                    '/api/history'
-                );
-
-            if (Array.isArray(data)) {
-                return data;
-            }
-
-            if (
-                Array.isArray(
-                    data?.history
-                )
-            ) {
-                return data.history;
-            }
-
-            if (
-                Array.isArray(
-                    data?.histories
-                )
-            ) {
-                return data.histories;
-            }
-
-            if (
-                Array.isArray(
-                    data?.data
-                )
-            ) {
-                return data.data;
-            }
-
-            return [];
-
+            return await api('/api/history');
         } catch (error) {
             console.warn(
                 '[IWP Copilot] history list failed:',
                 error
             );
-
             return [];
         }
     }
 
-
-    function getHistoryTitle(item) {
-        return String(
-            item?.title ||
-            item?.name ||
-            item?.messages?.find(
-                x =>
-                    x?.role ===
-                    'user'
-            )?.content ||
-            '新对话'
-        ).slice(
-            0,
-            40
-        );
-    }
-
-
-    function getHistoryId(item) {
-        return (
-            item?.id ||
-            item?._id ||
-            item?.sessionId ||
-            item?.session_id ||
-            null
-        );
-    }
-
-
-    function renderHistoryList(
-        items
-    ) {
-        const container =
-            $('copilot-history-list');
-
-        if (!container) {
-            return;
-        }
-
-        container.innerHTML =
-            '';
-
-        if (!getToken()) {
-            container.textContent =
-                '登录后显示历史记录';
-
-            container.style.color =
-                '#777';
-
-            container.style.fontSize =
-                '.75rem';
-
-            return;
-        }
-
-        if (!items.length) {
-            container.textContent =
-                '暂无历史对话';
-
-            container.style.color =
-                '#777';
-
-            container.style.fontSize =
-                '.75rem';
-
-            return;
-        }
-
-        items.forEach(item => {
-            const id =
-                getHistoryId(item);
-
-            if (!id) {
-                return;
-            }
-
-            const row =
-                document.createElement(
-                    'div'
-                );
-
-            row.className =
-                'copilot-history-item';
-
-            row.dataset
-                .copilotHistoryId =
-                id;
-
-            row.style.cssText =
-                'padding:5px 7px;' +
-                'margin:2px 0;' +
-                'border-radius:4px;' +
-                'cursor:pointer;' +
-                'font-size:.75rem;' +
-                'color:#aaa;' +
-                'white-space:nowrap;' +
-                'overflow:hidden;' +
-                'text-overflow:ellipsis;';
-
-            row.textContent =
-                getHistoryTitle(item);
-
-            if (
-                String(id) ===
-                String(sessionId)
-            ) {
-                row.style.background =
-                    '#444';
-
-                row.style.color =
-                    '#ddd';
-            }
-
-            row.addEventListener(
-                'mouseenter',
-                () => {
-                    row.style.background =
-                        '#3a3a3a';
-
-                    row.style.color =
-                        '#ddd';
-                }
-            );
-
-            row.addEventListener(
-                'mouseleave',
-                () => {
-                    row.style.background =
-                        String(id) ===
-                        String(sessionId)
-                            ? '#444'
-                            : 'transparent';
-
-                    row.style.color =
-                        String(id) ===
-                        String(sessionId)
-                            ? '#ddd'
-                            : '#aaa';
-                }
-            );
-
-            row.addEventListener(
-                'click',
-                async () => {
-                    try {
-                        await loadHistory(
-                            id
-                        );
-
-                        closeHistory();
-                    } catch (error) {
-                        toast(
-                            error?.message ||
-                            '历史记录加载失败'
-                        );
-                    }
-                }
-            );
-
-            container.appendChild(
-                row
-            );
-        });
-    }
-
-
-    async function refreshHistoryList() {
-        const container =
-            $('copilot-history-list');
-
-        if (!container) {
-            return;
-        }
-
-        if (!getToken()) {
-            renderHistoryList([]);
-            return;
-        }
-
-        container.textContent =
-            '加载历史记录…';
-
-        try {
-            const items =
-                await loadHistoryList();
-
-            renderHistoryList(
-                items
-            );
-
-        } catch (_) {
-            renderHistoryList([]);
-        }
-    }
-
-
     async function loadHistory(id) {
-        if (!id) {
-            return null;
-        }
+        if (!id) return null;
 
-        const data =
-            await api(
-                '/api/history/' +
-                encodeURIComponent(id)
-            );
+        const data = await api(
+            '/api/history/' +
+            encodeURIComponent(id)
+        );
 
-        sessionId =
-            id;
+        sessionId = id;
 
-        history =
-            Array.isArray(
-                data?.messages
-            )
-                ? data.messages
-                : [];
+        history = Array.isArray(data?.messages)
+            ? data.messages
+            : [];
 
         renderHistory();
 
         return data;
     }
 
+    async function saveHistory(title) {
+        if (!getToken()) return null;
 
-    async function saveHistory(
-        title
-    ) {
-        if (!getToken()) {
-            return null;
-        }
-
-        const data =
-            await api(
-                '/api/history',
-                {
-                    method: 'POST',
-
-                    body: {
-                        messages:
-                            history,
-
-                        title:
-                            String(
-                                title ||
-                                history.find(
-                                    x =>
-                                        x.role ===
-                                        'user'
-                                )?.content ||
-                                '新对话'
-                            ).slice(
-                                0,
-                                100
-                            )
-                    }
-                }
-            );
+        const data = await api('/api/history', {
+            method: 'POST',
+            body: {
+                messages: history,
+                title: String(
+                    title ||
+                    history.find(
+                        x => x.role === 'user'
+                    )?.content ||
+                    '新对话'
+                ).slice(0, 100)
+            }
+        });
 
         if (data?.id) {
-            sessionId =
-                data.id;
+            sessionId = data.id;
         }
 
         return data;
     }
 
-
     async function deleteHistory(id) {
-        if (!id) {
-            return false;
-        }
+        if (!id) return false;
 
         await api(
             '/api/history/' +
             encodeURIComponent(id),
-            {
-                method: 'DELETE'
-            }
+            { method: 'DELETE' }
         );
 
-        if (
-            String(sessionId) ===
-            String(id)
-        ) {
+        if (sessionId === id) {
             sessionId = null;
             history = [];
-
-            renderHistory();
         }
-
-        await refreshHistoryList();
 
         return true;
     }
 
-
     function newConversation() {
         history = [];
-
         sessionId = null;
-
         image = null;
 
         if (els.messages) {
-            els.messages.innerHTML =
-                '';
+            els.messages.innerHTML = '';
         }
 
         setLoading(false);
-
-        closeHistory();
-
-        refreshHistoryList();
     }
-
 
     function renderHistory() {
-        if (!els.messages) {
-            return;
-        }
+        if (!els.messages) return;
 
-        els.messages.innerHTML =
-            '';
+        els.messages.innerHTML = '';
 
-        history.forEach(
-            message => {
-                if (!message) {
-                    return;
-                }
+        for (const message of history) {
+            if (!message) continue;
 
-                if (
-                    message.role !==
-                        'user' &&
-                    message.role !==
-                        'assistant'
-                ) {
-                    return;
-                }
-
-                if (
-                    typeof message.content !==
-                    'string'
-                ) {
-                    return;
-                }
-
-                appendMessage(
-                    message.role,
-                    message.content
-                );
+            if (
+                message.role !== 'user' &&
+                message.role !== 'assistant'
+            ) {
+                continue;
             }
-        );
-    }
 
+            if (typeof message.content !== 'string') {
+                continue;
+            }
+
+            appendMessage(
+                message.role,
+                message.content
+            );
+        }
+    }
 
     /* ============================================================
-     * HISTORY TOGGLE
-     *
-     * 历史记录只占消息区域。
-     * 输入框不会被历史列表挤出去。
+     * HISTORY BUTTON
      * ============================================================ */
 
-    function openHistory() {
-        const list =
-            $('copilot-history-list');
-
-        const button =
-            $('copilot-history-toggle');
-
-        if (!list) {
-            return;
-        }
-
-        list.classList.add(
-            'copilot-history-open'
-        );
-
-        if (button) {
-            button.classList.add(
-                'active'
-            );
-
-            button.setAttribute(
-                'aria-expanded',
-                'true'
-            );
-
-            button.textContent =
-                '关闭历史';
-        }
-    }
-
-
-    function closeHistory() {
-        const list =
-            $('copilot-history-list');
-
-        const button =
-            $('copilot-history-toggle');
-
-        if (!list) {
-            return;
-        }
-
-        list.classList.remove(
-            'copilot-history-open'
-        );
-
-        if (button) {
-            button.classList.remove(
-                'active'
-            );
-
-            button.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-
-            button.textContent =
-                '历史';
-        }
-    }
-
-
-    function toggleHistory() {
-        const list =
-            $('copilot-history-list');
-
-        if (!list) {
-            return;
-        }
-
-        if (
-            list.classList.contains(
-                'copilot-history-open'
-            )
-        ) {
-            closeHistory();
-        } else {
-            openHistory();
-        }
-    }
-
-
     function bindHistoryToggle() {
-        const view =
-            getCopilotView();
+        const button = qs([
+            '#copilot-history-toggle',
+            '.copilot-history-toggle',
+            '[data-copilot-history-toggle]'
+        ]);
 
-        if (!view) {
+        const panel = qs([
+            '#copilot-history-panel',
+            '.copilot-history-panel',
+            '[data-copilot-history-panel]'
+        ]);
+
+        if (!button || !panel) return;
+
+        if (button.dataset.iwpCopilotHistoryToggleBound === '1') {
             return;
         }
 
-        let button =
-            $('copilot-history-toggle');
+        button.dataset.iwpCopilotHistoryToggleBound = '1';
 
-        const newChat =
-            $('copilot-new-chat');
+        button.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
 
-        if (!button) {
-            button =
-                document.createElement(
-                    'button'
-                );
+        button.addEventListener('click', async event => {
+            event.preventDefault();
+            event.stopPropagation();
 
-            button.id =
-                'copilot-history-toggle';
+            const visible =
+                panel.style.display === 'block' ||
+                panel.style.display === 'flex';
 
-            button.type =
-                'button';
+            panel.style.display = visible ? 'none' : 'block';
 
-            button.textContent =
-                '历史';
-
-            button.title =
-                '历史对话';
-
-            button.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-
-            /*
-             * 放到顶部 Copilot 标题栏。
-             */
-            if (
-                newChat &&
-                newChat.parentElement
-            ) {
-                newChat.parentElement.insertBefore(
-                    button,
-                    newChat
-                );
-
-            } else {
-                /*
-                 * 如果 HTML 结构以后变化，
-                 * 仍然可以正常显示。
-                 */
-                view.insertBefore(
-                    button,
-                    view.firstChild
-                );
-
-                button.style.position =
-                    'absolute';
-
-                button.style.top =
-                    '8px';
-
-                button.style.right =
-                    '8px';
-
-                button.style.zIndex =
-                    '20';
+            if (!visible) {
+                await renderHistoryList(panel);
             }
-        }
+        });
+    }
 
-        if (
-            button.dataset
-                .iwpCopilotHistoryToggleBound !==
-            '1'
-        ) {
-            button.dataset
-                .iwpCopilotHistoryToggleBound =
-                '1';
+    async function renderHistoryList(panel) {
+        try {
+            const data = await loadHistoryList();
 
-            button.addEventListener(
-                'click',
-                event => {
+            const list =
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.history)
+                        ? data.history
+                        : Array.isArray(data?.items)
+                            ? data.items
+                            : [];
+
+            panel.innerHTML = '';
+
+            if (!list.length) {
+                const empty = document.createElement('div');
+                empty.textContent = '暂无历史记录';
+                empty.style.cssText =
+                    'padding:10px;color:#888;font-size:.8rem;';
+                panel.appendChild(empty);
+                return;
+            }
+
+            list.forEach(item => {
+                const row = document.createElement('div');
+
+                row.style.cssText =
+                    'padding:7px 9px;border-bottom:1px solid #444;' +
+                    'cursor:pointer;color:#ddd;font-size:.8rem;';
+
+                row.textContent =
+                    item.title ||
+                    item.name ||
+                    '未命名对话';
+
+                row.addEventListener('click', async event => {
                     event.preventDefault();
                     event.stopPropagation();
 
-                    toggleHistory();
-                }
-            );
+                    if (!item.id) return;
+
+                    try {
+                        await loadHistory(item.id);
+                        panel.style.display = 'none';
+                    } catch (error) {
+                        toast(
+                            error?.message ||
+                            '历史记录加载失败'
+                        );
+                    }
+                });
+
+                row.addEventListener('mouseenter', () => {
+                    row.style.background = '#333';
+                });
+
+                row.addEventListener('mouseleave', () => {
+                    row.style.background = 'transparent';
+                });
+
+                panel.appendChild(row);
+            });
+        } catch (error) {
+            panel.innerHTML = '';
+
+            const failed = document.createElement('div');
+            failed.textContent = '历史记录加载失败';
+            failed.style.cssText =
+                'padding:10px;color:#888;font-size:.8rem;';
+
+            panel.appendChild(failed);
         }
     }
 
+    function bindHistoryButtons() {
+        document.querySelectorAll(
+            '[data-copilot-history-id]'
+        ).forEach(node => {
+            if (node.dataset.iwpCopilotHistoryItemBound === '1') {
+                return;
+            }
+
+            node.dataset.iwpCopilotHistoryItemBound = '1';
+
+            node.addEventListener('click', async event => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const id =
+                    node.dataset.copilotHistoryId;
+
+                if (!id) return;
+
+                try {
+                    await loadHistory(id);
+                } catch (error) {
+                    toast(
+                        error?.message ||
+                        '历史记录加载失败'
+                    );
+                }
+            });
+        });
+
+        qsa([
+            '#copilot-new-chat',
+            '.copilot-new-chat',
+            '[data-copilot-new-chat]'
+        ]).forEach(button => {
+            if (button.dataset.iwpCopilotHistoryBound === '1') {
+                return;
+            }
+
+            button.dataset.iwpCopilotHistoryBound = '1';
+
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                newConversation();
+            });
+        });
+
+        bindHistoryToggle();
+    }
 
     /* ============================================================
      * SEND / INPUT
@@ -2316,9 +1498,7 @@
     function bindSend() {
         els.messages =
             $('copilot-messages') ||
-            document.querySelector(
-                '.copilot-messages'
-            );
+            document.querySelector('.copilot-messages');
 
         els.input =
             $('copilot-input') ||
@@ -2331,238 +1511,46 @@
             '#copilot-send',
             '.copilot-send',
             '[data-copilot-send]'
-        ]).forEach(
-            button => {
-                if (
-                    button.dataset
-                        .iwpCopilotSendBound ===
-                    '1'
-                ) {
-                    return;
-                }
-
-                button.dataset
-                    .iwpCopilotSendBound =
-                    '1';
-
-                button.addEventListener(
-                    'click',
-                    send
-                );
+        ]).forEach(button => {
+            if (button.dataset.iwpCopilotSendBound === '1') {
+                return;
             }
-        );
+
+            button.dataset.iwpCopilotSendBound = '1';
+
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                send();
+            });
+        });
 
         if (
             els.input &&
-            els.input.dataset
-                .iwpCopilotInputBound !==
-            '1'
+            els.input.dataset.iwpCopilotInputBound !== '1'
         ) {
-            els.input.dataset
-                .iwpCopilotInputBound =
-                '1';
+            els.input.dataset.iwpCopilotInputBound = '1';
 
-            els.input.addEventListener(
-                'keydown',
-                event => {
-                    if (
-                        event.key ===
-                        'Enter' &&
-                        !event.shiftKey
-                    ) {
-                        event.preventDefault();
-
-                        send();
-                    }
+            els.input.addEventListener('keydown', event => {
+                if (
+                    event.key === 'Enter' &&
+                    !event.shiftKey
+                ) {
+                    event.preventDefault();
+                    send();
                 }
-            );
+            });
         }
     }
-
-
-    /* ============================================================
-     * MODEL BINDING
-     * ============================================================ */
-
-    function bindModelButtons() {
-        /*
-         * 菜单是 JS 动态生成的。
-         */
-        renderModelOptions();
-
-        const display =
-            $('copilot-model-display');
-
-        const options =
-            $('copilot-model-options');
-
-        if (
-            display &&
-            display.dataset
-                .iwpCopilotModelDisplayBound !==
-            '1'
-        ) {
-            display.dataset
-                .iwpCopilotModelDisplayBound =
-                '1';
-
-            display.addEventListener(
-                'click',
-                event => {
-                    event.stopPropagation();
-
-                    if (!options) {
-                        return;
-                    }
-
-                    options.style.display =
-                        options.style.display ===
-                        'block'
-                            ? 'none'
-                            : 'block';
-                }
-            );
-        }
-
-        updateModelDisplay();
-    }
-
-
-    /* ============================================================
-     * NEW CHAT
-     * ============================================================ */
-
-    function bindHistoryButtons() {
-        qsa([
-            '#copilot-new-chat',
-            '.copilot-new-chat',
-            '[data-copilot-new-chat]'
-        ]).forEach(
-            button => {
-                if (
-                    button.dataset
-                        .iwpCopilotHistoryBound ===
-                    '1'
-                ) {
-                    return;
-                }
-
-                button.dataset
-                    .iwpCopilotHistoryBound =
-                    '1';
-
-                button.addEventListener(
-                    'click',
-                    event => {
-                        event.preventDefault();
-                        event.stopPropagation();
-
-                        newConversation();
-                    }
-                );
-            }
-        );
-    }
-
-
-    /* ============================================================
-     * GLOBAL CLICK
-     *
-     * 点击外部关闭两个下拉菜单。
-     * 不影响 Copilot 按钮。
-     * ============================================================ */
-
-    function bindGlobalDropdownClose() {
-        if (
-            window
-                .__IWP_COPILOT_GLOBAL_CLICK__
-        ) {
-            return;
-        }
-
-        window
-            .__IWP_COPILOT_GLOBAL_CLICK__ =
-            true;
-
-        document.addEventListener(
-            'click',
-            event => {
-                const modeDrop =
-                    $('copilot-mode-dropdown');
-
-                const modelDrop =
-                    $('copilot-model-dropdown');
-
-                if (
-                    modeDrop &&
-                    !modeDrop.contains(
-                        event.target
-                    )
-                ) {
-                    const options =
-                        $('copilot-mode-options');
-
-                    if (options) {
-                        options.style.display =
-                            'none';
-                    }
-                }
-
-                if (
-                    modelDrop &&
-                    !modelDrop.contains(
-                        event.target
-                    )
-                ) {
-                    const options =
-                        $('copilot-model-options');
-
-                    if (options) {
-                        options.style.display =
-                            'none';
-                    }
-                }
-
-                /*
-                 * 历史浮层打开时，
-                 * 点击消息区域外可以关闭。
-                 */
-                const historyList =
-                    $('copilot-history-list');
-
-                const historyButton =
-                    $('copilot-history-toggle');
-
-                if (
-                    historyList &&
-                    historyButton &&
-                    historyList.classList.contains(
-                        'copilot-history-open'
-                    ) &&
-                    !historyList.contains(
-                        event.target
-                    ) &&
-                    !historyButton.contains(
-                        event.target
-                    )
-                ) {
-                    closeHistory();
-                }
-            }
-        );
-    }
-
 
     /* ============================================================
      * REFRESH
      * ============================================================ */
 
-    function refresh() {
+    function refreshCopilotUI() {
         els.messages =
             $('copilot-messages') ||
-            document.querySelector(
-                '.copilot-messages'
-            );
+            document.querySelector('.copilot-messages');
 
         els.input =
             $('copilot-input') ||
@@ -2571,86 +1559,48 @@
                 'textarea[name="copilot-input"]'
             );
 
-        bindCopilotButton();
-
         bindModeButtons();
-
         bindModelButtons();
-
         bindImageInput();
-
         bindSend();
-
         bindHistoryButtons();
 
-        bindGlobalDropdownClose();
-
-        /*
-         * 最后处理布局。
-         *
-         * 必须放在 DOM binding 之后，
-         * 因为历史列表可能刚刚被动态插入。
-         */
-        applyAdaptiveLayout();
-
-        setMode(mode);
-
-        setModel(model);
+        updateModeDisplay();
+        updateModelDisplay();
 
         return true;
     }
 
+    function refresh() {
+        bindCopilotButton();
+        refreshCopilotUI();
+        return true;
+    }
 
     /* ============================================================
-     * DOM OBSERVER
+     * DYNAMIC DOM
      * ============================================================ */
 
     function watchDOM() {
-        if (
-            typeof MutationObserver ===
-            'undefined'
-        ) {
+        if (typeof MutationObserver === 'undefined') {
             return;
         }
 
-        if (
-            window
-                .__IWP_COPILOT_OBSERVER__
-        ) {
-            return;
-        }
+        let timer = null;
 
-        let timer =
-            null;
+        const observer = new MutationObserver(() => {
+            clearTimeout(timer);
 
-        const observer =
-            new MutationObserver(
-                () => {
-                    clearTimeout(timer);
+            timer = setTimeout(() => {
+                refresh();
+            }, 50);
+        });
 
-                    timer =
-                        setTimeout(
-                            () => {
-                                refresh();
-                            },
-                            80
-                        );
-                }
-            );
-
-        observer.observe(
-            document.documentElement,
-            {
-                childList: true,
-                subtree: true
-            }
-        );
-
-        window
-            .__IWP_COPILOT_OBSERVER__ =
-            observer;
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+        });
     }
-
 
     /* ============================================================
      * GLOBAL API
@@ -2673,104 +1623,42 @@
         loadHistory,
         saveHistory,
         deleteHistory,
-
         newConversation,
 
-        open:
-            openCopilot,
-
-        close:
-            closeCopilot,
-
-        toggle:
-            toggleCopilot,
-
-        isOpen:
-            isCopilotOpen,
+        open: openCopilot,
+        close: closeCopilot,
+        toggle: toggleCopilot,
+        isOpen: isCopilotOpen,
 
         refresh,
 
-        getMode:
-            () => mode,
-
-        getModel:
-            () => model,
-
-        getModels:
-            () =>
-                ALL_MODELS.slice(),
-
-        getHistory:
-            () =>
-                history.slice(),
-
-        getSessionId:
-            () =>
-                sessionId,
+        getMode: () => mode,
+        getModel: () => model,
+        getModels: () => ALL_MODELS.slice(),
+        getHistory: () => history.slice(),
+        getSessionId: () => sessionId,
 
         getToken,
-
         getUser
     };
 
-
     /* ============================================================
-     * INIT
+     * START
      * ============================================================ */
 
-    function init() {
-        const toc =
-            getTocView();
-
-        const copilot =
-            getCopilotView();
-
-        /*
-         * 初始保持目录。
-         */
-        if (
-            toc &&
-            copilot
-        ) {
-            copilot.style.display =
-                'none';
-
-            toc.style.display =
-                '';
-        }
-
-        copilotOpen =
-            false;
-
-        const button =
-            getCopilotButton();
-
-        if (button) {
-            button.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-        }
-
+    function start() {
         refresh();
-
         watchDOM();
     }
 
-
-    if (
-        document.readyState ===
-        'loading'
-    ) {
+    if (document.readyState === 'loading') {
         document.addEventListener(
             'DOMContentLoaded',
-            init,
-            {
-                once: true
-            }
+            start,
+            { once: true }
         );
     } else {
-        init();
+        start();
     }
 
 })();
