@@ -1,6 +1,6 @@
 /* ========== reader.js (完整修复版 - 错误分类 + 双参数兼容) ========== */
 const CONFIG = {
-    COMMENT_API: 'https://copilot.2167964516.workers.dev',
+    COMMENT_API: 'https://api.inputwebplease.de5.net',
     ADMIN_USERNAME: 'loading',
     CHAPTERS: [
         'notes/000/index.md', 'notes/001/index.md', 'notes/002/index.md', 'notes/003/index.md',
