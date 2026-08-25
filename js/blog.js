@@ -5,10 +5,10 @@
    - window.doLogin(username, password) 
    - window.doRegister(username, password) 
    - window.doLogout()
-   后端地址：https://copilot.2167964516.workers.dev
+   后端地址：https://api.inputwebplease.de5.net
 */
 
-const BLOG_API = 'https://copilot.2167964516.workers.dev';
+const BLOG_API = 'https://api.inputwebplease.de5.net';
 
 let blogState = {
   currentPostId: null,
