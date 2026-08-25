@@ -5,6 +5,8 @@
  * 新增：上下文预算进度条（输入框背景）
  * 修复：SSE 解析跳过非 JSON 行，兼容错误 content-type
  * 修复：错误响应兼容 SSE 格式
+ * 修复：侧边栏锁定逻辑（打开时不滚，关闭时恢复）
+ * 修复：AI对话框独立滚动（增加overflowY: auto）
  * ============================================================ */
 
 (function () {
@@ -752,7 +754,7 @@
     }
 
     /* ============================================================
-     * SIDEBAR / COPILOT VIEW
+     * SIDEBAR / COPILOT VIEW (已修改)
      * ============================================================ */
 
     function getSidebar() {
@@ -789,9 +791,13 @@
 
         copilot.style.display = 'flex';
 
+        // 【新增】保证 AI 面板自身占满高度并允许内部滚动
+        copilot.style.height = '100%';
+        copilot.style.overflowY = 'auto';
+
         copilotOpen = true;
 
-        sidebar.style.overflow = 'hidden';
+        sidebar.style.overflow = 'hidden'; // 锁住导航栏滚动
 
         if (isMobile()) {
             sidebar.classList.add('sidebar-open');
@@ -826,7 +832,7 @@
 
         copilotOpen = false;
 
-        sidebar.style.overflow = '';
+        sidebar.style.overflow = 'auto'; // 【修改】恢复导航栏滚动
 
         if (isMobile()) {
             sidebar.classList.remove('sidebar-open');
@@ -1743,7 +1749,7 @@
     }
 
     /* ============================================================
-     * DYNAMIC DOM
+     * DYNAMIC DOM (已优化防卡顿)
      * ============================================================ */
 
     function watchDOM() {
@@ -1758,7 +1764,7 @@
 
             timer = setTimeout(() => {
                 refresh();
-            }, 50);
+            }, 500); // 【修改】从50ms改为500ms，防止性能卡死导致滚动失效
         });
 
         observer.observe(document.documentElement, {
