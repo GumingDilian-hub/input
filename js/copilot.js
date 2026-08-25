@@ -10,7 +10,7 @@
 (function () {
     'use strict';
 
-    const API = 'https://copilot.2167964516.workers.dev';
+    const API = 'https://api.inputwebplease.de5.net';
     const LOGO = 'images/copilot/';
     const ADMIN = 'loading';
 
