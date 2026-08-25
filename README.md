@@ -1,6 +1,6 @@
 # IWP inputwenben please 请输入文本
 
-[![Website](https://img.shields.io/badge/gumingdilian--hub.github.io%2Finput-F8B8C8?style=for-the-badge)](https://inputwebplease.de5.net/reader.html)
+[![Website](https://img.shields.io/badge/gumingdilian--hub%2Finput-F8B8C8?style=for-the-badge)](https://inputwebplease.de5.net/reader.html)
 
 ![License](https://img.shields.io/badge/noteslicense-CC%20BY--NC--SA%204.0-lightgrey)
 ![License](https://img.shields.io/badge/codeslicense-Apache2.0-lightgrey)
