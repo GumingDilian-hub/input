@@ -206,7 +206,7 @@
         };
 
         const register = document.createElement('button');
-        register.textContent = '注册';
+        register.textContent = '由于不可控原因，请任意打开一篇文章的评论区注册';
         register.onclick = () => renderRegister(box, username.field.value.trim(), password.field.value);
         actions.append(login, register);
         box.append(username.wrap, password.wrap, actions);
