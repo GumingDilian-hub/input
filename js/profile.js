@@ -1,7 +1,7 @@
 /* IWP Profile — same profile-panel UI, unified directly with the Worker. */
 (function () {
     'use strict';
-    const API = 'https://copilot.2167964516.workers.dev';
+    const API = 'https://api.inputwebplease.de5.net';
     const KEY = 'iwp-user';
     const DEFAULT_AVATAR = 'images/0721.jpg';
     let suppressAuthRender = false;
