@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IWP AXON</title>
+    <title>micwanna icatch</title>
     <link rel="icon" type="image/png" href="images/0741.png?v=1">
     <link rel="stylesheet" href="css/style.css?v=7">
     <!-- KaTeX -->
@@ -267,11 +267,11 @@
 
     <div id="app">
         <div id="toolbar">
-            <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">返回首页</button>
-            <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">搜索</button>
-            <button id="btn-profile" class="toolbar-btn" onclick="openProfile()">个人中心</button>
-            <button id="btn-copilot" class="toolbar-btn">Copilot</button>
-            <button id="btn-hamburger" class="toolbar-btn" onclick="toggleSidebar()">☰</button>
+            <button id="btn-home" class="toolbar-btn" onclick="location.href='index.html'">首页</button>
+            <button id="btn-search" class="toolbar-btn" onclick="toggleSearchPanel()">嗖搜</button>
+            <button id="btn-profile" class="toolbar-btn" onclick="openProfile()">家是本</button>
+            <button id="btn-copilot" class="toolbar-btn">Cobrush</button>
+            <button id="btn-hamburger" class="toolbar-btn" onclick="toggleSidebar()">导航</button>
         </div>
 
         <div id="search-panel" class="panel-hidden">
@@ -308,7 +308,7 @@
             <div id="sidebar-copilot-view" class="sidebar-view" style="display:none; flex-direction:column; height:100%;">
                 <!-- 顶部标题栏（含历史按钮） -->
                 <div style="padding: 0.5rem 1rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444; flex-shrink:0;">
-                    <span style="font-weight:600;">Copilot</span>
+                    <span style="font-weight:600;">Cobrush</span>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <button id="copilot-history-toggle" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:0.9rem;">历史</button>
                         <button id="copilot-new-chat" style="background:transparent; border:none; color:#ccc; cursor:pointer; font-size:1.0rem;">新对话</button>
@@ -335,7 +335,7 @@
                         <div id="copilot-mode-options" style="position:absolute; bottom:100%; left:0; background:#2d2d2d; border:1px solid #555; border-radius:4px; min-width:120px; display:none; z-index:10; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
                             <div class="copilot-mode-option" data-mode="note">本站笔记</div>
                             <div class="copilot-mode-option" data-mode="textbook">知识库</div>
-                            <div class="copilot-mode-option" data-mode="whiteboard">白板AI</div>
+                            <div class="copilot-mode-option" data-mode="whiteboard">皆若空游无所依</div>
                         </div>
                     </div>
 
@@ -608,7 +608,7 @@
             const btn = document.createElement('button');
             btn.id = 'pdf-export-btn';
             btn.className = 'toolbar-btn';
-            btn.textContent = 'PDF 导出';
+            btn.textContent = '导出文档';
             btn.addEventListener('click', openModal);
             toolbar.appendChild(btn);
         }
