@@ -10,7 +10,7 @@ const CONFIG = {
         'notes/016/index.md', 'notes/017/index.md', 'notes/018/index.md', 'notes/019/index.md'
     ],
     AUTHOR_MD: 'notes/000/index.md',
-    DEFAULT_AVATAR: 'images/0721.png'
+    DEFAULT_AVATAR: 'images/0721.jpg'
 };
 
 let state = {
