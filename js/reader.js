@@ -709,7 +709,12 @@ function extractAndRemoveFrontMatter(md) {
 
 function postProcessImages(container, chapterNum) {
     container.querySelectorAll('img').forEach(img => {
-        img.onerror = function() { this.src = CONFIG.DEFAULT_AVATAR; };
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.onerror = function() {
+            this.classList.add('image-load-error');
+            console.warn('[image] load failed:', this.currentSrc || this.src);
+        };
         const alt = img.alt || '';
         const match = alt.match(/\{(left|right|around|center)\s*(?:width=(\d+))?\}/);
         if (match) {
@@ -734,21 +739,94 @@ function postProcessFigure(container) {
     container.querySelectorAll('.iwp-figure').forEach(node => {
         const pos = node.getAttribute('data-pos') || 'center';
         const img = node.querySelector('img');
-        const caption = node.querySelector('.figure-caption') ? node.querySelector('.figure-caption').textContent : '';
+        const captionEl = node.querySelector('.figure-caption');
+        const caption = captionEl ? captionEl.textContent : '';
         const wrapper = document.createElement('div');
         wrapper.className = 'figure-container figure-' + pos;
-        const imgEl = document.createElement('img');
-        imgEl.src = img ? img.getAttribute('src') : '';
-        imgEl.alt = caption ? escapeHtml(caption) : '';
-        imgEl.className = 'iwp-img-' + pos;
+
+        if (img) {
+            img.classList.add('iwp-img-' + pos);
+            img.loading = img.loading || 'lazy';
+            img.decoding = img.decoding || 'async';
+            wrapper.appendChild(img);
+        }
+
         const cap = document.createElement('div');
         cap.className = 'figure-caption';
-        cap.textContent = caption ? caption : '';
-        wrapper.appendChild(imgEl);
+        cap.textContent = caption;
         wrapper.appendChild(cap);
         node.parentNode.replaceChild(wrapper, node);
     });
 }
+
+async function prepareForCapture() {
+    const body = document.getElementById('article-body');
+    if (!body) return;
+
+    // 截图/PDF 前显式关闭屏幕外内容跳过，并强制所有图片进入可加载状态。
+    body.classList.add('capture-mode');
+    const sections = body.querySelectorAll('.section-wrapper');
+    sections.forEach(section => {
+        section.style.contentVisibility = 'visible';
+        section.style.containIntrinsicSize = 'auto';
+    });
+
+    const images = Array.from(body.querySelectorAll('img'));
+    images.forEach(img => {
+        img.loading = 'eager';
+        img.decoding = 'sync';
+    });
+
+    await Promise.all(images.map(async img => {
+        try {
+            if (!img.complete) {
+                await new Promise(resolve => {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                });
+            }
+            if (img.complete && typeof img.decode === 'function') {
+                await img.decode().catch(() => {});
+            }
+        } catch (_) {}
+    }));
+
+    // 给布局、图片解码和字体排版一个稳定的绘制机会。
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function restoreAfterCapture() {
+    const body = document.getElementById('article-body');
+    if (!body) return;
+    body.classList.remove('capture-mode');
+    body.querySelectorAll('img').forEach(img => {
+        img.loading = 'lazy';
+        img.decoding = 'async';
+    });
+    body.querySelectorAll('.section-wrapper').forEach(section => {
+        section.style.contentVisibility = 'auto';
+        section.style.containIntrinsicSize = 'auto 500px';
+    });
+}
+
+window.prepareForCapture = prepareForCapture;
+window.restoreAfterCapture = restoreAfterCapture;
+
+window.addEventListener('beforeprint', () => {
+    const body = document.getElementById('article-body');
+    if (!body) return;
+    body.classList.add('capture-mode');
+    body.querySelectorAll('.section-wrapper').forEach(section => {
+        section.style.contentVisibility = 'visible';
+        section.style.containIntrinsicSize = 'auto';
+    });
+    body.querySelectorAll('img').forEach(img => {
+        img.loading = 'eager';
+        img.decoding = 'sync';
+    });
+});
+
+window.addEventListener('afterprint', restoreAfterCapture);
 
 function renderMath() {
     const body = document.getElementById('article-body');
