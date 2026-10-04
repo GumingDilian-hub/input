@@ -830,12 +830,26 @@ async function prepareForCapture() {
     const body = document.getElementById('article-body');
     if (!body) return;
 
-    // 截图/PDF 前显式关闭屏幕外内容跳过，并强制所有图片进入可加载状态。
+    // 截图/PDF 是“完整渲染模式”：取消屏幕外跳过，并完成所有延迟渲染。
+    if (window.contentRenderPromise) {
+        await window.contentRenderPromise;
+    }
+
     body.classList.add('capture-mode');
-    const sections = body.querySelectorAll('.section-wrapper');
-    sections.forEach(section => {
+    body.querySelectorAll('.section-wrapper').forEach(section => {
         section.style.contentVisibility = 'visible';
         section.style.containIntrinsicSize = 'auto';
+        renderMath(section);
+
+        if (typeof hljs !== 'undefined') {
+            section.querySelectorAll('pre code').forEach(block => {
+                if (block.dataset.highlighted === 'true') return;
+                try {
+                    hljs.highlightElement(block);
+                    block.dataset.highlighted = 'true';
+                } catch (_) {}
+            });
+        }
     });
 
     const images = Array.from(body.querySelectorAll('img'));
@@ -858,9 +872,9 @@ async function prepareForCapture() {
         } catch (_) {}
     }));
 
-    // 给布局、图片解码和字体排版一个稳定的绘制机会。
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
+
 
 function restoreAfterCapture() {
     const body = document.getElementById('article-body');
