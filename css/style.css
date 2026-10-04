@@ -1,8 +1,26 @@
 /* ========== 基础重置与全局深色主题 ========== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ⭐ 新增：让所有可交互元素默认带极简过渡（不影响性能） */
-* { transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* 仅对常用交互元素启用过渡，避免大型文章 DOM 上的全局 transition 开销 */
+button, a, input, textarea, select, .toc-item, .comment-toggle {
+    transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media print {
+    .section-wrapper {
+        content-visibility: visible !important;
+        contain-intrinsic-size: none !important;
+    }
+}
 
 html {
     scroll-behavior: smooth; /* ⭐ 让页面滚动丝滑 */
