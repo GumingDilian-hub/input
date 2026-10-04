@@ -611,48 +611,115 @@ async function loadAllContent() {
     const progressText = document.getElementById('progress-text');
     if (!body) return;
     const total = CONFIG.CHAPTERS.length;
-    const fetchPromises = CONFIG.CHAPTERS.map((path) =>
-        fetch(path)
-            .then(resp => resp.ok ? resp.text() : Promise.reject(new Error('404')))
-            .then(text => processMarkdown(text, path))
-            .catch(err => {
-                console.warn('Load failed: ' + path, err);
-                return { meta: null, content: '', chapterNum: 'unknown' };
-            })
-    );
-    const settled = await Promise.allSettled(fetchPromises);
-    const results = settled.map((s, i) => {
-        if (s.status === 'fulfilled') return s.value;
-        return { meta: null, content: '', chapterNum: CONFIG.CHAPTERS[i].split('/')[1] || 'unknown' };
-    });
+
+    const results = await Promise.all(CONFIG.CHAPTERS.map(async path => {
+        try {
+            const resp = await fetch(path);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return processMarkdown(await resp.text(), path);
+        } catch (err) {
+            console.warn('[chapter] Load failed:', path, err);
+            return { meta: null, content: '', chapterNum: path.split('/')[1] || 'unknown' };
+        }
+    }));
+
     renderVersionInfo(results);
-    if (progressText) progressText.textContent = '少女祈祷中...';
     body.innerHTML = '';
-    for (let i = 0; i < results.length; i++) {
-        const chunk = results[i].content;
-        if (!chunk) continue;
+    window.__chapterSections = [];
+    window.__chapterResults = results;
+
+    const renderOne = (result, index) => {
+        if (!result.content) return null;
         const sectionDiv = document.createElement('div');
         sectionDiv.className = 'section-wrapper clearfix';
+        sectionDiv.dataset.chapterIndex = String(index);
         sectionDiv.style.contentVisibility = 'auto';
         sectionDiv.style.containIntrinsicSize = 'auto 500px';
         try {
-            sectionDiv.innerHTML = marked.parse(chunk);
-        } catch (e) {
+            sectionDiv.innerHTML = marked.parse(result.content);
+        } catch (_) {
             sectionDiv.innerHTML = '<p>[少女折寿中]</p>';
         }
-        postProcessImages(sectionDiv, results[i].chapterNum);
+        postProcessImages(sectionDiv, result.chapterNum);
         postProcessFigure(sectionDiv);
-        sectionDiv.querySelectorAll('pre code').forEach(b => {
-            try { hljs.highlightElement(b); } catch (e) {}
-        });
         body.appendChild(sectionDiv);
-        if (progressText) progressText.textContent = '少女祈祷中... ' + (i + 1) + '/' + total;
-        await new Promise(resolve => setTimeout(resolve, 0));
+        window.__chapterSections[index] = sectionDiv;
+        scheduleCodeHighlight(sectionDiv);
+        renderMath(sectionDiv);
+        return sectionDiv;
+    };
+
+    let rendered = 0;
+    const renderRemaining = i => {
+        if (window.__chapterSections[i]) return;
+        if (renderOne(results[i], i)) rendered++;
+        if (progressText) progressText.textContent = '少女祈祷中... ' + rendered + '/' + total;
+        if (i === results.length - 1) finishContentRender(body, progressText);
+    };
+
+    if (results.length) {
+        renderRemaining(0);
+        if (progressText) progressText.textContent = '少女祈祷中... ' + Math.max(rendered, 1) + '/' + total;
     }
-    renderMath();
-    buildTOC();
-    if (progressText) progressText.parentElement.classList.add('hidden');
+
+    for (let i = 1; i < results.length; i++) {
+        const task = () => renderRemaining(i);
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(task, { timeout: 1200 + i * 300 });
+        } else {
+            setTimeout(task, i * 40);
+        }
+    }
+
+    if (results.length <= 1) finishContentRender(body, progressText);
+
+    await new Promise(resolve => {
+        const expected = results.filter(r => r.content).length;
+        const check = () => {
+            if (window.__chapterSections.filter(Boolean).length >= expected) resolve();
+            else setTimeout(check, 30);
+        };
+        check();
+    });
 }
+
+function finishContentRender(body, progressText) {
+    buildTOC();
+    if (progressText && progressText.parentElement) progressText.parentElement.classList.add('hidden');
+    window.__contentFullyRendered = true;
+}
+
+function scheduleCodeHighlight(container) {
+    if (!container || typeof hljs === 'undefined') return;
+    const blocks = Array.from(container.querySelectorAll('pre code'));
+    if (!blocks.length) return;
+
+    const highlight = block => {
+        if (block.dataset.highlighted === 'true') return;
+        try {
+            hljs.highlightElement(block);
+            block.dataset.highlighted = 'true';
+        } catch (_) {}
+    };
+
+    if (!('IntersectionObserver' in window)) {
+        setTimeout(() => blocks.forEach(highlight), 0);
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                highlight(entry.target);
+                obs.unobserve(entry.target);
+            }
+        });
+    }, { root: document.getElementById('content'), rootMargin: '700px 0px' });
+
+    blocks.forEach(block => observer.observe(block));
+    container._codeHighlightObserver = observer;
+}
+
 
 function processMarkdown(md, path) {
     const { meta, content } = extractAndRemoveFrontMatter(md);
@@ -828,18 +895,23 @@ window.addEventListener('beforeprint', () => {
 
 window.addEventListener('afterprint', restoreAfterCapture);
 
-function renderMath() {
-    const body = document.getElementById('article-body');
-    if (body && typeof renderMathInElement === 'function') {
-        renderMathInElement(body, {
+function renderMath(container) {
+    const target = container || document.getElementById('article-body');
+    if (!target || typeof renderMathInElement !== 'function' || target.dataset.mathRendered === 'true') return;
+    try {
+        renderMathInElement(target, {
             delimiters: [
                 { left: '$$', right: '$$', display: true },
                 { left: '$', right: '$', display: false }
             ],
             throwOnError: false
         });
+        target.dataset.mathRendered = 'true';
+    } catch (e) {
+        console.warn('[math] render failed:', e);
     }
 }
+
 
 function renderVersionInfo(results) {
     let versionMeta = null;
@@ -959,265 +1031,186 @@ function initSearch() {
     const results = document.getElementById('search-results');
     if (!input || !results) return;
     let debounceTimer;
-    let textNodeMap = new WeakMap();
+    let searchIndex = [];
+    let indexReady = false;
 
-    function buildHeadingMap() {
-        textNodeMap = new WeakMap();
-        const body = document.getElementById('article-body');
-        if (!body) return;
-        let currentHeading = '未分类';
-        const walker = document.createTreeWalker(
-            body,
-            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-        let node;
-        while ((node = walker.nextNode())) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                const tag = node.tagName;
-                if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-                    currentHeading = node.textContent.trim();
-                }
-            } else if (node.nodeType === Node.TEXT_NODE) {
-                if (node.textContent.trim()) {
-                    textNodeMap.set(node, currentHeading);
-                }
-            }
-        }
-    }
-    setTimeout(buildHeadingMap, 500);
-
-    function findNearestHeading(node) {
-        if (textNodeMap.has(node)) {
-            return textNodeMap.get(node);
-        }
-        if (node.parentElement) {
-            const heading = node.parentElement.closest('h1, h2, h3');
-            if (heading) return heading.textContent.trim();
-        }
-        const h1 = document.querySelector('#article-body h1');
-        return h1 ? h1.textContent.trim() : '未分类';
+    function rebuildSearchIndex() {
+        searchIndex = Array.from(document.querySelectorAll('#article-body .section-wrapper')).map((section, index) => ({
+            index,
+            section,
+            text: section.textContent.replace(/\s+/g, ' ').trim(),
+            heading: (section.querySelector('h1,h2,h3') || {}).textContent || '未分类'
+        })).filter(item => item.text);
+        indexReady = true;
     }
 
-    function extractContext(text, start, end, maxLen = 10) {
-        const fullLen = text.length;
-        let ctxStart = Math.max(0, start - maxLen);
-        let ctxEnd = Math.min(fullLen, end + maxLen);
-        if (ctxStart > 0) {
-            const spaceBefore = text.lastIndexOf(' ', start);
-            if (spaceBefore > 0 && start - spaceBefore < maxLen) {
-                ctxStart = spaceBefore + 1;
-            }
-        }
-        if (ctxEnd < fullLen) {
-            const spaceAfter = text.indexOf(' ', end);
-            if (spaceAfter > 0 && spaceAfter - end < maxLen) {
-                ctxEnd = spaceAfter;
-            }
-        }
-        let prefix = text.slice(ctxStart, start);
-        let match = text.slice(start, end);
-        let suffix = text.slice(end, ctxEnd);
-        if (ctxStart > 0) prefix = '…' + prefix;
-        if (ctxEnd < fullLen) suffix = suffix + '…';
-        return { prefix, match, suffix };
+    function context(text, start, end, size) {
+        const a = Math.max(0, start - size), b = Math.min(text.length, end + size);
+        return (a ? '…' : '') + text.slice(a, start) + '【' + text.slice(start, end) + '】' + text.slice(end, b) + (b < text.length ? '…' : '');
     }
 
     async function performSearch(term) {
-        if (!window.contentRenderComplete && window.contentRenderPromise) {
-            await window.contentRenderPromise;
-        }
+        if (window.contentRenderPromise) await window.contentRenderPromise;
         results.innerHTML = '';
-        if (!term || !term.trim()) {
-            clearHighlight();
-            return;
-        }
         clearHighlight();
-        buildHeadingMap();
-        const body = document.getElementById('article-body');
-        if (!body) return;
-        const walker = document.createTreeWalker(
-            body,
-            NodeFilter.SHOW_TEXT, {
-                acceptNode: (node) => {
-                    if (node.parentElement.closest('style, script, .search-highlight'))
-                        return NodeFilter.FILTER_REJECT;
-                    return NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
-        const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
+        term = term.trim();
+        if (!term) return;
+        if (!indexReady) rebuildSearchIndex();
+
+        const q = term.toLowerCase();
         const matches = [];
-        let node;
-        while ((node = walker.nextNode())) {
-            const text = node.textContent;
-            let match;
-            regex.lastIndex = 0;
-            while ((match = regex.exec(text)) !== null) {
-                matches.push({
-                    textNode: node,
-                    start: match.index,
-                    end: regex.lastIndex,
-                    matchText: match[0],
-                    heading: findNearestHeading(node)
-                });
+        for (const item of searchIndex) {
+            const text = item.text.toLowerCase();
+            let from = 0;
+            while (true) {
+                const pos = text.indexOf(q, from);
+                if (pos < 0) break;
+                matches.push({ item, start: pos, end: pos + q.length });
+                from = pos + Math.max(1, q.length);
+                if (matches.length >= 100) break;
             }
+            if (matches.length >= 100) break;
         }
-        if (matches.length === 0) {
+
+        if (!matches.length) {
             const empty = document.createElement('div');
             empty.style.color = '#999';
             empty.textContent = '没有找到匹配内容';
             results.appendChild(empty);
             return;
         }
+
         matches.forEach((m, idx) => {
-            const fullText = m.textNode.textContent;
-            const ctx = extractContext(fullText, m.start, m.end, 10);
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            const headingDiv = document.createElement('div');
-            headingDiv.className = 'result-heading';
-            headingDiv.textContent = '# ' + m.heading;
-            headingDiv.style.fontWeight = 'bold';
-            headingDiv.style.color = '#88b4e6';
-            headingDiv.style.fontSize = '0.85rem';
-            headingDiv.style.marginBottom = '2px';
-            div.appendChild(headingDiv);
-            const contextDiv = document.createElement('div');
-            contextDiv.className = 'result-context';
-            contextDiv.style.fontSize = '0.85rem';
-            contextDiv.style.color = '#ccc';
-            const displayHtml = escapeHtml(ctx.prefix) + '<strong>' + escapeHtml(ctx.match) + '</strong>' + escapeHtml(ctx.suffix);
-            contextDiv.innerHTML = displayHtml;
-            div.appendChild(contextDiv);
-            div.addEventListener('click', () => {
-                highlightSearchTerm(term.trim(), idx);
-            });
+            const h = document.createElement('div');
+            h.className = 'result-heading';
+            h.textContent = '# ' + m.item.heading.trim();
+            h.style.cssText = 'font-weight:bold;color:#88b4e6;font-size:0.85rem;margin-bottom:2px;';
+            const c = document.createElement('div');
+            c.className = 'result-context';
+            c.textContent = context(m.item.text, m.start, m.end, 24);
+            c.style.cssText = 'font-size:0.85rem;color:#ccc;';
+            div.appendChild(h);
+            div.appendChild(c);
+            div.addEventListener('click', () => highlightSearchTerm(term, idx));
             results.appendChild(div);
         });
     }
 
     input.addEventListener('input', () => {
         clearTimeout(debounceTimer);
-        const q = input.value.trim();
-        debounceTimer = setTimeout(() => {
-            performSearch(q).catch(e => console.error(e));
-        }, 300);
+        debounceTimer = setTimeout(() => performSearch(input.value).catch(console.error), 220);
     });
-    window.rebuildHeadingMap = buildHeadingMap;
+
+    window.rebuildSearchMap = () => { rebuildSearchIndex(); };
+    if (window.contentRenderPromise) window.contentRenderPromise.then(rebuildSearchIndex);
 }
 
 function clearHighlight() {
-    const highlights = document.querySelectorAll('.search-highlight');
-    highlights.forEach(span => {
+    document.querySelectorAll('#article-body .search-highlight').forEach(span => {
         const parent = span.parentNode;
-        parent.replaceChild(document.createTextNode(span.textContent), span);
-        parent.normalize();
+        if (parent) {
+            parent.replaceChild(document.createTextNode(span.textContent), span);
+            parent.normalize();
+        }
     });
-}
-
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function highlightSearchTerm(term, targetIndex = 0) {
-    if (!term || !term.trim()) {
-        clearHighlight();
-        return;
-    }
+    const query = term.trim().toLowerCase();
+    if (!query) return;
     clearHighlight();
-    const body = document.getElementById('article-body');
-    if (!body) return;
-    const walker = document.createTreeWalker(
-        body,
-        NodeFilter.SHOW_TEXT, {
-            acceptNode: (node) => {
-                if (node.parentElement.closest('style, script, .search-highlight'))
-                    return NodeFilter.FILTER_REJECT;
-                return NodeFilter.FILTER_ACCEPT;
+
+    const hits = [];
+    const sections = document.querySelectorAll('#article-body .section-wrapper');
+    sections.forEach(section => {
+        const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT, {
+            acceptNode: node => node.parentElement.closest('style,script,.search-highlight,pre,code')
+                ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
+        let node;
+        while ((node = walker.nextNode())) {
+            const text = node.textContent, lower = text.toLowerCase();
+            let from = 0;
+            while (true) {
+                const pos = lower.indexOf(query, from);
+                if (pos < 0) break;
+                hits.push({ node, start: pos, end: pos + query.length });
+                from = pos + Math.max(1, query.length);
             }
         }
-    );
-    const regex = new RegExp(escapeRegExp(term.trim()), 'gi');
-    const textNodes = [];
-    let node;
-    while ((node = walker.nextNode())) textNodes.push(node);
-    const highlights = [];
-    textNodes.forEach(textNode => {
-        const text = textNode.textContent;
-        if (!regex.test(text)) return;
-        regex.lastIndex = 0;
+    });
+
+    const byNode = new Map();
+    hits.forEach(hit => {
+        if (!byNode.has(hit.node)) byNode.set(hit.node, []);
+        byNode.get(hit.node).push(hit);
+    });
+
+    const highlighted = [];
+    byNode.forEach((nodeHits, node) => {
+        const text = node.textContent;
         const frag = document.createDocumentFragment();
-        let lastIndex = 0;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            const before = text.slice(lastIndex, match.index);
-            if (before) frag.appendChild(document.createTextNode(before));
+        let last = 0;
+        nodeHits.forEach(hit => {
+            if (hit.start > last) frag.appendChild(document.createTextNode(text.slice(last, hit.start)));
             const span = document.createElement('span');
             span.className = 'search-highlight';
-            span.textContent = match[0];
+            span.textContent = text.slice(hit.start, hit.end);
             frag.appendChild(span);
-            highlights.push(span);
-            lastIndex = regex.lastIndex;
-        }
-        if (lastIndex < text.length) {
-            frag.appendChild(document.createTextNode(text.slice(lastIndex)));
-        }
-        textNode.parentNode.replaceChild(frag, textNode);
+            highlighted.push(span);
+            last = hit.end;
+        });
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        node.parentNode.replaceChild(frag, node);
     });
-    if (targetIndex >= 0 && targetIndex < highlights.length) {
-        highlights[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else if (highlights.length > 0) {
-        highlights[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+
+    const target = highlighted[targetIndex] || highlighted[0];
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
 
 function initScrollSpy() {
     const tocItems = $$('.toc-item');
     const autoCheckbox = document.getElementById('auto-scroll-checkbox');
     const rootEl = document.getElementById('content');
+    let activeItems = new Set();
 
     function highlightChain(targetId) {
-        tocItems.forEach(i => i.classList.remove('active'));
-        let current = $('.toc-item[data-target="' + targetId + '"]');
+        const next = new Set();
+        let current = document.querySelector('.toc-item[data-target="' + targetId + '"]');
         while (current) {
-            current.classList.add('active');
+            next.add(current);
             const parentId = current.getAttribute('data-parent');
-            if (parentId) {
-                current = $('.toc-item[data-target="' + parentId + '"]');
-            } else break;
+            current = parentId ? document.querySelector('.toc-item[data-target="' + parentId + '"]') : null;
         }
+        activeItems.forEach(item => { if (!next.has(item)) item.classList.remove('active'); });
+        next.forEach(item => { if (!activeItems.has(item)) item.classList.add('active'); });
+        activeItems = next;
     }
 
     function scrollTocTo(targetId) {
         if (!autoCheckbox || !autoCheckbox.checked) return;
-        const item = $('.toc-item[data-target="' + targetId + '"]');
+        const item = document.querySelector('.toc-item[data-target="' + targetId + '"]');
         if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-    const observer = new IntersectionObserver((entries) => {
-        let topMostEntry = null;
+
+    if (!('IntersectionObserver' in window)) return;
+    const observer = new IntersectionObserver(entries => {
+        let top = null;
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                if (!topMostEntry || entry.boundingClientRect.top < topMostEntry.boundingClientRect.top) {
-                    topMostEntry = entry;
-                }
-            }
+            if (entry.isIntersecting && (!top || entry.boundingClientRect.top < top.boundingClientRect.top)) top = entry;
         });
-        if (topMostEntry) {
-            const id = topMostEntry.target.id;
-            highlightChain(id);
-            scrollTocTo(id);
+        if (top) {
+            highlightChain(top.target.id);
+            scrollTocTo(top.target.id);
         }
-    }, {
-        root: rootEl,
-        rootMargin: '-10% 0px -70% 0px',
-        threshold: 0
-    });
-    $$('#article-body h1, #article-body h2, #article-body h3').forEach(h => {
-        try { observer.observe(h); } catch (e) {}
-    });
+    }, { root: rootEl, rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+
+    $$('#article-body h1, #article-body h2, #article-body h3').forEach(h => observer.observe(h));
 }
+
 
 function initProgress() {
     const content = document.getElementById('content');
