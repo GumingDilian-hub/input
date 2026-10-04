@@ -650,11 +650,21 @@ async function loadAllContent() {
     };
 
     let rendered = 0;
+    const expected = results.filter(r => r.content).length;
+    let finished = false;
+
+    const finishIfComplete = () => {
+        if (!finished && rendered >= expected) {
+            finished = true;
+            finishContentRender(body, progressText);
+        }
+    };
+
     const renderRemaining = i => {
         if (window.__chapterSections[i]) return;
         if (renderOne(results[i], i)) rendered++;
         if (progressText) progressText.textContent = '少女祈祷中... ' + rendered + '/' + total;
-        if (i === results.length - 1) finishContentRender(body, progressText);
+        finishIfComplete();
     };
 
     if (results.length) {
@@ -671,13 +681,16 @@ async function loadAllContent() {
         }
     }
 
-    if (results.length <= 1) finishContentRender(body, progressText);
+    if (results.length <= 1) finishIfComplete();
 
     await new Promise(resolve => {
-        const expected = results.filter(r => r.content).length;
         const check = () => {
-            if (window.__chapterSections.filter(Boolean).length >= expected) resolve();
-            else setTimeout(check, 30);
+            if (window.__chapterSections.filter(Boolean).length >= expected) {
+                finishIfComplete();
+                resolve();
+            } else {
+                setTimeout(check, 30);
+            }
         };
         check();
     });
