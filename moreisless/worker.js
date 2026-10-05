@@ -743,6 +743,7 @@ async function milHistoricalImport(request,env,u){
   return json({success:true,count:inserted.length,rows:inserted});
 }
 async function milHistoricalList(env,u,studentId){
+  if(u.role==='student')studentId=u.id;
   const r=studentId
     ? await env.DB.prepare('SELECT id,student_id,student_name,source_name,exam_date,mode,score,metadata_json,created_at FROM historical_scores WHERE school_id=? AND student_id=? ORDER BY exam_date DESC,created_at DESC LIMIT 500').bind(u.school_id,studentId).all()
     : await env.DB.prepare('SELECT id,student_id,student_name,source_name,exam_date,mode,score,metadata_json,created_at FROM historical_scores WHERE school_id=? ORDER BY exam_date DESC,created_at DESC LIMIT 1000').bind(u.school_id).all();
