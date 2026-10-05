@@ -6,38 +6,18 @@
 
 const MAX_USERNAME_LENGTH = 32, MAX_PASSWORD_LENGTH = 128, MAX_TITLE_LENGTH = 200, MAX_CONTENT_LENGTH = 500000, MAX_COMMENT_LENGTH = 5000;
 
-const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct', ROUTER_MODEL = 'nvidia/nemotron-3-super-120b-a12b', TOC_CACHE_TTL = 60 * 60 * 1000;
+const DEFAULT_MODEL = 'nvidia/nemotron-3-super-120b-a12b', ROUTER_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b', TOC_CACHE_TTL = 60 * 60 * 1000;
 
 const MODEL_LIST = [
-  { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA 3 super', icon: '1.png' },
-  { id: 'nvidia/nemotron-3-ultra-550b-a55b', name: 'NVIDIA 3 Ultra', icon: '1.png' },
-  { id: 'meta/llama-3.3-70b-instruct', name: 'Meta 3.3', icon: '2.png' },
-  { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Meta 3.2 视觉', icon: '2.png' },
-  { id: 'openai/gpt-oss-120b', name: 'ChatGPT', icon: '3.png' },
-  { id: 'openai/gpt-oss-20b', name: 'CatGPT', icon: '3.png' },
-  { id: 'minimaxai/minimax-m3', name: 'MiniMax', icon: '5.png' },
-  { id: 'deepseek-ai/deepseek-v4-flash', name: 'DeepSeek V4', icon: '6.png' },
-  { id: 'deepseek-ai/deepseek-v4-flash-0731', name: 'DeepSeek V4 (0731)', icon: '6.png' },
-  { id: 'google/diffusiongemma-26b-a4b-it', name: 'Diffusion Gemma', icon: '4.png' },
-  { id: 'z-ai/glm4.7', name: 'GLM 4.7', icon: '7.png' },
-  { id: 'google/gemma-4-31b-it', name: 'Google Gemma 4', icon: '4.png' }
+  { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 Super', icon: '1.png' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b', name: 'NVIDIA Nemotron 3 Ultra', icon: '1.png' }
 ];
 const VALID_MODELS = new Set(MODEL_LIST.map(m => m.id));
 
 // 模型上下文上限（字符数，用于后端硬性校验）
 const MODEL_CHAR_LIMITS = {
   'nvidia/nemotron-3-super-120b-a12b': 480000,
-  'nvidia/nemotron-3-ultra-550b-a55b': 480000,
-  'meta/llama-3.3-70b-instruct': 60000,
-  'meta/llama-3.2-90b-vision-instruct': 60000,
-  'openai/gpt-oss-120b': 60000,
-  'openai/gpt-oss-20b': 60000,
-  'minimaxai/minimax-m3': 480000,
-  'deepseek-ai/deepseek-v4-flash': 480000,
-  'deepseek-ai/deepseek-v4-flash-0731': 480000,
-  'z-ai/glm4.7': 60000,
-  'google/diffusiongemma-26b-a4b-it': 100000,
-  'google/gemma-4-31b-it': 100000
+  'nvidia/nemotron-3-ultra-550b-a55b': 480000
 };
 const DEFAULT_CHAR_LIMIT = 60000;
 
