@@ -508,3 +508,15 @@ async function milErrorView(){
 }
 views.profile=()=>{milProfileView();return '<div class="empty">正在加载画像…</div>'};
 views.errors=()=>{milErrorView();return '<div class="empty">正在加载错题本…</div>'};
+
+async function milGeneratedQuestionsView(){
+  if(milRole()!=="coach"){content.innerHTML='<div class="empty">只有教练可以生成新题。</div>';return}
+  let students=[];try{const d=await MoreIsLessAPI.historical();const ids=[...new Set((d.rows||[]).filter(x=>x.student_id).map(x=>x.student_id))];students=ids.map(id=>({id,name:(d.rows.find(x=>x.student_id===id)||{}).student_name||("学生 #"+id)}))}catch{}
+  content.innerHTML=`<div class="view-head"><div><h2>AI 新题生成</h2><p>仅使用 NVIDIA 模型；生成结果标记为原创练习题，不冒充真实赛事题。</p></div></div><div class="panel form-panel"><div class="form-grid"><label>学生<select id="gen-student">${students.map(s=>`<option value="${s.id}">${milEscText(s.name)}</option>`).join("")}</select></label><label>题数<input id="gen-count" type="number" min="1" max="10" value="5"></label></div><div class="form-actions"><button class="primary" onclick="milGenerateQuestions()">生成</button></div></div><div id="generated-box"></div>`;
+}
+async function milGenerateQuestions(){
+  const sid=Number(document.getElementById("gen-student")?.value),count=Number(document.getElementById("gen-count")?.value||5);if(!sid)return;
+  const box=document.getElementById("generated-box");box.innerHTML='<div class="empty">NVIDIA 正在根据学生错题生成练习题…</div>';
+  try{const d=await MoreIsLessAPI.generateQuestions(sid,count);box.innerHTML=`<div class="panel"><div class="panel-title"><h3>生成结果</h3><span class="tag">${milEscText(d.model)}</span></div>${(d.questions||[]).map((q,i)=>`<article class="generated-q"><div class="q-no">AI-${String(i+1).padStart(2,"0")}</div><h3>${milEscText(q.stem)}</h3><div class="option-grid">${Object.entries(q.options||{}).map(([k,v])=>`<div><strong>${k}</strong> ${milEscText(v)}</div>`).join("")}</div><div class="generated-answer">答案：${milEscText(q.answer||"")} · ${milEscText(q.explanation||"")}</div></article>`).join("")}</div>`}catch(e){box.innerHTML=`<div class="empty">${milEscText(e.message||"生成失败")}</div>`}
+}
+views.generated=()=>{milGeneratedQuestionsView();return '<div class="empty">正在加载…</div>'};
