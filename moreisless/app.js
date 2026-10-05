@@ -438,3 +438,50 @@ window.addEventListener("load",async()=>{
   else milAuthShell();
 });
 if(MoreIsLessAPI.getToken()){milEnterApp()}else milAuthShell();
+
+async function milStudentsView(){
+  let rows=[];try{rows=(await MoreIsLessAPI.historical()).rows||[]}catch{}
+  const by={};for(const x of rows){const k=x.student_id||x.student_name;by[k]??=[];by[k].push(x)}
+  content.innerHTML=`<div class="view-head"><div><h2>学生与历史成绩</h2><p>历史成绩保留原始答案、规范化答案与确定性评分，可持续生成学生纵向画像。</p></div>${milRole()==="coach"?'<button class="primary" onclick="milHistoricalImportView()">导入 Excel / CSV</button>':''}</div>
+  <div class="stats"><div class="stat"><div class="stat-top">历史记录</div><div class="stat-value">${rows.length}</div><div class="stat-note">当前学校</div></div><div class="stat"><div class="stat-top">已匹配学生</div><div class="stat-value">${new Set(rows.filter(x=>x.student_id).map(x=>x.student_id)).size}</div><div class="stat-note">按用户名自动匹配</div></div><div class="stat"><div class="stat-top">未匹配</div><div class="stat-value">${rows.filter(x=>!x.student_id).length}</div><div class="stat-note">仍保留原始姓名</div></div><div class="stat"><div class="stat-top">平均历史分</div><div class="stat-value">${rows.length?(rows.reduce((a,x)=>a+Number(x.score||0),0)/rows.length).toFixed(1):"—"}</div><div class="stat-note">按导入记录</div></div></div>
+  <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>学生</th><th>来源</th><th>日期</th><th>模式</th><th>得分</th><th>匹配</th></tr></thead><tbody>${rows.map(x=>`<tr><td><strong>${milEscText(x.student_name)}</strong></td><td>${milEscText(x.source_name||"")}</td><td>${milEscText(x.exam_date||"")}</td><td>${x.mode}</td><td><strong>${x.score}</strong></td><td>${x.student_id?"已匹配":"待匹配"}</td></tr>`).join("")}</tbody></table></div>`;
+  if(!rows.length)content.innerHTML+='<div class="empty">还没有历史成绩。可以导入“第一行答案、第一列姓名、B2 开始学生答案”的表格。</div>';
+}
+function milHistoricalImportView(){
+  content.innerHTML=`<div class="view-head"><div><h2>导入历史成绩</h2><p>格式：第 1 行为标准答案，第 1 列为学生姓名，B2 起为学生答案。系统自动识别 TF / ABCD。</p></div><button class="secondary" onclick="openView('students')">返回学生</button></div>
+  <div class="panel form-panel"><div class="form-grid">
+    <label>文件<input id="hist-file" type="file" accept=".xlsx,.xls,.csv"></label>
+    <label>来源<input id="hist-source" placeholder="例如：2025 联赛初赛"></label>
+    <label>考试日期<input id="hist-date" type="date"></label>
+    <label>模式<select id="hist-mode"><option value="auto">自动识别</option><option value="TF">TF</option><option value="ABCD">ABCD</option></select></label>
+  </div><div id="hist-preview" class="import-preview">选择文件后预览。</div><div class="form-actions"><button class="primary" onclick="milHistoricalImport()">开始导入</button></div></div>`;
+  document.getElementById("hist-file").addEventListener("change",milPreviewHistorical);
+}
+async function milReadSheet(file){
+  if(window.XLSX){const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:"array"});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});}
+  const text=await file.text();return text.split(/\r?\n/).map(line=>line.split(","));
+}
+function milDetectHistMode(matrix){
+  const vals=matrix.slice(1).flat().filter(v=>String(v).trim()).map(v=>String(v).trim().toUpperCase());
+  const ab=vals.filter(v=>/^[ABCD]+$/.test(v)).length,tf=vals.filter(v=>/^[TF]+$/.test(v)).length;
+  return ab>tf?"ABCD":"TF";
+}
+async function milPreviewHistorical(){
+  const file=document.getElementById("hist-file").files[0];if(!file)return;
+  try{
+    const matrix=await milReadSheet(file);const mode=milDetectHistMode(matrix);const keys=(matrix[0]||[]).slice(1);
+    const students=matrix.slice(1).filter(r=>String(r?.[0]||"").trim()).slice(0,5);
+    document.getElementById("hist-preview").innerHTML=`<strong>${milEscText(file.name)}</strong><span>${matrix.length-1} 名学生 · ${keys.length} 题 · 自动识别 ${mode}</span><code>${milEscText(JSON.stringify({key_answers:keys,first_student:students[0]||[]},null,2).slice(0,1200))}</code>`;
+    document.getElementById("hist-mode").dataset.detected=mode;
+  }catch(e){document.getElementById("hist-preview").textContent=e.message||"文件解析失败"}
+}
+async function milHistoricalImport(){
+  const file=document.getElementById("hist-file").files[0];if(!file)return alert("请选择文件");
+  try{
+    const matrix=await milReadSheet(file),keys=(matrix[0]||[]).slice(1),auto=milDetectHistMode(matrix),mode=document.getElementById("hist-mode").value==="auto"?auto:document.getElementById("hist-mode").value;
+    const students=matrix.slice(1).filter(r=>String(r?.[0]||"").trim()).map(r=>({student_name:String(r[0]).trim(),answers:r.slice(1,keys.length+1).map(v=>String(v??"").trim())}));
+    const d=await MoreIsLessAPI.importHistorical({key_answers:keys,students,mode,source_name:document.getElementById("hist-source").value.trim(),exam_date:document.getElementById("hist-date").value});
+    alert(`已导入 ${d.count} 条历史成绩`);openView("students");
+  }catch(e){alert(e.message||"导入失败")}
+}
+views.students=()=>{milStudentsView();return '<div class="empty">正在加载学生数据…</div>'};
