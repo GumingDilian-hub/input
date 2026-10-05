@@ -133,40 +133,131 @@ setInterval(()=>{if(window.activeMilExam)milSync(window.activeMilExam)},12000);
 
 async function renderLiveExams(){
   const list=await milLoadExams();
-  const rows=list.length?list.map((e,i)=>`<tr><td><strong>${e.title||e.paper_title||"未命名考试"}</strong><div class="muted">${e.code||"Paper"} · ${e.kind==="inter_school"?"跨校联合":"本校考试"}</div></td><td><span class="status ${e.status==="published"?"live":"done"}">${e.status==="published"?"已发布":e.status}</span></td><td>${e.kind==="inter_school"?"跨校":"本校"}</td><td>${e.deadline?new Date(e.deadline).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td><td><button class="secondary" onclick="openRealExam(${e.id})">进入</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">当前没有服务端考试。先创建一场考试。</div></td></tr>`;
-  content.innerHTML=`<div class="view-head"><div><h2>考试</h2><p>真实考试数据 · 本地优先答题 · 后台同步</p></div><button class="primary" onclick="createExamFlow()">创建考试</button></div><div class="table-wrap"><table><thead><tr><th>考试</th><th>状态</th><th>范围</th><th>截止时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows=list.length?list.map(e=>`<tr><td><strong>${milEsc(e.title||e.paper_title||"未命名考试")}</strong><div class="muted">${milEsc(e.code||"Paper")} · ${e.kind==="inter_school"?"跨校联合":"本校考试"}</div></td><td><span class="status ${e.status==="published"||e.status==="live"?"live":"done"}">${e.status==="published"?"已发布":milEsc(e.status)}</span></td><td>${e.kind==="inter_school"?"跨校":"本校"}</td><td>${e.deadline?new Date(e.deadline).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td><td><button class="secondary" onclick="openRealExam(${e.id})">进入</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">当前没有服务端考试。先创建一场考试。</div></td></tr>`;
+  content.innerHTML=`<div class="view-head"><div><h2>考试</h2><p>真实考试数据 · 本地优先答题 · 后台同步 · 截止自动锁卷</p></div><button class="primary" onclick="createExamFlow()">创建考试</button></div><div class="table-wrap"><table><thead><tr><th>考试</th><th>状态</th><th>范围</th><th>截止时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-async function createExamFlow(){
-  const title=prompt("考试名称"); if(!title)return;
-  const code=prompt("Paper 编号，例如 011"); if(!code)return;
-  const paper=await MoreIsLessAPI.createPaper({title,code,document_type:"pdf"});
-  const deadline=prompt("截止时间（ISO，例如 2026-10-05T15:00:00+09:00）"); if(!deadline)return;
-  const ex=await MoreIsLessAPI.createExam({title,paper_id:paper.id,deadline,kind:"school"});
-  alert("考试已创建，编号 #"+ex.id);
-  renderLiveExams();
+function milEsc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]))}
+function createExamFlow(){
+  content.innerHTML=`<div class="view-head"><div><h2>创建考试</h2><p>先建立共享 Paper，再发布本校或跨校考试。文档可在此直接上传到项目仓库。</p></div><button class="secondary" onclick="renderLiveExams()">返回考试</button></div>
+  <div class="panel form-panel"><div class="form-grid">
+  <label>考试名称<input id="mil-title" placeholder="例如：2026 联赛模拟卷 08"></label>
+  <label>Paper 编号<input id="mil-code" placeholder="例如：011"></label>
+  <label>截止时间<input id="mil-deadline" type="datetime-local"></label>
+  <label>考试范围<select id="mil-kind"><option value="school">本校</option><option value="inter_school">跨校联合</option></select></label>
+  <label class="full">考试材料<input id="mil-file" type="file" accept=".pdf,.doc,.docx,.txt"></label>
+  <label class="full">文档类型<select id="mil-doc-type"><option value="pdf">PDF</option><option value="docx">Word</option><option value="text">文本</option></select></label>
+  </div><div class="form-actions"><button class="primary" onclick="createExamSubmit()">创建并保存</button></div></div>`;
+}
+async function createExamSubmit(){
+  const title=document.getElementById("mil-title")?.value.trim();
+  const code=document.getElementById("mil-code")?.value.trim();
+  const deadlineLocal=document.getElementById("mil-deadline")?.value;
+  const kind=document.getElementById("mil-kind")?.value||"school";
+  const file=document.getElementById("mil-file")?.files?.[0];
+  const documentType=document.getElementById("mil-doc-type")?.value||"pdf";
+  if(!title||!code||!deadlineLocal){alert("请填写考试名称、Paper 编号和截止时间");return}
+  try{
+    const paper=await MoreIsLessAPI.createPaper({title,code,document_type:documentType});
+    if(file){
+      const base64=await milFileBase64(file);
+      await MoreIsLessAPI.uploadDocument(paper.id,{filename:file.name,mime_type:file.type||"application/octet-stream",content_base64:base64,document_type:documentType});
+    }
+    const deadline=new Date(deadlineLocal).toISOString();
+    const ex=await MoreIsLessAPI.createExam({title,paper_id:paper.id,deadline,kind});
+    alert("考试已创建，编号 #"+ex.id);
+    await renderLiveExams();
+  }catch(e){alert(e.message||"创建失败")}
+}
+function milFileBase64(file){
+  return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(",")[1]||"");r.onerror=reject;r.readAsDataURL(file)});
+}
+function milExamRemaining(deadline){
+  const ms=new Date(deadline).getTime()-Date.now();
+  return Math.max(0,ms);
+}
+function milFormat(ms){
+  const sec=Math.floor(ms/1000),h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return [h,m,s].map((x,i)=>i===0?String(x).padStart(2,"0"):String(x).padStart(2,"0")).join(":");
+}
+function milDocumentHtml(exam){
+  const url=exam.source_url;
+  if(!url)return `<div class="document-empty"><strong>考试材料尚未上传</strong><span>教练可以稍后补充 PDF / Word 文件，不影响考试题目数据继续维护。</span></div>`;
+  if((exam.document_type||"pdf").toLowerCase()==="pdf")return `<iframe class="document-frame" src="${milEsc(url)}" title="考试文档"></iframe>`;
+  if((exam.document_type||"").toLowerCase()==="docx")return `<iframe class="document-frame" src="https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}" title="Word考试文档"></iframe>`;
+  return `<iframe class="document-frame" src="${milEsc(url)}" title="考试文档"></iframe>`;
 }
 async function openRealExam(id){
   try{
     const d=await MoreIsLessAPI.exam(id); window.activeMilExam=id; window.activeMilExamData=d;
     const s=await milStartRealExam(id);
     const qs=d.questions||[];
-    state.realAnswers=milStore[id]?.answers||{};
-    content.innerHTML=`<div class="view-head"><div><h2>${d.exam.title}</h2><p>${d.exam.code||""} · ${qs.length} 题 · 不定项选择</p></div><div class="actions"><span class="tag" data-save-state>本地已保存</span><button class="primary" onclick="submitRealExam(${s.submission.id})">提交试卷</button></div></div>
-    <div class="exam-layout"><section class="reader"><div class="reader-head"><strong>${d.exam.paper_title||"考试材料"}</strong><div class="reader-tools"><button class="tool">−</button><button class="tool">100%</button><button class="tool">+</button><button class="tool">笔</button></div></div><div class="paper"><article class="paper-page">${qs.map((q,i)=>`<section class="real-question"><div class="q-no">${q.number||i+1} · ${q.public_id||""}</div><h3>${q.stem||q.ocr_text||"题目内容尚未上传"}</h3>${q.ocr_text&&q.stem?q.ocr_text.replaceAll("\n","<br>"):""}${q.solution?"<div class='muted'>解析将在交卷后按权限显示。</div>":""}</section>`).join("")}</article></div></section>
-    <aside class="answer-sheet"><div class="sheet-head"><strong>答题卡</strong><span class="timer">进行中</span></div><div class="sheet-body"><div class="save-state" data-save-state>本地保存中</div>${qs.map(q=>realAnswerRow(id,q)).join("")}</div></aside></div>`;
-  }catch(e){alert(e.message)}
+    if(!milStore[id])milStore[id]={answers:{},revision:0,submissionId:s.submission.id,dirty:false};
+    milStore[id].submissionId=s.submission.id;
+    milPersist();
+    const render=()=>{
+      const locked=milExamRemaining(d.exam.deadline)<=0||s.submission.status!=="draft";
+      const timer=milFormat(milExamRemaining(d.exam.deadline));
+      const source=d.exam.source_url?`<div class="document-wrap">${milDocumentHtml(d.exam)}</div>`:`<div class="paper"><article class="paper-page">${qs.map((q,i)=>`<section class="real-question"><div class="q-no">${q.number||i+1} · ${milEsc(q.public_id||"")}</div><h3>${milEsc(q.stem||q.ocr_text||"题目内容尚未上传")}</h3>${q.ocr_text&&q.stem?milEsc(q.ocr_text).replaceAll("\\n","<br>"):""}</section>`).join("")}</article></div>`;
+      content.innerHTML=`<div class="view-head"><div><h2>${milEsc(d.exam.title)}</h2><p>${milEsc(d.exam.code||"")} · ${qs.length} 题 · 不定项选择</p></div><div class="actions"><span class="tag ${locked?"":"live-tag"}" id="real-timer">${locked?"已锁定":timer}</span><span class="tag" data-save-state>${milStore[id]?.dirty?"仅本地保存":"已同步"}</span><button class="primary" ${locked?"disabled":""} onclick="submitRealExam(${s.submission.id})">${locked?"已提交/锁定":"提交试卷"}</button></div></div>
+      <div class="exam-layout"><section class="reader"><div class="reader-head"><strong>${milEsc(d.exam.paper_title||"考试材料")}</strong><div class="reader-tools"><button class="tool" onclick="milZoom(-1)">−</button><button class="tool" id="zoom-label">100%</button><button class="tool" onclick="milZoom(1)">+</button><button class="tool">笔</button></div></div>${source}</section>
+      <aside class="answer-sheet"><div class="sheet-head"><strong>答题卡</strong><span class="timer">${locked?"锁定":timer}</span></div><div class="sheet-body"><div class="save-state" data-save-state>${milStore[id]?.dirty?"本地保存中":"已同步"}</div>${qs.map(q=>realAnswerRow(id,q,locked)).join("")}</div><div class="submit-bar"><button class="primary" ${locked?"disabled":""} onclick="submitRealExam(${s.submission.id})">提交试卷</button></div></aside></div>`;
+    };
+    render();
+    clearInterval(window.milExamTimer);
+    window.milExamTimer=setInterval(async()=>{
+      const left=milExamRemaining(d.exam.deadline);
+      const timerEl=document.getElementById("real-timer");
+      if(timerEl)timerEl.textContent=milFormat(left);
+      document.querySelectorAll(".answer-sheet .timer").forEach(el=>el.textContent=left?"剩余 "+milFormat(left):"已截止");
+      if(left<=0){clearInterval(window.milExamTimer);await milDeadlineSubmit(id,s.submission.id)}
+    },1000);
+  }catch(e){alert(e.message||"无法进入考试")}
 }
-function realAnswerRow(examId,q){
+function realAnswerRow(examId,q,locked){
   const selected=(milStore[examId]?.answers?.[q.id])||[];
-  return `<div class="answer-row"><div class="answer-row-head"><strong>${q.number||q.id}</strong><span>${selected.length?selected.join("、"):"未作答"}</span></div><div class="choices">${["A","B","C","D"].map(c=>`<button class="choice ${selected.includes(c)?"selected":""}" onclick="realToggleAnswer(${examId},${q.id},'${c}')">${c}</button>`).join("")}</div></div>`;
+  return `<div class="answer-row ${selected.length?"has-answer":""}"><div class="answer-row-head"><strong>${q.number||q.id}</strong><span>${selected.length?selected.join("、"):"未作答"}</span></div><div class="choices">${["A","B","C","D"].map(c=>`<button class="choice ${selected.includes(c)?"selected":""}" ${locked?"disabled":""} onclick="realToggleAnswer(${examId},${q.id},'${c}')">${c}</button>`).join("")}</div></div>`;
 }
 function realToggleAnswer(examId,qid,c){
-  const old=(milStore[examId]?.answers?.[qid])||[];const next=old.includes(c)?old.filter(x=>x!==c):old.concat(c);
-  milSetAnswer(examId,qid,next);openRealExam(examId);
+  if(milExamRemaining(window.activeMilExamData?.exam?.deadline||0)<=0)return;
+  const old=(milStore[examId]?.answers?.[qid])||[];
+  const next=old.includes(c)?old.filter(x=>x!==c):old.concat(c);
+  milSetAnswer(examId,qid,next);
+  const row=document.querySelectorAll(".answer-row");
+  const q=window.activeMilExamData?.questions?.find(x=>x.id===qid);
+  if(q){const idx=(window.activeMilExamData.questions||[]).findIndex(x=>x.id===qid);const target=row[idx];if(target){target.querySelector(".answer-row-head span").textContent=next.length?next.join("、"):"未作答";target.querySelectorAll(".choice").forEach(b=>b.classList.toggle("selected",b.textContent===b.textContent&&next.includes(b.textContent)))}} 
+  milSync(examId);
 }
+async function milDeadlineSubmit(examId,submissionId){
+  const s=milStore[examId]||{};
+  s.pendingSubmit=true;s.dirty=true;milPersist();
+  try{await milSync(examId);if(navigator.onLine){await MoreIsLessAPI.submit(submissionId);s.pendingSubmit=false;s.dirty=false;milPersist();}}catch{}
+  const el=document.querySelector("[data-save-state]");if(el)el.textContent=navigator.onLine?"已自动提交":"已锁定，等待网络恢复自动提交";
+}
+async function milFlushExam(examId){
+  const s=milStore[examId];if(!s)return;
+  try{
+    await milSync(examId);
+    if(s.pendingSubmit&&navigator.onLine&&s.submissionId){await MoreIsLessAPI.submit(s.submissionId);s.pendingSubmit=false;s.dirty=false;milPersist()}
+  }catch{}
+}
+window.addEventListener("online",()=>{if(window.activeMilExam)milFlushExam(window.activeMilExam)});
+setInterval(()=>{if(window.activeMilExam)milFlushExam(window.activeMilExam)},12000);
 async function submitRealExam(submissionId){
+  if(milExamRemaining(window.activeMilExamData?.exam?.deadline||0)<=0){await milDeadlineSubmit(window.activeMilExam,submissionId);return}
   if(!confirm("确认提交？提交后答案不可修改。"))return;
-  try{await milSync(window.activeMilExam);await MoreIsLessAPI.submit(submissionId);alert("已提交");openView("exams");await renderLiveExams()}catch(e){alert(e.message)}
+  try{
+    await milSync(window.activeMilExam);
+    await MoreIsLessAPI.submit(submissionId);
+    const s=milStore[window.activeMilExam]||{};s.pendingSubmit=false;s.dirty=false;milPersist();
+    alert("已提交");
+    await renderLiveExams();
+  }catch(e){alert(e.message||"提交失败；答案仍保留在本机")}
+}
+function milZoom(delta){
+  const el=document.querySelector(".paper-page,.document-frame"); if(!el)return;
+  const cur=Number(localStorage.getItem("mil_zoom")||100)+delta*10;const next=Math.max(70,Math.min(160,cur));localStorage.setItem("mil_zoom",next);
+  const label=document.getElementById("zoom-label");if(label)label.textContent=next+"%";
+  if(el.classList.contains("paper-page"))el.style.zoom=next/100;else el.style.transform="scale("+next/100+")";
 }
 const _openView=openView;
 openView=async function(view){
