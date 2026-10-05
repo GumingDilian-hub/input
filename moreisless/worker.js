@@ -672,6 +672,57 @@ async function milStart(env,u,id){const x=await env.DB.prepare('SELECT * FROM ex
 function milAnswer(v){return Array.isArray(v)?v.filter(x=>typeof x==='string'&&/^[ABCD]$/.test(x)).sort():null}
 async function milSave(request,env,u,id){const s=await env.DB.prepare('SELECT s.*,x.deadline FROM submissions s JOIN exams x ON x.id=s.exam_id WHERE s.id=? AND s.student_id=?').bind(id,u.id).first();if(!s)return json({error:'答卷不存在'},404);if(s.status!=='draft'||new Date(s.deadline)<=new Date())return json({error:'答卷已锁定'},409);const b=await request.json(),list=Array.isArray(b.answers)?b.answers:[],rev=Number(b.revision)||0,st=[];for(const a of list){const v=milAnswer(a.answer);if(v&&Number.isInteger(Number(a.question_id)))st.push(env.DB.prepare('INSERT INTO answers(submission_id,question_id,answer_json) VALUES(?,?,?) ON CONFLICT(submission_id,question_id) DO UPDATE SET answer_json=excluded.answer_json,updated_at=CURRENT_TIMESTAMP').bind(id,Number(a.question_id),JSON.stringify(v)))}if(st.length)await env.DB.batch(st);await env.DB.prepare('UPDATE submissions SET local_revision=MAX(local_revision,?) WHERE id=?').bind(rev,id).run();return json({success:true,revision:rev})}
 async function milSubmit(env,u,id){const s=await env.DB.prepare('SELECT s.status FROM submissions s WHERE s.id=? AND s.student_id=?').bind(id,u.id).first();if(!s)return json({error:'答卷不存在'},404);if(s.status!=='draft')return json({success:true,status:s.status});await env.DB.prepare("UPDATE submissions SET status='submitted',submitted_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();return json({success:true,status:'submitted'})}
+
+function milAiModel(){return DEFAULT_MODEL}
+async function milAiJson(env,kind,prompt){
+  const model=milAiModel();
+  const response=await callNIM(env,{model,messages:[{role:'system',content:'你是生物竞赛教学分析助手。只输出严格 JSON，不要 Markdown。不要编造题目、分数或学生事实。'}, {role:'user',content:prompt}],temperature:.2,max_tokens:5000},false,{enable_thinking:false});
+  const data=await response.json();
+  const raw=data?.choices?.[0]?.message?.content||'{}';
+  let parsed;try{parsed=JSON.parse(raw)}catch{const m=raw.match(/\{[\s\S]*\}/);parsed=m?JSON.parse(m[0]):{text:raw}}
+  return {model,result:parsed};
+}
+async function milProfile(env,u,studentId){
+  if(u.role==='student')studentId=u.id;
+  const s=await env.DB.prepare('SELECT id,username,school_id FROM users WHERE id=? AND role=\'student\'').bind(studentId).first();
+  if(!s)return json({error:'学生不存在'},404);
+  if(u.role==='coach'&&s.school_id!==u.school_id)return json({error:'只能分析本校学生'},403);
+  const hist=await env.DB.prepare('SELECT student_name,source_name,exam_date,mode,score,metadata_json FROM historical_scores WHERE student_id=? ORDER BY exam_date DESC,created_at DESC LIMIT 200').bind(studentId).all();
+  const errs=await env.DB.prepare('SELECT e.question_id,e.attempt_count,e.last_score,q.public_id,q.stem,q.question_type,q.difficulty,q.source FROM error_questions e JOIN questions q ON q.id=e.question_id WHERE e.student_id=? AND e.status=\'open\' ORDER BY e.updated_at DESC LIMIT 100').bind(studentId).all();
+  const prompt=JSON.stringify({student:{username:s.username},historical_scores:hist.results||[],error_questions:errs.results||[]});
+  const ai=await milAiJson(env,'profile',`根据以下结构化数据生成学生画像。要求 JSON 字段：summary、strengths、weaknesses、recommended_topics、next_actions、confidence。不得虚构未提供的数据。数据：${prompt}`);
+  await env.DB.prepare('INSERT INTO student_profiles(student_id,profile_json,model_id) VALUES(?,?,?) ON CONFLICT(student_id) DO UPDATE SET profile_json=excluded.profile_json,model_id=excluded.model_id,generated_at=CURRENT_TIMESTAMP').bind(studentId,JSON.stringify(ai.result),ai.model).run();
+  await env.DB.prepare('INSERT INTO ai_generations(student_id,kind,model_id,prompt_json,result_json) VALUES(?,?,?,?,?)').bind(studentId,'profile',ai.model,prompt,JSON.stringify(ai.result)).run();
+  return json({student:s,profile:ai.result,model:ai.model});
+}
+async function milErrorBank(env,u){
+  const studentId=u.role==='student'?u.id:null;
+  const q=studentId
+    ? await env.DB.prepare('SELECT e.*,q.public_id,q.stem,q.question_type,q.difficulty,q.source,q.ocr_text,q.solution FROM error_questions e JOIN questions q ON q.id=e.question_id WHERE e.student_id=? ORDER BY e.updated_at DESC').bind(studentId).all()
+    : await env.DB.prepare('SELECT e.*,q.public_id,q.stem,q.question_type,q.difficulty,q.source,q.ocr_text,q.solution,u.username FROM error_questions e JOIN questions q ON q.id=e.question_id JOIN users u ON u.id=e.student_id WHERE u.school_id=? ORDER BY e.updated_at DESC LIMIT 500').bind(u.school_id).all();
+  return json({rows:q.results||[]});
+}
+async function milRedo(request,env,u,qid){
+  if(u.role!=='student')return json({error:'只有学生可以做错题重做'},403);
+  const q=await env.DB.prepare('SELECT * FROM questions WHERE id=?').bind(qid).first();if(!q)return json({error:'题目不存在'},404);
+  const b=await request.json();const answer=String(b.answer||'').toUpperCase().replace(/[^ABCD]/g,'').split('').filter((x,i,a)=>a.indexOf(x)===i).sort().join('');
+  const key=b.correct_answer?String(b.correct_answer).toUpperCase().replace(/[^ABCD]/g,'').split('').filter((x,i,a)=>a.indexOf(x)===i).sort().join(''):'';
+  const score=key?milScoreABCD(answer,key,2):null;
+  await env.DB.prepare('UPDATE error_questions SET last_answer=?,attempt_count=attempt_count+1,last_score=?,status=? ,updated_at=CURRENT_TIMESTAMP WHERE student_id=? AND question_id=?').bind(answer,score,score===2?'cleared':'open',u.id,qid).run();
+  return json({success:true,answer,score,status:score===2?'cleared':'open'});
+}
+async function milGenerateQuestions(request,env,u){
+  if(u.role!=='coach')return json({error:'仅教练可生成新题'},403);
+  const b=await request.json(),studentId=Number(b.student_id||0),count=Math.min(Math.max(Number(b.count||5),1),10);
+  if(!studentId)return json({error:'缺少学生'},400);
+  const s=await env.DB.prepare('SELECT id,username,school_id FROM users WHERE id=? AND role=\'student\'').bind(studentId).first();
+  if(!s||s.school_id!==u.school_id)return json({error:'学生不存在或不属于本校'},403);
+  const errs=await env.DB.prepare('SELECT q.stem,q.solution,q.question_type,q.difficulty,q.source FROM error_questions e JOIN questions q ON q.id=e.question_id WHERE e.student_id=? LIMIT 30').bind(studentId).all();
+  const prompt=JSON.stringify({student:s,error_questions:errs.results||[],count});
+  const ai=await milAiJson(env,'question_generation',`根据学生错题生成${count}道新的生物竞赛多选题。JSON 格式必须为 {"questions":[{"stem":"","options":{"A":"","B":"","C":"","D":""},"answer":"","explanation":"","type":"","difficulty":0.5}] }。题目必须是原创练习题，不得声称来自真实赛事；答案必须是 A-D 的组合。只基于给出的错题方向生成。数据：${prompt}`);
+  await env.DB.prepare('INSERT INTO ai_generations(student_id,kind,model_id,prompt_json,result_json) VALUES(?,?,?,?,?)').bind(studentId,'question_generation',ai.model,prompt,JSON.stringify(ai.result)).run();
+  return json({student:s,model:ai.model,...ai.result});
+}
 async function milQuestions(env){const r=await env.DB.prepare('SELECT q.*,p.code AS paper_code,p.title AS paper_title FROM questions q LEFT JOIN papers p ON p.id=q.paper_id ORDER BY q.created_at DESC LIMIT 500').all();return json({questions:r.results||[]})}
 async function milComments(request,env,u,qid){if(request.method==='GET'){const r=await env.DB.prepare('SELECT c.id,c.content,c.hidden,c.created_at,u.username,u.school_id FROM question_comments c JOIN users u ON u.id=c.user_id WHERE c.question_id=? ORDER BY c.created_at').bind(qid).all();return json({comments:r.results||[]})}const b=await request.json(),content=String(b.content||'').trim();if(!content)return json({error:'评论不能为空'},400);await env.DB.prepare('INSERT INTO question_comments(question_id,user_id,content) VALUES(?,?,?)').bind(qid,u.id,content).run();return json({success:true})}
 async function milModerate(request,env,u,id){if(u.role!=='coach')return json({error:'仅教练可管理评论'},403);const b=await request.json();await env.DB.prepare('UPDATE question_comments SET hidden=? WHERE id=?').bind(b.hidden?1:0,id).run();return json({success:true})}
@@ -872,6 +923,11 @@ export default {
 
 
       
+      mm=path.match(/^\/api\/students\/(\d+)\/profile$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milProfile(env,u,+mm[1])}
+      if(path==='/api/profile'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milProfile(env,u,u.id)}
+      if(path==='/api/error-questions'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milErrorBank(env,u)}
+      mm=path.match(/^\/api\/error-questions\/(\d+)\/redo$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milRedo(request,env,u,+mm[1])}
+      if(path==='/api/ai/generate-questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milGenerateQuestions(request,env,u)}
       if(path==='/api/historical-scores/import'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalImport(request,env,u)}
       mm=path.match(/^\/api\/historical-scores(?:\/(\d+))?$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalList(env,u,mm[1]?Number(mm[1]):null)}
       if(path==='/api/papers'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milPapers(env)}
