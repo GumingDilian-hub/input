@@ -1,0 +1,8 @@
+name = "moreisless"
+main = "worker.js"
+compatibility_date = "2026-10-05"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "moreisless"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
