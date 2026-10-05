@@ -698,6 +698,32 @@ async function milCreateExam(request,env,u){
   }
   return json({success:true,id});
 }
+async function milUploadDocument(request,env,u,paperId){
+  if(u.role!=='coach')return json({error:'仅教练可上传文档'},403);
+  const paper=await env.DB.prepare('SELECT * FROM papers WHERE id=? AND created_by=?').bind(paperId,u.id).first();
+  if(!paper)return json({error:'Paper不存在或无权操作'},404);
+  const b=await request.json();
+  const content=String(b.content_base64||'');
+  const filename=String(b.filename||('paper-'+paper.code+'.'+(paper.document_type||'pdf')));
+  const mime=String(b.mime_type||'application/octet-stream');
+  if(!content)return json({error:'缺少文件内容'},400);
+  if(content.length>18*1024*1024)return json({error:'文件过大，单次上传上限约 13MB 原文件'},413);
+  const token=env.GITHUB_TOKEN,repo=env.GITHUB_REPO;
+  if(!token||!repo)return json({error:'Worker 尚未配置 GITHUB_TOKEN / GITHUB_REPO'},503);
+  const safe=filename.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path='moreisless/documents/'+paper.code+'/'+Date.now()+'-'+safe;
+  const gh=await fetch('https://api.github.com/repos/'+repo+'/contents/'+path,{
+    method:'PUT',
+    headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json','User-Agent':'moreisless-worker'},
+    body:JSON.stringify({message:'store paper document '+paper.code,content,branch:env.GITHUB_BRANCH||'main'})
+  });
+  const data=await gh.json();
+  if(!gh.ok)return json({error:'GitHub上传失败',detail:data?.message||'unknown'},502);
+  const sourceUrl=data?.content?.download_url||data?.content?.html_url||null;
+  await env.DB.prepare('UPDATE papers SET source_url=?,document_type=? WHERE id=?').bind(sourceUrl,b.document_type||paper.document_type,paperId).run();
+  return json({success:true,paper_id:paperId,source_url:sourceUrl,path});
+}
+
 async function milCreatePaper(request,env,u){
   if(u.role!=='coach')return json({error:'仅教练可创建试卷'},403);
   const b=await request.json(),title=String(b.title||'').trim(),code=String(b.code||'').trim();
@@ -722,10 +748,9 @@ function milNorm(v){
 function milScoreABCD(student,key,points){
   const a=milNorm(student),b=milNorm(key);
   if(!b)return 0;
+  if(a===b)return points;
   const sa=a.split(''),sb=b.split('');
   const same=sa.filter(x=>sb.includes(x)).length;
-  const exact=a===b;
-  if(exact)return points;
   if(b.length===4&&a.length===4&&same===3)return points/2;
   if(b.length===4&&a.length===4&&same===2)return points*0.1;
   return 0;
@@ -738,7 +763,7 @@ async function milCalculate(env,u,examId){
   const map=new Map((rows.results||[]).map(x=>[x.question_id,x]));
   const sv=await env.DB.prepare('SELECT COALESCE(MAX(version),0)+1 AS next FROM score_versions WHERE exam_id=?').bind(examId).first();
   const version=sv.next||1;
-  const rule={type:'multi_select_v1',partial:'4=2,3=1,2=0.2,other=0',answer_key_version:key.version};
+  const rule={type:'multi_select_v1',partial:'exact=points,3-of-4=points/2,2-of-4=points*0.1,other=0',answer_key_version:key.version};
   const sr=await env.DB.prepare('INSERT INTO score_versions(exam_id,version,answer_key_version_id,scoring_rule_json,created_by,is_current) VALUES(?,?,?,?,?,1)').bind(examId,version,key.id,JSON.stringify(rule),u.id).run();
   await env.DB.prepare('UPDATE score_versions SET is_current=0 WHERE exam_id=? AND id<>?').bind(examId,sr.meta.last_row_id).run();
   const subs=await env.DB.prepare('SELECT id FROM submissions WHERE exam_id=? AND status=\'submitted\'').bind(examId).all();
@@ -806,6 +831,7 @@ export default {
 
       
       if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
+      mm=path.match(/^\\/api\\/papers\\/(\\d+)\\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
       if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
       if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
 
