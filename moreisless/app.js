@@ -129,3 +129,47 @@ async function milStartRealExam(examId){
 }
 window.addEventListener("online",()=>{const id=window.activeMilExam;if(id)milSync(id)});
 setInterval(()=>{if(window.activeMilExam)milSync(window.activeMilExam)},12000);
+
+
+async function renderLiveExams(){
+  const list=await milLoadExams();
+  const rows=list.length?list.map((e,i)=>`<tr><td><strong>${e.title||e.paper_title||"未命名考试"}</strong><div class="muted">${e.code||"Paper"} · ${e.kind==="inter_school"?"跨校联合":"本校考试"}</div></td><td><span class="status ${e.status==="published"?"live":"done"}">${e.status==="published"?"已发布":e.status}</span></td><td>${e.kind==="inter_school"?"跨校":"本校"}</td><td>${e.deadline?new Date(e.deadline).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}</td><td><button class="secondary" onclick="openRealExam(${e.id})">进入</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">当前没有服务端考试。先创建一场考试。</div></td></tr>`;
+  content.innerHTML=`<div class="view-head"><div><h2>考试</h2><p>真实考试数据 · 本地优先答题 · 后台同步</p></div><button class="primary" onclick="createExamFlow()">创建考试</button></div><div class="table-wrap"><table><thead><tr><th>考试</th><th>状态</th><th>范围</th><th>截止时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function createExamFlow(){
+  const title=prompt("考试名称"); if(!title)return;
+  const code=prompt("Paper 编号，例如 011"); if(!code)return;
+  const paper=await MoreIsLessAPI.createPaper({title,code,document_type:"pdf"});
+  const deadline=prompt("截止时间（ISO，例如 2026-10-05T15:00:00+09:00）"); if(!deadline)return;
+  const ex=await MoreIsLessAPI.createExam({title,paper_id:paper.id,deadline,kind:"school"});
+  alert("考试已创建，编号 #"+ex.id);
+  renderLiveExams();
+}
+async function openRealExam(id){
+  try{
+    const d=await MoreIsLessAPI.exam(id); window.activeMilExam=id; window.activeMilExamData=d;
+    const s=await milStartRealExam(id);
+    const qs=d.questions||[];
+    state.realAnswers=milStore[id]?.answers||{};
+    content.innerHTML=`<div class="view-head"><div><h2>${d.exam.title}</h2><p>${d.exam.code||""} · ${qs.length} 题 · 不定项选择</p></div><div class="actions"><span class="tag" data-save-state>本地已保存</span><button class="primary" onclick="submitRealExam(${s.submission.id})">提交试卷</button></div></div>
+    <div class="exam-layout"><section class="reader"><div class="reader-head"><strong>${d.exam.paper_title||"考试材料"}</strong><div class="reader-tools"><button class="tool">−</button><button class="tool">100%</button><button class="tool">+</button><button class="tool">笔</button></div></div><div class="paper"><article class="paper-page">${qs.map((q,i)=>`<section class="real-question"><div class="q-no">${q.number||i+1} · ${q.public_id||""}</div><h3>${q.stem||q.ocr_text||"题目内容尚未上传"}</h3>${q.ocr_text&&q.stem?q.ocr_text.replaceAll("\n","<br>"):""}${q.solution?"<div class='muted'>解析将在交卷后按权限显示。</div>":""}</section>`).join("")}</article></div></section>
+    <aside class="answer-sheet"><div class="sheet-head"><strong>答题卡</strong><span class="timer">进行中</span></div><div class="sheet-body"><div class="save-state" data-save-state>本地保存中</div>${qs.map(q=>realAnswerRow(id,q)).join("")}</div></aside></div>`;
+  }catch(e){alert(e.message)}
+}
+function realAnswerRow(examId,q){
+  const selected=(milStore[examId]?.answers?.[q.id])||[];
+  return `<div class="answer-row"><div class="answer-row-head"><strong>${q.number||q.id}</strong><span>${selected.length?selected.join("、"):"未作答"}</span></div><div class="choices">${["A","B","C","D"].map(c=>`<button class="choice ${selected.includes(c)?"selected":""}" onclick="realToggleAnswer(${examId},${q.id},'${c}')">${c}</button>`).join("")}</div></div>`;
+}
+function realToggleAnswer(examId,qid,c){
+  const old=(milStore[examId]?.answers?.[qid])||[];const next=old.includes(c)?old.filter(x=>x!==c):old.concat(c);
+  milSetAnswer(examId,qid,next);openRealExam(examId);
+}
+async function submitRealExam(submissionId){
+  if(!confirm("确认提交？提交后答案不可修改。"))return;
+  try{await milSync(window.activeMilExam);await MoreIsLessAPI.submit(submissionId);alert("已提交");openView("exams");await renderLiveExams()}catch(e){alert(e.message)}
+}
+const _openView=openView;
+openView=async function(view){
+  if(view==="exams"){state.view=view;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));pageName.textContent="考试";pageTitle.textContent="训练与考试，一处完成";await renderLiveExams();return}
+  return _openView(view);
+};
