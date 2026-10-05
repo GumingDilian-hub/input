@@ -741,6 +741,7 @@ async function milUploadDocument(request,env,u,paperId){
   return json({success:true,paper_id:paperId,source_url:sourceUrl,path});
 }
 
+async function milPapers(env){const r=await env.DB.prepare('SELECT id,code,title,source_url,document_type,created_at FROM papers ORDER BY created_at DESC LIMIT 500').all();return json({papers:r.results||[]})}
 async function milCreatePaper(request,env,u){
   if(u.role!=='coach')return json({error:'仅教练可创建试卷'},403);
   const b=await request.json(),title=String(b.title||'').trim(),code=String(b.code||'').trim();
@@ -847,6 +848,7 @@ export default {
 
 
       
+      if(path==='/api/papers'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milPapers(env)}
       if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
       let mm=path.match(/^\/api\/papers\/(\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
       if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
