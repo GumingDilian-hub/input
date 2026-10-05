@@ -393,13 +393,15 @@ async function milCalculate(examId){try{const d=await MoreIsLessAPI.calculate(ex
 
 async function milResultsView(){
   const exams=await milLoadExams();const ex=exams?.[0];if(!ex){content.innerHTML='<div class="empty">暂无考试成绩</div>';return}
-  let d={results:[]};try{d=await MoreIsLessAPI.results(ex.id)}catch{}
+  let d={results:[]};try{d=await MoreIsLessAPI.results(ex.id)}catch(e){}
   const rows=d.results||[];
   content.innerHTML=`<div class="view-head"><div><h2>成绩与版本</h2><p>B3：历史版本保留；当前版本可显式切换，题目级得分明细长期保留。</p></div><div class="actions">${milRole()==="coach"?`<button class="secondary" onclick="milAnswerKeyView(${ex.id})">答案键</button><button class="primary" onclick="milCalculate(${ex.id})">重新评分</button>`:""}</div></div>
+  <div class="panel" style="margin-bottom:14px"><div class="panel-title"><h3>评分版本</h3><span class="tag">B3</span></div><div id="mil-version-list" class="version-list"><div class="empty">正在加载版本…</div></div></div>
   <div class="grid-2"><div class="panel"><div class="panel-title"><h3>${milEscText(ex.title)}</h3><span class="tag">${rows.length} 份提交</span></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>学生</th><th>学校</th><th>成绩</th><th>提交时间</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td><strong>${milEscText(x.username||"外校学生")}</strong></td><td>${milEscText(x.school_name||"")}</td><td><strong>${x.total==null?"未评分":x.total}</strong></td><td>${milEscText(x.submitted_at||"")}</td></tr>`).join("")}</tbody></table></div></div>
-  <div class="panel"><div class="panel-title"><h3>版本策略</h3><span class="tag">B3</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>答案键</span><strong>可迟发布、可重复发布</strong></div><div class="detail"><span>评分</span><strong>新规则不覆盖旧版本</strong></div><div class="detail"><span>题目明细</span><strong>学生答案 / 正确答案 / 得分</strong></div><div class="detail"><span>校际可见性</span><strong>外校只显示学校，不显示姓名</strong></div></div></div></div>`;
+  <div class="panel"><div class="panel-title"><h3>规则</h3><span class="tag">方案 B</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>答案键</span><strong>可迟发布、可重复发布</strong></div><div class="detail"><span>评分</span><strong>新规则不覆盖旧版本</strong></div><div class="detail"><span>题目明细</span><strong>学生答案 / 正确答案 / 得分</strong></div><div class="detail"><span>校际可见性</span><strong>外校只显示学校，不显示姓名</strong></div></div></div></div>`;
+  try{const vd=await MoreIsLessAPI.versions(ex.id),box=document.getElementById("mil-version-list");if(box)box.innerHTML=(vd.versions||[]).map(v=>`<div class="version ${v.is_current?"current":""}"><div><strong>v${v.version}</strong><small>${milEscText(v.created_at||"")} · ${milEscText(v.scoring_rule_json||"").slice(0,100)}</small></div><span class="mark">${v.is_current?"当前":milRole()==="coach"?`<button class="secondary" onclick="milSwitchVersion(${ex.id},${v.version})">设为当前</button>`:"历史"}</span></div>`).join("")||'<div class="empty">还没有评分版本</div>'}catch{}
 }
-
+async function milSwitchVersion(examId,version){try{await MoreIsLessAPI.switchVersion(examId,version);openView("results")}catch(e){alert(e.message||"切换失败")}}
 async function milSchoolsView(){
   let schools=[];try{schools=(await MoreIsLessAPI.schools()).schools||[]}catch{}
   content.innerHTML=`<div class="view-head"><div><h2>学校与联考</h2><p>学校是共享实体；每个学生与教练只归属于一个学校。</p></div><button class="primary" onclick="milCreateSchool()">新建学校</button></div>
