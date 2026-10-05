@@ -17,3 +17,22 @@ CREATE INDEX IF NOT EXISTS idx_exams_school ON exams(school_id);
 CREATE INDEX IF NOT EXISTS idx_exam_schools_school ON exam_schools(school_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_exam ON submissions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_comments_question ON question_comments(question_id);
+CREATE TABLE IF NOT EXISTS historical_scores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  school_id INTEGER NOT NULL,
+  student_id INTEGER,
+  student_name TEXT NOT NULL,
+  source_name TEXT,
+  exam_date TEXT,
+  mode TEXT NOT NULL,
+  raw_answer_json TEXT NOT NULL DEFAULT '{}',
+  normalized_answer_json TEXT NOT NULL DEFAULT '{}',
+  score REAL NOT NULL DEFAULT 0,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_by INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(school_id) REFERENCES schools(id),
+  FOREIGN KEY(student_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_historical_school_student ON historical_scores(school_id,student_id);
+CREATE INDEX IF NOT EXISTS idx_historical_student_date ON historical_scores(student_id,exam_date);
