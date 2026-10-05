@@ -680,6 +680,40 @@ async function milComments(request,env,u,qid){if(request.method==='GET'){const r
 async function milModerate(request,env,u,id){if(u.role!=='coach')return json({error:'仅教练可管理评论'},403);const b=await request.json();await env.DB.prepare('UPDATE question_comments SET hidden=? WHERE id=?').bind(b.hidden?1:0,id).run();return json({success:true})}
 async function milVersions(env,id){const r=await env.DB.prepare('SELECT id,version,answer_key_version_id,scoring_rule_json,is_current,created_at FROM score_versions WHERE exam_id=? ORDER BY version DESC').bind(id).all();return json({versions:r.results||[]})}
 
+
+async function milCreateExam(request,env,u){
+  if(u.role!=='coach')return json({error:'仅教练可创建考试'},403);
+  const b=await request.json();
+  const title=String(b.title||'').trim(),deadline=String(b.deadline||'').trim(),paperId=Number(b.paper_id);
+  if(!title||!deadline||!paperId)return json({error:'title、deadline、paper_id 必填'},400);
+  const kind=b.kind==='inter_school'?'inter_school':'school';
+  const schoolId=kind==='school'?(Number(b.school_id)||u.school_id):u.school_id;
+  const r=await env.DB.prepare("INSERT INTO exams(paper_id,school_id,title,kind,deadline,status,created_by) VALUES(?,?,?,?,?,'published',?)").bind(paperId,schoolId,title,kind,deadline,u.id).run();
+  const id=r.meta.last_row_id;
+  if(kind==='inter_school'&&Array.isArray(b.school_ids)&&b.school_ids.length){
+    const st=b.school_ids.map(x=>env.DB.prepare('INSERT OR IGNORE INTO exam_schools(exam_id,school_id) VALUES(?,?)').bind(id,Number(x)));
+    await env.DB.batch(st);
+  }else if(kind==='school'){
+    await env.DB.prepare('INSERT OR IGNORE INTO exam_schools(exam_id,school_id) VALUES(?,?)').bind(id,schoolId).run();
+  }
+  return json({success:true,id});
+}
+async function milCreatePaper(request,env,u){
+  if(u.role!=='coach')return json({error:'仅教练可创建试卷'},403);
+  const b=await request.json(),title=String(b.title||'').trim(),code=String(b.code||'').trim();
+  if(!title||!code)return json({error:'title、code 必填'},400);
+  const r=await env.DB.prepare('INSERT INTO papers(code,title,source_url,document_type,created_by) VALUES(?,?,?,?,?)').bind(code,title,b.source_url||null,b.document_type||'pdf',u.id).run();
+  return json({success:true,id:r.meta.last_row_id});
+}
+async function milUpsertQuestion(request,env,u){
+  if(u.role!=='coach')return json({error:'仅教练可维护题目'},403);
+  const b=await request.json(),paperId=Number(b.paper_id),number=Number(b.number),publicId=String(b.public_id||'').trim();
+  if(!paperId||!number||!publicId)return json({error:'paper_id、number、public_id 必填'},400);
+  const q={stem:b.stem||'',ocr_text:b.ocr_text||null,solution:b.solution||null,difficulty:b.difficulty??null,question_type:b.question_type||null,source:b.source||null};
+  await env.DB.prepare("INSERT INTO questions(public_id,paper_id,number,stem,ocr_text,solution,difficulty,question_type,source) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(public_id) DO UPDATE SET stem=excluded.stem,ocr_text=excluded.ocr_text,solution=excluded.solution,difficulty=excluded.difficulty,question_type=excluded.question_type,source=excluded.source").bind(publicId,paperId,number,q.stem,q.ocr_text,q.solution,q.difficulty,q.question_type,q.source).run();
+  return json({success:true});
+}
+
 // ===== 路由 =====
 export default {
   async fetch(request, env) {
@@ -713,6 +747,11 @@ export default {
         return await getPublicUser(env, username);
       }
 
+
+      
+      if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
+      if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
+      if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
 
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
       if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
