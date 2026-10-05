@@ -36,3 +36,39 @@ CREATE TABLE IF NOT EXISTS historical_scores (
 );
 CREATE INDEX IF NOT EXISTS idx_historical_school_student ON historical_scores(school_id,student_id);
 CREATE INDEX IF NOT EXISTS idx_historical_student_date ON historical_scores(student_id,exam_date);
+
+CREATE TABLE IF NOT EXISTS student_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL UNIQUE,
+  profile_json TEXT NOT NULL DEFAULT '{}',
+  model_id TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(student_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS ai_generations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER,
+  kind TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  prompt_json TEXT NOT NULL DEFAULT '{}',
+  result_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(student_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS error_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  question_id INTEGER NOT NULL,
+  source_submission_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'open',
+  last_answer TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_score REAL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(student_id,question_id),
+  FOREIGN KEY(student_id) REFERENCES users(id),
+  FOREIGN KEY(question_id) REFERENCES questions(id)
+);
+CREATE INDEX IF NOT EXISTS idx_error_questions_student ON error_questions(student_id,status);
+CREATE INDEX IF NOT EXISTS idx_ai_generations_student ON ai_generations(student_id,created_at);
