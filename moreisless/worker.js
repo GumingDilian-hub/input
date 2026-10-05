@@ -467,7 +467,9 @@ async function handleRegister(request, env) {
   const body = await request.json();
   const username = typeof body?.username === 'string' ? body.username.trim() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
-  const school = typeof body?.school === 'string' ? body.school.trim() : null;
+  const school = typeof body?.school === 'string' ? body.school.trim() : '';
+  const role = body?.role === 'coach' ? 'coach' : 'student';
+  const schoolIdInput = Number(body?.school_id) || 0;
   const honorYear = typeof body?.honor_year === 'string' ? body.honor_year.trim() : null;
   const honorRank = typeof body?.honor_rank === 'string' ? body.honor_rank.trim() : null;
   if (!username || !password) return json({ error: '用户名和密码不能为空' }, 400);
@@ -475,11 +477,26 @@ async function handleRegister(request, env) {
   if (password.length > MAX_PASSWORD_LENGTH) return json({ error: `密码不能超过 ${MAX_PASSWORD_LENGTH} 个字符` }, 400);
   const exists = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
   if (exists) return json({ error: '用户名已存在' }, 409);
+  if (!school && !schoolIdInput) return json({ error: '请选择或填写学校' }, 400);
+  let schoolId = schoolIdInput || null;
+  let schoolName = school || null;
+  if (schoolId) {
+    const found = await env.DB.prepare('SELECT id,name FROM schools WHERE id=?').bind(schoolId).first();
+    if (!found) return json({ error: '学校不存在' }, 400);
+    schoolName = found.name;
+  } else if (schoolName) {
+    const found = await env.DB.prepare('SELECT id,name FROM schools WHERE name=?').bind(schoolName).first();
+    if (found) schoolId = found.id;
+    else {
+      const sr = await env.DB.prepare('INSERT INTO schools(name,created_by) VALUES(?,NULL)').bind(schoolName).run();
+      schoolId = sr.meta.last_row_id;
+    }
+  }
   const passwordHash = await hashPassword(password);
   const token = randomToken();
-  await env.DB.prepare('INSERT INTO users (username, password, token, school, honor_year, honor_rank) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(username, passwordHash, token, school, honorYear, honorRank).run();
-  return json({ token, username });
+  await env.DB.prepare('INSERT INTO users (username, password, token, school, school_id, role, honor_year, honor_rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(username, passwordHash, token, schoolName, schoolId, role, honorYear, honorRank).run();
+  return json({ token, username, role, school: schoolName, school_id: schoolId });
 }
 
 async function handleLogin(request, env) {
@@ -834,12 +851,14 @@ export default {
       let mm=path.match(/^\/api\/papers\/(\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
       if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
       if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
+      if(path==='/api/questions'&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
 
       
       mm=path.match(/^\/api\/exams\/(\d+)\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
       mm=path.match(/^\/api\/exams\/(\d+)\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
       mm=path.match(/^\/api\/exams\/(\d+)\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
 
+      if(path==='/api/schools'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);const b=await request.json();const name=String(b.name||'').trim();if(!name)return json({error:'学校名称不能为空'},400);const old=await env.DB.prepare('SELECT id,name FROM schools WHERE name=?').bind(name).first();if(old)return json({success:true,school:old,existing:true});const sr=await env.DB.prepare('INSERT INTO schools(name,created_by) VALUES(?,?)').bind(name,u.id).run();return json({success:true,school:{id:sr.meta.last_row_id,name},existing:false});}
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
       if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
       mm=path.match(/^\/api\/exams\/(\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
