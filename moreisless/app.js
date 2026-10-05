@@ -264,3 +264,175 @@ openView=async function(view){
   if(view==="exams"){state.view=view;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));pageName.textContent="考试";pageTitle.textContent="训练与考试，一处完成";await renderLiveExams();return}
   return _openView(view);
 };
+
+/* ============================================================
+   Production management layer
+   ============================================================ */
+let milUser=null;
+
+function milEscText(v){return milEsc(v==null?"":String(v))}
+function milRole(){return milUser?.role||"student"}
+function milAuthShell(){
+  content.innerHTML=`<div class="auth-shell">
+    <div class="auth-brand"><div class="brand-mark">m</div><div><strong>moreisless</strong><span>Biology Competition OS</span></div></div>
+    <div class="auth-card">
+      <div class="auth-copy"><span class="eyebrow">ACCESS</span><h1>进入竞赛工作台</h1><p>学校、考试、题库与成绩统一在同一账户下管理。</p></div>
+      <div id="auth-panel"></div>
+    </div>
+    <div class="auth-base"><span>Worker API</span><input id="auth-api-base" placeholder="例如 https://your-worker.workers.dev"><button class="secondary" onclick="milSaveApiBase()">保存地址</button></div>
+  </div>`;
+  const base=document.getElementById("auth-api-base");if(base)base.value=localStorage.getItem("mil_api_base")||"";
+  milRenderLogin();
+}
+function milSaveApiBase(){
+  const v=document.getElementById("auth-api-base")?.value.trim()||"";
+  MoreIsLessAPI.setBase(v);milRenderLogin();
+}
+function milRenderLogin(){
+  const p=document.getElementById("auth-panel");if(!p)return;
+  p.innerHTML=`<div class="auth-tabs"><button class="auth-tab active" onclick="milRenderLogin()">登录</button><button class="auth-tab" onclick="milRenderRegister()">注册</button></div>
+  <form class="auth-form" onsubmit="event.preventDefault();milLoginSubmit()">
+    <label>用户名<input id="login-user" autocomplete="username" required></label>
+    <label>密码<input id="login-pass" type="password" autocomplete="current-password" required></label>
+    <div id="auth-error" class="form-error"></div><button class="primary wide">登录</button>
+  </form>`;
+}
+function milRenderRegister(){
+  const p=document.getElementById("auth-panel");if(!p)return;
+  p.innerHTML=`<div class="auth-tabs"><button class="auth-tab" onclick="milRenderLogin()">登录</button><button class="auth-tab active">注册</button></div>
+  <form class="auth-form" onsubmit="event.preventDefault();milRegisterSubmit()">
+    <label>用户名<input id="reg-user" required maxlength="32"></label>
+    <label>密码<input id="reg-pass" type="password" required maxlength="128"></label>
+    <label>角色<select id="reg-role"><option value="student">学生</option><option value="coach">教练</option></select></label>
+    <label>学校<select id="reg-school"><option value="">加载中…</option></select></label>
+    <label>或新建学校<input id="reg-new-school" placeholder="学校不在列表时填写"></label>
+    <div id="auth-error" class="form-error"></div><button class="primary wide">创建账户</button>
+  </form>`;
+  milFillSchools();
+}
+async function milFillSchools(){
+  const s=document.getElementById("reg-school");if(!s)return;
+  try{const d=await MoreIsLessAPI.schools();s.innerHTML='<option value="">选择已有学校</option>'+(d.schools||[]).map(x=>`<option value="${x.id}">${milEscText(x.name)}</option>`).join("")}
+  catch(e){s.innerHTML='<option value="">暂时无法加载学校</option>'}
+}
+async function milLoginSubmit(){
+  const err=document.getElementById("auth-error");try{
+    const d=await MoreIsLessAPI.login(document.getElementById("login-user").value.trim(),document.getElementById("login-pass").value);
+    milUser=d.user||d;await milEnterApp();
+  }catch(e){if(err)err.textContent=e.message||"登录失败"}
+}
+async function milRegisterSubmit(){
+  const err=document.getElementById("auth-error");try{
+    const schoolId=Number(document.getElementById("reg-school").value)||0,newSchool=document.getElementById("reg-new-school").value.trim();
+    if(!schoolId&&!newSchool)throw new Error("请选择学校，或填写新学校名称");
+    const d=await MoreIsLessAPI.register({username:document.getElementById("reg-user").value.trim(),password:document.getElementById("reg-pass").value,role:document.getElementById("reg-role").value,school_id:schoolId,school:newSchool});
+    milUser=d;await milEnterApp();
+  }catch(e){if(err)err.textContent=e.message||"注册失败"}
+}
+async function milEnterApp(){
+  try{const d=await MoreIsLessAPI.me();milUser=d.user||d}catch{}
+  milApplyIdentity();
+  openView("overview");
+}
+function milApplyIdentity(){
+  const school=milUser?.school||"未设置学校",name=milUser?.username||"用户",role=milRole()==="coach"?"教练":"学生";
+  const sw=document.querySelector(".school-switch");if(sw)sw.innerHTML=`<span class="eyebrow">当前学校</span><strong>${milEscText(school)}</strong><span class="muted">${role} · ${milEscText(name)}</span>`;
+  const pr=document.querySelector(".profile");if(pr)pr.innerHTML=`${milEscText(name)} <span>${milEscText(name.slice(0,2).toUpperCase())}</span>`;
+  const nav=document.querySelectorAll(".nav-item");
+  nav.forEach(x=>{if(milRole()!=="coach"&&["students","schools"].includes(x.dataset.view))x.style.display="none"});
+  const newBtn=document.getElementById("new-exam");if(newBtn)newBtn.style.display=milRole()==="coach"?"":"none";
+}
+function milLogout(){MoreIsLessAPI.logout();milUser=null;milAuthShell()}
+
+async function milQuestionsView(){
+  const isCoach=milRole()==="coach";
+  let qs=[];try{qs=(await MoreIsLessAPI.questions()).questions||[]}catch{}
+  content.innerHTML=`<div class="view-head"><div><h2>全球题库</h2><p>题目独立于学校与考试；OCR、解析、难度与讨论长期沉淀。</p></div>${isCoach?'<button class="primary" onclick="milQuestionEditor()">新建题目</button>':''}</div>
+  <div class="table-wrap"><table><thead><tr><th>题号</th><th>题目</th><th>类型</th><th>难度</th><th>来源</th><th>内容</th><th>操作</th></tr></thead><tbody>
+  ${qs.map(q=>`<tr><td><strong>${milEscText(q.public_id)}</strong></td><td>${milEscText((q.stem||"").slice(0,70))}</td><td>${milEscText(q.question_type||"未分类")}</td><td>${q.difficulty==null?"—":q.difficulty}</td><td>${milEscText(q.source||"—")}</td><td>${q.ocr_text?"OCR":"—"} · ${q.solution?"解析":"—"}</td><td><button class="secondary" onclick="milQuestionEditor(${q.id})">编辑</button></td></tr>`).join("")}</tbody></table></div>`;
+  if(!qs.length)content.innerHTML+='<div class="empty">还没有题目。教练可以先创建 Paper，再录入题目。</div>';
+}
+async function milQuestionEditor(id){
+  let q={};if(id){try{const d=await MoreIsLessAPI.questions();q=(d.questions||[]).find(x=>x.id===id)||{}}catch{}}
+  let papers=[];try{papers=(await MoreIsLessAPI.papers()).papers||[]}catch{}
+  content.innerHTML=`<div class="view-head"><div><h2>${id?"编辑题目":"新建题目"}</h2><p>人工定义题号，不依赖 OCR；支持基础、板块、论文、综合四类。</p></div><button class="secondary" onclick="openView('questions')">返回题库</button></div>
+  <div class="panel form-panel"><form class="form-grid" onsubmit="event.preventDefault();milQuestionSave(${id||0})">
+    <label>Paper<select id="q-paper" required><option value="">选择 Paper</option>${papers.map(p=>`<option value="${p.id}" ${Number(q.paper_id)===Number(p.id)?"selected":""}>${milEscText(p.code+" · "+p.title)}</option>`).join("")}</select></label>
+    <label>题号 / 公开号<input id="q-public" value="${milEscText(q.public_id||"")}" placeholder="011-079" required></label>
+    <label>题目序号<input id="q-number" type="number" value="${q.number||""}" required></label>
+    <label>题型<select id="q-type"><option>基础</option><option>板块</option><option>论文</option><option>综合</option></select></label>
+    <label>难度系数<input id="q-difficulty" type="number" min="0" max="1" step="0.01" value="${q.difficulty??""}" placeholder="0.00–1.00"></label>
+    <label>来源<input id="q-source" value="${milEscText(q.source||"")}" placeholder="联赛题目 / 质心教育 / ..."></label>
+    <label class="full">题干<textarea id="q-stem" rows="7" required>${milEscText(q.stem||"")}</textarea></label>
+    <label class="full">OCR 文本<textarea id="q-ocr" rows="6">${milEscText(q.ocr_text||"")}</textarea></label>
+    <label class="full">解析 / 解决方案<textarea id="q-solution" rows="8">${milEscText(q.solution||"")}</textarea></label>
+    <div class="form-actions full"><button class="secondary" type="button" onclick="openView('questions')">取消</button><button class="primary">保存题目</button></div>
+  </form></div>`;
+  const type=document.getElementById("q-type");if(type&&q.question_type)type.value=q.question_type;
+}
+async function milQuestionSave(id){
+  try{
+    await MoreIsLessAPI.upsertQuestion({id:id||undefined,paper_id:Number(document.getElementById("q-paper").value),number:Number(document.getElementById("q-number").value),public_id:document.getElementById("q-public").value.trim(),question_type:document.getElementById("q-type").value,difficulty:document.getElementById("q-difficulty").value===""?null:Number(document.getElementById("q-difficulty").value),source:document.getElementById("q-source").value.trim(),stem:document.getElementById("q-stem").value,ocr_text:document.getElementById("q-ocr").value,solution:document.getElementById("q-solution").value});
+    openView("questions");
+  }catch(e){alert(e.message||"保存失败")}
+}
+
+async function milAnswerKeyView(examId){
+  const exams=await milLoadExams();const ex=(exams||[]).find(x=>Number(x.id)===Number(examId))||exams?.[0];
+  if(!ex){content.innerHTML='<div class="empty">暂无考试</div>';return}
+  let detail;try{detail=await MoreIsLessAPI.exam(ex.id)}catch(e){alert(e.message);return}
+  const qs=detail.questions||[];
+  content.innerHTML=`<div class="view-head"><div><h2>答案键 · ${milEscText(ex.title)}</h2><p>答案键可以在考前、考中或考后发布；每次发布生成新版本。</p></div><button class="secondary" onclick="openView('exams')">返回考试</button></div>
+  <div class="panel form-panel"><div class="form-grid" id="key-grid">${qs.map(q=>`<label><span>${milEscText(q.public_id||q.number)} · 正确选项</span><input class="key-input" data-q="${q.id}" placeholder="ACD" maxlength="4"><small class="field-help">每题分值 2；可改为其他分值</small></label><label><span>分值</span><input class="point-input" data-q="${q.id}" type="number" step="0.1" value="2"></label>`).join("")}</div><label class="full">版本说明<input id="key-note" placeholder="例如：考后核对图 3 后修正第 79 题"></label><div class="form-actions"><button class="primary" onclick="milAnswerKeySave(${ex.id})">发布答案键</button><button class="secondary" onclick="milCalculate(${ex.id})">按当前答案键评分</button></div></div>`;
+}
+async function milAnswerKeySave(examId){
+  const rows=[...document.querySelectorAll(".key-input")].filter(x=>x.value.trim()).map(x=>({question_id:Number(x.dataset.q),answer:x.value.trim(),points:Number(document.querySelector('.point-input[data-q="'+x.dataset.q+'"]')?.value||2)}));
+  try{const d=await MoreIsLessAPI.setAnswerKey(examId,{questions:rows,note:document.getElementById("key-note").value.trim()});alert("答案键 v"+d.version+" 已发布");}catch(e){alert(e.message||"发布失败")}
+}
+async function milCalculate(examId){try{const d=await MoreIsLessAPI.calculate(examId);alert("评分完成，生成 score v"+d.version);openView("results")}catch(e){alert(e.message||"评分失败")}}
+
+async function milResultsView(){
+  const exams=await milLoadExams();const ex=exams?.[0];if(!ex){content.innerHTML='<div class="empty">暂无考试成绩</div>';return}
+  let d={results:[]};try{d=await MoreIsLessAPI.results(ex.id)}catch{}
+  const rows=d.results||[];
+  content.innerHTML=`<div class="view-head"><div><h2>成绩与版本</h2><p>B3：历史版本保留；当前版本可显式切换，题目级得分明细长期保留。</p></div><div class="actions">${milRole()==="coach"?`<button class="secondary" onclick="milAnswerKeyView(${ex.id})">答案键</button><button class="primary" onclick="milCalculate(${ex.id})">重新评分</button>`:""}</div></div>
+  <div class="grid-2"><div class="panel"><div class="panel-title"><h3>${milEscText(ex.title)}</h3><span class="tag">${rows.length} 份提交</span></div><div class="table-wrap"><table><thead><tr><th>排名</th><th>学生</th><th>学校</th><th>成绩</th><th>提交时间</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td><strong>${milEscText(x.username||"外校学生")}</strong></td><td>${milEscText(x.school_name||"")}</td><td><strong>${x.total==null?"未评分":x.total}</strong></td><td>${milEscText(x.submitted_at||"")}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="panel"><div class="panel-title"><h3>版本策略</h3><span class="tag">B3</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>答案键</span><strong>可迟发布、可重复发布</strong></div><div class="detail"><span>评分</span><strong>新规则不覆盖旧版本</strong></div><div class="detail"><span>题目明细</span><strong>学生答案 / 正确答案 / 得分</strong></div><div class="detail"><span>校际可见性</span><strong>外校只显示学校，不显示姓名</strong></div></div></div></div>`;
+}
+
+async function milSchoolsView(){
+  let schools=[];try{schools=(await MoreIsLessAPI.schools()).schools||[]}catch{}
+  content.innerHTML=`<div class="view-head"><div><h2>学校与联考</h2><p>学校是共享实体；每个学生与教练只归属于一个学校。</p></div><button class="primary" onclick="milCreateSchool()">新建学校</button></div>
+  <div class="panel"><div class="panel-title"><h3>学校目录</h3><span class="tag">${schools.length} 所</span></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>学校</th><th>操作</th></tr></thead><tbody>${schools.map(s=>`<tr><td>${s.id}</td><td><strong>${milEscText(s.name)}</strong></td><td><button class="secondary" onclick="navigator.clipboard?.writeText('${milEscText(s.name)}')">复制名称</button></td></tr>`).join("")}</tbody></table></div></div>
+  <div class="panel" style="margin-top:14px"><div class="panel-title"><h3>跨校联考规则</h3><span class="tag">方案 B</span></div><p class="muted">本校学生完整看到本校结果；跨校结果按学校展示，外校学生姓名隐藏。主教练负责考试设置与答案键/评分版本。</p></div>`;
+}
+async function milCreateSchool(){
+  const name=prompt("学校名称");if(!name?.trim())return;
+  try{await MoreIsLessAPI.createSchool(name.trim());openView("schools")}catch(e){alert(e.message||"创建失败")}
+}
+
+function milSettingsView(){
+  const name=milUser?.username||"",school=milUser?.school||"",role=milRole();
+  content.innerHTML=`<div class="view-head"><div><h2>账户与设置</h2><p>当前身份与 API 连接。</p></div><button class="secondary" onclick="milLogout()">退出登录</button></div>
+  <div class="grid-2"><div class="panel"><div class="panel-title"><h3>身份</h3><span class="tag">${role}</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>用户名</span><strong>${milEscText(name)}</strong></div><div class="detail"><span>学校</span><strong>${milEscText(school)}</strong></div><div class="detail"><span>角色</span><strong>${role==="coach"?"教练":"学生"}</strong></div></div></div><div class="panel"><div class="panel-title"><h3>Worker API</h3></div><label class="standalone-field">地址<input id="settings-api-base" value="${milEscText(localStorage.getItem("mil_api_base")||"")}" placeholder="https://your-worker.workers.dev"></label><button class="primary" style="margin-top:12px" onclick="MoreIsLessAPI.setBase(document.getElementById('settings-api-base').value.trim());alert('已保存')">保存</button></div></div>`;
+}
+
+views.questions=()=>{milQuestionsView();return '<div class="empty">正在加载题库…</div>'};
+views.results=()=>{milResultsView();return '<div class="empty">正在加载成绩…</div>'};
+views.schools=()=>{milSchoolsView();return '<div class="empty">正在加载学校…</div>'};
+views.settings=milSettingsView;
+const __milOpenView=openView;
+openView=async function(view){
+  if(!MoreIsLessAPI.getToken()){milAuthShell();return}
+  if(view==="questions"){await milQuestionsView();return}
+  if(view==="results"){await milResultsView();return}
+  if(view==="schools"){await milSchoolsView();return}
+  if(view==="settings"){milSettingsView();return}
+  return __milOpenView(view);
+};
+document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>openView(b.dataset.view));
+window.addEventListener("load",async()=>{
+  if(MoreIsLessAPI.getToken()){try{const d=await MoreIsLessAPI.me();milUser=d.user||d;milApplyIdentity();openView("overview")}catch{milAuthShell()}}
+  else milAuthShell();
+});
+if(MoreIsLessAPI.getToken()){milEnterApp()}else milAuthShell();
