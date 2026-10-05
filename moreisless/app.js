@@ -84,3 +84,48 @@ function startExam(){openView("exam")}
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>openView(b.dataset.view)));
 document.getElementById("new-exam").addEventListener("click",startExam);
 openView("overview");
+
+
+// --- Live API bridge -------------------------------------------------
+const MIL_LOCAL = "mil_exam_state_v2";
+const milStore = JSON.parse(localStorage.getItem(MIL_LOCAL) || "{}");
+function milPersist(){localStorage.setItem(MIL_LOCAL,JSON.stringify(milStore))}
+async function milLoadExams(){
+  try{
+    const d=await MoreIsLessAPI.exams();
+    window.milExams=d.exams||[];
+    return window.milExams;
+  }catch(e){return []}
+}
+async function milLoadQuestions(){
+  try{const d=await MoreIsLessAPI.questions();window.milQuestions=d.questions||[];return window.milQuestions}catch(e){return []}
+}
+function milAnswerKey(examId){return milStore[examId]?.answers||{}}
+function milSetAnswer(examId,qid,opts){
+  if(!milStore[examId])milStore[examId]={answers:{},revision:0,submissionId:null,dirty:false};
+  milStore[examId].answers[qid]=Array.from(new Set(opts)).sort();
+  milStore[examId].revision++;
+  milStore[examId].dirty=true;
+  milPersist();
+}
+async function milSync(examId){
+  const s=milStore[examId]; if(!s||!s.submissionId||!s.dirty)return;
+  const answers=Object.entries(s.answers).map(([question_id,answer])=>({question_id:Number(question_id),answer}));
+  try{
+    await MoreIsLessAPI.saveAnswers(s.submissionId,answers,s.revision);
+    s.dirty=false;milPersist();
+    const el=document.querySelector("[data-save-state]");if(el)el.textContent="已同步";
+  }catch(e){
+    const el=document.querySelector("[data-save-state]");if(el)el.textContent="仅本地保存";
+  }
+}
+async function milStartRealExam(examId){
+  const d=await MoreIsLessAPI.startExam(examId);
+  const existing=milStore[examId]||{answers:{},revision:0};
+  existing.submissionId=d.submission.id;
+  for(const a of d.answers||[])try{existing.answers[a.question_id]=JSON.parse(a.answer_json)}catch{}
+  milStore[examId]=existing;milPersist();
+  return d;
+}
+window.addEventListener("online",()=>{const id=window.activeMilExam;if(id)milSync(id)});
+setInterval(()=>{if(window.activeMilExam)milSync(window.activeMilExam)},12000);
