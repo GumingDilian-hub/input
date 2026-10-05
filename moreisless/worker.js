@@ -318,7 +318,8 @@ async function handleChat(body, env) {
 资料内容：
 ${context}`;
 
-  const modelMessages = [{ role: 'system', content: systemPrompt }];
+  const modelMessages = [];
+  modelMessages.push({ role: 'system', content: systemPrompt });
   for (const msg of messages.slice(-20)) {
     if (!msg) continue;
     if (msg.role !== 'user' && msg.role !== 'assistant') continue;
