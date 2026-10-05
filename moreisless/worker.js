@@ -806,8 +806,24 @@ async function milSetKey(request,env,u,examId){
   if(st.length)await env.DB.batch(st);
   return json({success:true,version});
 }
+async function milSwitchScoreVersion(request,env,u,examId,version){
+  if(u.role!=='coach')return json({error:'仅教练可切换当前评分版本'},403);
+  const sv=await env.DB.prepare('SELECT id FROM score_versions WHERE exam_id=? AND version=?').bind(examId,version).first();
+  if(!sv)return json({error:'评分版本不存在'},404);
+  await env.DB.prepare('UPDATE score_versions SET is_current=0 WHERE exam_id=?').bind(examId).run();
+  await env.DB.prepare('UPDATE score_versions SET is_current=1 WHERE id=?').bind(sv.id).run();
+  return json({success:true,current_version:version});
+}
 async function milResults(env,u,examId){
-  const q='SELECT s.id submission_id,s.student_id,s.submitted_at,sc.total,sc.detail_json,u.username,u.school_id FROM submissions s JOIN users u ON u.id=s.student_id LEFT JOIN score_versions sv ON sv.exam_id=s.exam_id AND sv.is_current=1 LEFT JOIN scores sc ON sc.score_version_id=sv.id AND sc.submission_id=s.id WHERE s.exam_id=? ORDER BY sc.total DESC';
+  const ex=await env.DB.prepare('SELECT * FROM exams WHERE id=?').bind(examId).first();
+  if(!ex)return json({error:'考试不存在'},404);
+  if(u.role==='student'){
+    const allowed=ex.kind==='inter_school'
+      ? await env.DB.prepare('SELECT 1 FROM exam_schools WHERE exam_id=? AND school_id=?').bind(examId,u.school_id).first()
+      : ex.school_id===u.school_id;
+    if(!allowed)return json({error:'无权查看该考试成绩'},403);
+  }
+  const q='SELECT s.id submission_id,s.student_id,s.submitted_at,sc.total,sc.detail_json,u.username,u.school_id,sch.name AS school_name FROM submissions s JOIN users u ON u.id=s.student_id LEFT JOIN schools sch ON sch.id=u.school_id LEFT JOIN score_versions sv ON sv.exam_id=s.exam_id AND sv.is_current=1 LEFT JOIN scores sc ON sc.score_version_id=sv.id AND sc.submission_id=s.id WHERE s.exam_id=? ORDER BY sc.total DESC';
   const r=await env.DB.prepare(q).bind(examId).all();
   const rows=(r.results||[]).map(x=>u.role==='student'&&x.school_id!==u.school_id?{...x,username:null}:x);
   return json({results:rows});
@@ -859,6 +875,7 @@ export default {
       mm=path.match(/^\/api\/exams\/(\d+)\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
       mm=path.match(/^\/api\/exams\/(\d+)\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
       mm=path.match(/^\/api\/exams\/(\d+)\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/score-versions\/(\d+)\/current$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSwitchScoreVersion(request,env,u,+mm[1],+mm[2])}
 
       if(path==='/api/schools'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);const b=await request.json();const name=String(b.name||'').trim();if(!name)return json({error:'学校名称不能为空'},400);const old=await env.DB.prepare('SELECT id,name FROM schools WHERE name=?').bind(name).first();if(old)return json({success:true,school:old,existing:true});const sr=await env.DB.prepare('INSERT INTO schools(name,created_by) VALUES(?,?)').bind(name,u.id).run();return json({success:true,school:{id:sr.meta.last_row_id,name},existing:false});}
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
