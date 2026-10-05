@@ -831,25 +831,25 @@ export default {
 
       
       if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
-      let mm=path.match(/^\/api\/papers\/(\\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
+      let mm=path.match(/^\/api\/papers\/(\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
       if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
       if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
 
       
-      mm=path.match(/^\/api\/exams\/(\\d+)\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\\d+)\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\\d+)\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
 
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
       if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
-      mm=path.match(/^\/api\/exams\/(\\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\\d+)\/submission$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milStart(env,u,+mm[1])}
-      mm=path.match(/^\/api\/submissions\/(\\d+)\/answers$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSave(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/submissions\/(\\d+)\/submit$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSubmit(env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/submission$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milStart(env,u,+mm[1])}
+      mm=path.match(/^\/api\/submissions\/(\d+)\/answers$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSave(request,env,u,+mm[1])}
+      mm=path.match(/^\/api\/submissions\/(\d+)\/submit$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSubmit(env,u,+mm[1])}
       if(path==='/api/questions'&&method==='GET')return await milQuestions(env);
-      mm=path.match(/^\/api\/questions\/(\\d+)\/comments$/);if(mm&&(method==='GET'||method==='POST')){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milComments(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/comments\/(\\d+)$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milModerate(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\\d+)\/score-versions$/);if(mm&&method==='GET')return await milVersions(env,+mm[1]);
+      mm=path.match(/^\/api\/questions\/(\d+)\/comments$/);if(mm&&(method==='GET'||method==='POST')){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milComments(request,env,u,+mm[1])}
+      mm=path.match(/^\/api\/comments\/(\d+)$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milModerate(request,env,u,+mm[1])}
+      mm=path.match(/^\/api\/exams\/(\d+)\/score-versions$/);if(mm&&method==='GET')return await milVersions(env,+mm[1]);
       // Copilot Models
       if (path === '/api/models' && method === 'GET') return await handleModels();
 
