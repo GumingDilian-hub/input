@@ -24,3 +24,11 @@ nav{display:flex;flex-direction:column;gap:4px}.nav-label{margin:5px 10px 7px}.n
 .empty{padding:45px;text-align:center;color:var(--muted);font-size:12px}
 @media(max-width:1050px){.sidebar{width:220px}.main{margin-left:220px;width:calc(100% - 220px);padding:0 24px}.stats{grid-template-columns:repeat(2,1fr)}.question-grid{grid-template-columns:repeat(2,1fr)}.exam-layout{grid-template-columns:1fr}.answer-sheet{min-height:520px}.discussion,.grid-2{grid-template-columns:1fr}}
 @media(max-width:720px){.sidebar{position:static;width:100%;height:auto}.app-shell{display:block}.sidebar nav,.school-switch,.sidebar-bottom{display:none}.brand{padding-bottom:16px}.main{margin:0;width:100%;padding:0 14px}.topbar{height:85px}.topbar h1{font-size:18px}.stats,.question-grid{grid-template-columns:1fr}.top-actions .ghost-btn{display:none}.profile{padding:5px 8px}.exam-layout{height:auto}.paper{padding:20px}.paper-page{padding:30px 22px}.choices{grid-template-columns:repeat(2,1fr)}}
+
+
+.empty{padding:34px;text-align:center;color:var(--muted);font-size:12px}
+.real-question{padding:22px 0;border-bottom:1px solid var(--line)}
+.real-question:last-child{border-bottom:0}
+.real-question .q-no{font-size:11px;color:var(--muted);letter-spacing:.04em;margin-bottom:9px}
+.real-question h3{font-size:15px;line-height:1.9;font-weight:600;margin:0 0 10px;white-space:pre-wrap}
+.real-question>.muted{font-size:11px;margin-top:14px}
