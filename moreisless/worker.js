@@ -721,6 +721,33 @@ async function milUploadDocument(request,env,u,paperId){
   return json({success:true,paper_id:paperId,source_url:sourceUrl,path});
 }
 
+function milHistNorm(v){const s=String(v??'').toUpperCase().trim();if(/^[TF]{4}$/.test(s))return s;if(/^[ABCD]{1,4}$/.test(s)){const set=new Set(s.split(''));return 'ABCD'.split('').map(x=>set.has(x)?'T':'F').join('')}return s.replace(/[^TF]/g,'').slice(0,4)}
+function milHistScore(a,k){const x=milHistNorm(a),y=milHistNorm(k);if(!y||x.length!==4||y.length!==4)return 0;let same=0;for(let i=0;i<4;i++)if(x[i]===y[i])same++;return same===4?2:same===3?1:same===2?.2:0}
+async function milHistoricalImport(request,env,u){
+  if(u.role!=='coach')return json({error:'仅教练可导入历史成绩'},403);
+  const b=await request.json(),students=Array.isArray(b.students)?b.students:[],keys=Array.isArray(b.key_answers)?b.key_answers:[];
+  if(!students.length||!keys.length)return json({error:'缺少学生答案或答案键'},400);
+  const mode=b.mode==='ABCD'?'ABCD':'TF',source=String(b.source_name||'历史成绩').slice(0,200),examDate=String(b.exam_date||'').slice(0,40);
+  const inserted=[];
+  for(const st of students){
+    const name=String(st.student_name||'').trim();if(!name)continue;
+    const answers=Array.isArray(st.answers)?st.answers:[];
+    const raw={},norm={};let total=0;
+    for(let i=0;i<keys.length;i++){const rawA=answers[i]??'';raw[i+1]=rawA;norm[i+1]=milHistNorm(rawA);total+=milHistScore(rawA,keys[i])}
+    const matched=await env.DB.prepare('SELECT id FROM users WHERE school_id=? AND role=\'student\' AND username=?').bind(u.school_id,name).first();
+    const meta={question_count:keys.length,mode};
+    const q=await env.DB.prepare('INSERT INTO historical_scores(school_id,student_id,student_name,source_name,exam_date,mode,raw_answer_json,normalized_answer_json,score,metadata_json,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(u.school_id,matched?.id||null,name,source,examDate,mode,JSON.stringify(raw),JSON.stringify(norm),total,JSON.stringify(meta),u.id).run();
+    inserted.push({id:q.meta.last_row_id,student_name:name,score:total,matched_student_id:matched?.id||null});
+  }
+  return json({success:true,count:inserted.length,rows:inserted});
+}
+async function milHistoricalList(env,u,studentId){
+  const r=studentId
+    ? await env.DB.prepare('SELECT id,student_id,student_name,source_name,exam_date,mode,score,metadata_json,created_at FROM historical_scores WHERE school_id=? AND student_id=? ORDER BY exam_date DESC,created_at DESC LIMIT 500').bind(u.school_id,studentId).all()
+    : await env.DB.prepare('SELECT id,student_id,student_name,source_name,exam_date,mode,score,metadata_json,created_at FROM historical_scores WHERE school_id=? ORDER BY exam_date DESC,created_at DESC LIMIT 1000').bind(u.school_id).all();
+  return json({rows:r.results||[]});
+}
 async function milPapers(env){const r=await env.DB.prepare('SELECT id,code,title,source_url,document_type,created_at FROM papers ORDER BY created_at DESC LIMIT 500').all();return json({papers:r.results||[]})}
 async function milCreatePaper(request,env,u){
   if(u.role!=='coach')return json({error:'仅教练可创建试卷'},403);
@@ -844,6 +871,8 @@ export default {
 
 
       
+      if(path==='/api/historical-scores/import'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalImport(request,env,u)}
+      mm=path.match(/^\/api\/historical-scores(?:\/(\d+))?$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalList(env,u,mm[1]?Number(mm[1]):null)}
       if(path==='/api/papers'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milPapers(env)}
       if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
       let mm=path.match(/^\/api\/papers\/(\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
