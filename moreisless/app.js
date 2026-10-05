@@ -491,3 +491,20 @@ async function milHistoricalImport(){
   }catch(e){alert(e.message||"导入失败")}
 }
 views.students=()=>{milStudentsView();return '<div class="empty">正在加载学生数据…</div>'};
+
+async function milProfileView(){
+  let d={profile:{},student:{}};try{d=await MoreIsLessAPI.profile()}catch(e){}
+  const p=d.profile||{};
+  content.innerHTML=`<div class="view-head"><div><h2>我的学生画像</h2><p>画像基于历史成绩与错题数据生成；每次生成都会保留模型与结果记录。</p></div><button class="primary" onclick="milProfileRefresh()">重新分析</button></div>
+  <div class="grid-2"><div class="panel"><div class="panel-title"><h3>总体判断</h3><span class="tag">NVIDIA</span></div><p class="profile-summary">${milEscText(p.summary||"暂无画像，点击重新分析。")}</p><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>优势</span><strong>${milEscText((p.strengths||[]).join(" · ")||"—")}</strong></div><div class="detail"><span>薄弱点</span><strong>${milEscText((p.weaknesses||[]).join(" · ")||"—")}</strong></div><div class="detail"><span>推荐方向</span><strong>${milEscText((p.recommended_topics||[]).join(" · ")||"—")}</strong></div></div></div>
+  <div class="panel"><div class="panel-title"><h3>下一步</h3><span class="tag">建议</span></div><ol class="ai-list">${(p.next_actions||[]).map(x=>`<li>${milEscText(x)}</li>`).join("")||"<li>先导入历史成绩并完成几套考试。</li>"}</ol><p class="muted">置信度：${milEscText(p.confidence||"未评估")}</p></div></div>`;
+}
+async function milProfileRefresh(){try{await MoreIsLessAPI.profile();await milProfileView()}catch(e){alert(e.message||"分析失败")}}
+async function milErrorView(){
+  let d={rows:[]};try{d=await MoreIsLessAPI.errorQuestions()}catch{}
+  content.innerHTML=`<div class="view-head"><div><h2>错题本</h2><p>评分低于满分的题目自动进入错题本；重做后可以标记清除。</p></div></div>
+  <div class="table-wrap"><table><thead><tr><th>题号</th><th>题型</th><th>难度</th><th>来源</th><th>尝试</th><th>最近得分</th><th>状态</th></tr></thead><tbody>${(d.rows||[]).map(x=>`<tr><td><strong>${milEscText(x.public_id)}</strong></td><td>${milEscText(x.question_type||"")}</td><td>${x.difficulty??"—"}</td><td>${milEscText(x.source||"")}</td><td>${x.attempt_count||0}</td><td>${x.last_score??"—"}</td><td>${x.status}</td></tr>`).join("")}</tbody></table></div>`;
+  if(!d.rows?.length)content.innerHTML+='<div class="empty">暂时没有错题。完成考试并评分后，失分题会自动进入这里。</div>';
+}
+views.profile=()=>{milProfileView();return '<div class="empty">正在加载画像…</div>'};
+views.errors=()=>{milErrorView();return '<div class="empty">正在加载错题本…</div>'};
