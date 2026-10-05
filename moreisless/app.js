@@ -138,34 +138,33 @@ async function renderLiveExams(){
 }
 function milEsc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]))}
 function createExamFlow(){
-  content.innerHTML=`<div class="view-head"><div><h2>创建考试</h2><p>先建立共享 Paper，再发布本校或跨校考试。文档可在此直接上传到项目仓库。</p></div><button class="secondary" onclick="renderLiveExams()">返回考试</button></div>
+  content.innerHTML=`<div class="view-head"><div><h2>创建考试</h2><p>先建立共享 Paper，再发布本校或跨校考试。材料可稍后补充。</p></div><button class="secondary" onclick="renderLiveExams()">返回考试</button></div>
   <div class="panel form-panel"><div class="form-grid">
   <label>考试名称<input id="mil-title" placeholder="例如：2026 联赛模拟卷 08"></label>
   <label>Paper 编号<input id="mil-code" placeholder="例如：011"></label>
   <label>截止时间<input id="mil-deadline" type="datetime-local"></label>
-  <label>考试范围<select id="mil-kind"><option value="school">本校</option><option value="inter_school">跨校联合</option></select></label>
+  <label>考试范围<select id="mil-kind" onchange="milToggleExamSchools()"><option value="school">本校</option><option value="inter_school">跨校联合</option></select></label>
+  <div class="full" id="mil-exam-schools" style="display:none"><div class="field-label">参加学校</div><div id="mil-school-options" class="check-grid">加载中…</div></div>
   <label class="full">考试材料<input id="mil-file" type="file" accept=".pdf,.doc,.docx,.txt"></label>
   <label class="full">文档类型<select id="mil-doc-type"><option value="pdf">PDF</option><option value="docx">Word</option><option value="text">文本</option></select></label>
   </div><div class="form-actions"><button class="primary" onclick="createExamSubmit()">创建并保存</button></div></div>`;
+  milFillExamSchools();
 }
+async function milFillExamSchools(){
+  try{const d=await MoreIsLessAPI.schools(),box=document.getElementById("mil-school-options");if(box)box.innerHTML=(d.schools||[]).map(s=>`<label class="check-item"><input type="checkbox" value="${s.id}"> <span>${milEscText(s.name)}</span></label>`).join("")||"暂无学校"}catch{}
+}
+function milToggleExamSchools(){const v=document.getElementById("mil-kind")?.value;const el=document.getElementById("mil-exam-schools");if(el)el.style.display=v==="inter_school"?"block":"none"}
 async function createExamSubmit(){
-  const title=document.getElementById("mil-title")?.value.trim();
-  const code=document.getElementById("mil-code")?.value.trim();
-  const deadlineLocal=document.getElementById("mil-deadline")?.value;
-  const kind=document.getElementById("mil-kind")?.value||"school";
-  const file=document.getElementById("mil-file")?.files?.[0];
-  const documentType=document.getElementById("mil-doc-type")?.value||"pdf";
+  const title=document.getElementById("mil-title")?.value.trim(),code=document.getElementById("mil-code")?.value.trim(),deadlineLocal=document.getElementById("mil-deadline")?.value,kind=document.getElementById("mil-kind")?.value||"school",file=document.getElementById("mil-file")?.files?.[0],documentType=document.getElementById("mil-doc-type")?.value||"pdf";
   if(!title||!code||!deadlineLocal){alert("请填写考试名称、Paper 编号和截止时间");return}
+  const schoolIds=[...document.querySelectorAll("#mil-school-options input:checked")].map(x=>Number(x.value));
+  if(kind==="inter_school"&&!schoolIds.length){alert("跨校考试至少选择一所参加学校");return}
   try{
     const paper=await MoreIsLessAPI.createPaper({title,code,document_type:documentType});
-    if(file){
-      const base64=await milFileBase64(file);
-      await MoreIsLessAPI.uploadDocument(paper.id,{filename:file.name,mime_type:file.type||"application/octet-stream",content_base64:base64,document_type:documentType});
-    }
+    if(file){const base64=await milFileBase64(file);await MoreIsLessAPI.uploadDocument(paper.id,{filename:file.name,mime_type:file.type||"application/octet-stream",content_base64:base64,document_type:documentType})}
     const deadline=new Date(deadlineLocal).toISOString();
-    const ex=await MoreIsLessAPI.createExam({title,paper_id:paper.id,deadline,kind});
-    alert("考试已创建，编号 #"+ex.id);
-    await renderLiveExams();
+    const ex=await MoreIsLessAPI.createExam({title,paper_id:paper.id,deadline,kind,school_ids:schoolIds});
+    alert("考试已创建，编号 #"+ex.id);await renderLiveExams();
   }catch(e){alert(e.message||"创建失败")}
 }
 function milFileBase64(file){
