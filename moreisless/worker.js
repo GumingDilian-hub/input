@@ -836,13 +836,13 @@ export default {
       if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
 
       
-      mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
+      let mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
       mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
       mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
 
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
       if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
-      let mm=path.match(/^\\/api\\/exams\\/(\\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
+      mm=path.match(/^\\/api\\/exams\\/(\\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
       mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/submission$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milStart(env,u,+mm[1])}
       mm=path.match(/^\\/api\\/submissions\\/(\\d+)\\/answers$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSave(request,env,u,+mm[1])}
       mm=path.match(/^\\/api\\/submissions\\/(\\d+)\\/submit$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSubmit(env,u,+mm[1])}
