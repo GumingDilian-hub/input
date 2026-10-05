@@ -889,127 +889,356 @@ async function milResults(env,u,examId){
   return json({results:rows});
 }
 
-// ===== 路由 =====
+// ============================================================
+// MoreIsLess + Original API Routes
+// ============================================================
+
+async function requireUser(request, env) {
+  return await getUser(request, env);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const path = url.pathname, method = request.method;
+    const path = url.pathname;
+    const method = request.method;
+
     if (method === 'OPTIONS') return optionsResponse();
 
     try {
       // Auth
-      if (path === '/register' && method === 'POST') return await handleRegister(request, env);
-      if (path === '/login' && method === 'POST') return await handleLogin(request, env);
+      if (path === '/register' && method === 'POST') {
+        return await handleRegister(request, env);
+      }
+      if (path === '/login' && method === 'POST') {
+        return await handleLogin(request, env);
+      }
 
       // Current user
       if (path === '/users/me' && method === 'GET') {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: '未登录' }, 401);
         return json({ user: getSafeUser(user) });
       }
       if (path === '/users/me' && method === 'PUT') {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: '未登录' }, 401);
         return await handleUpdateMe(request, env, user);
       }
 
       // Public users
-      if (path === '/users/hot' && method === 'GET') return await hotUsers(env);
-      const publicUserMatch = path.match(/^\/users\/([^/]+)$/);
-      if (publicUserMatch && method === 'GET') {
-        const username = decodeURIComponent(publicUserMatch[1]);
-        if (username === 'me') return json({ error: 'Not found' }, 404);
-        return await getPublicUser(env, username);
+      if (path === '/users/hot' && method === 'GET') {
+        return await hotUsers(env);
+      }
+      {
+        const match = path.match(/^\/users\/([^/]+)$/);
+        if (match && method === 'GET') {
+          const username = decodeURIComponent(match[1]);
+          if (username === 'me') return json({ error: 'Not found' }, 404);
+          return await getPublicUser(env, username);
+        }
       }
 
+      // Biology: profile
+      {
+        const match = path.match(/^\/api\/students\/(\d+)\/profile$/);
+        if (match && method === 'GET') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milProfile(env, user, Number(match[1]));
+        }
+      }
+      if (path === '/api/profile' && method === 'GET') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milProfile(env, user, user.id);
+      }
 
-      
-      mm=path.match(/^\/api\/students\/(\d+)\/profile$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milProfile(env,u,+mm[1])}
-      if(path==='/api/profile'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milProfile(env,u,u.id)}
-      if(path==='/api/error-questions'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milErrorBank(env,u)}
-      mm=path.match(/^\/api\/error-questions\/(\d+)\/redo$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milRedo(request,env,u,+mm[1])}
-      if(path==='/api/ai/generate-questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milGenerateQuestions(request,env,u)}
-      if(path==='/api/historical-scores/import'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalImport(request,env,u)}
-      mm=path.match(/^\/api\/historical-scores(?:\/(\d+))?$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milHistoricalList(env,u,mm[1]?Number(mm[1]):null)}
-      if(path==='/api/papers'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milPapers(env)}
-      if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
-      let mm=path.match(/^\/api\/papers\/(\d+)\/document$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUploadDocument(request,env,u,+mm[1])}
-      if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
-      if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
-      if(path==='/api/questions'&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
+      // Biology: error questions
+      if (path === '/api/error-questions' && method === 'GET') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milErrorBank(env, user);
+      }
+      {
+        const match = path.match(/^\/api\/error-questions\/(\d+)\/redo$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milRedo(request, env, user, Number(match[1]));
+        }
+      }
 
-      
-      mm=path.match(/^\/api\/exams\/(\d+)\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\d+)\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\d+)\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\d+)\/score-versions\/(\d+)\/current$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSwitchScoreVersion(request,env,u,+mm[1],+mm[2])}
+      // Biology: AI
+      if (path === '/api/ai/generate-questions' && method === 'POST') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milGenerateQuestions(request, env, user);
+      }
 
-      if(path==='/api/schools'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);const b=await request.json();const name=String(b.name||'').trim();if(!name)return json({error:'学校名称不能为空'},400);const old=await env.DB.prepare('SELECT id,name FROM schools WHERE name=?').bind(name).first();if(old)return json({success:true,school:old,existing:true});const sr=await env.DB.prepare('INSERT INTO schools(name,created_by) VALUES(?,?)').bind(name,u.id).run();return json({success:true,school:{id:sr.meta.last_row_id,name},existing:false});}
-      if(path==='/api/schools'&&method==='GET')return await milSchools(env);
-      if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
-      mm=path.match(/^\/api\/exams\/(\d+)$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExam(env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\d+)\/submission$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milStart(env,u,+mm[1])}
-      mm=path.match(/^\/api\/submissions\/(\d+)\/answers$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSave(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/submissions\/(\d+)\/submit$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSubmit(env,u,+mm[1])}
-      if(path==='/api/questions'&&method==='GET')return await milQuestions(env);
-      mm=path.match(/^\/api\/questions\/(\d+)\/comments$/);if(mm&&(method==='GET'||method==='POST')){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milComments(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/comments\/(\d+)$/);if(mm&&method==='PUT'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milModerate(request,env,u,+mm[1])}
-      mm=path.match(/^\/api\/exams\/(\d+)\/score-versions$/);if(mm&&method==='GET')return await milVersions(env,+mm[1]);
-      // Copilot Models
-      if (path === '/api/models' && method === 'GET') return await handleModels();
+      // Biology: historical scores
+      if (path === '/api/historical-scores/import' && method === 'POST') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milHistoricalImport(request, env, user);
+      }
+      {
+        const match = path.match(/^\/api\/historical-scores(?:\/(\d+))?$/);
+        if (match && method === 'GET') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milHistoricalList(env, user, match[1] ? Number(match[1]) : null);
+        }
+      }
+
+      // Biology: papers
+      if (path === '/api/papers' && method === 'GET') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milPapers(env);
+      }
+      if (path === '/api/papers' && method === 'POST') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milCreatePaper(request, env, user);
+      }
+      {
+        const match = path.match(/^\/api\/papers\/(\d+)\/document$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milUploadDocument(request, env, user, Number(match[1]));
+        }
+      }
+
+      // Biology: schools
+      if (path === '/api/schools' && method === 'GET') {
+        return await milSchools(env);
+      }
+      if (path === '/api/schools' && method === 'POST') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+
+        const body = await request.json();
+        const name = String(body?.name || '').trim();
+        if (!name) return json({ error: '学校名称不能为空' }, 400);
+
+        const old = await env.DB
+          .prepare('SELECT id,name FROM schools WHERE name=?')
+          .bind(name)
+          .first();
+
+        if (old) {
+          return json({ success: true, school: old, existing: true });
+        }
+
+        const sr = await env.DB
+          .prepare('INSERT INTO schools(name,created_by) VALUES(?,?)')
+          .bind(name, user.id)
+          .run();
+
+        return json({
+          success: true,
+          school: { id: sr.meta.last_row_id, name },
+          existing: false
+        });
+      }
+
+      // Biology: exams
+      if (path === '/api/exams' && method === 'GET') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milExams(env, user);
+      }
+      if (path === '/api/exams' && method === 'POST') {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milCreateExam(request, env, user);
+      }
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)$/);
+        if (match && method === 'GET') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milExam(env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)\/submission$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milStart(env, user, Number(match[1]));
+        }
+      }
+
+      // Biology: submissions
+      {
+        const match = path.match(/^\/api\/submissions\/(\d+)\/answers$/);
+        if (match && method === 'PUT') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milSave(request, env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/submissions\/(\d+)\/submit$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milSubmit(env, user, Number(match[1]));
+        }
+      }
+
+      // Biology: questions
+      if (path === '/api/questions' && method === 'GET') {
+        return await milQuestions(env);
+      }
+      if (path === '/api/questions' && (method === 'POST' || method === 'PUT')) {
+        const user = await requireUser(request, env);
+        if (!user) return json({ error: '未登录' }, 401);
+        return await milUpsertQuestion(request, env, user);
+      }
+
+      // Biology: question comments
+      {
+        const match = path.match(/^\/api\/questions\/(\d+)\/comments$/);
+        if (match && (method === 'GET' || method === 'POST')) {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milComments(request, env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/comments\/(\d+)$/);
+        if (match && method === 'PUT') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milModerate(request, env, user, Number(match[1]));
+        }
+      }
+
+      // Biology: answer keys / scoring
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)\/answer-key$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milSetKey(request, env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)\/calculate$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milCalculate(env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)\/results$/);
+        if (match && method === 'GET') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milResults(env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/api\/exams\/(\d+)\/score-versions$/);
+        if (match && method === 'GET') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milVersions(env, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(
+          /^\/api\/exams\/(\d+)\/score-versions\/(\d+)\/current$/
+        );
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await milSwitchScoreVersion(
+            request,
+            env,
+            user,
+            Number(match[1]),
+            Number(match[2])
+          );
+        }
+      }
+
+      // Copilot models
+      if (path === '/api/models' && method === 'GET') {
+        return await handleModels();
+      }
 
       // Posts
-      if (path === '/posts' && method === 'GET') return await listPosts(url, env);
+      if (path === '/posts' && method === 'GET') {
+        return await listPosts(url, env);
+      }
       if (path === '/posts' && method === 'POST') {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: '未登录' }, 401);
         return await createPost(request, env, user);
       }
-      const postMatch = path.match(/^\/posts\/(\d+)$/);
-      if (postMatch && method === 'GET') return await getPost(request, env, Number(postMatch[1]));
-      if (postMatch && method === 'DELETE') {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: '未登录' }, 401);
-        return await deletePost(request, env, user, Number(postMatch[1]));
+      {
+        const match = path.match(/^\/posts\/(\d+)$/);
+        if (match && method === 'GET') {
+          return await getPost(request, env, Number(match[1]));
+        }
+        if (match && method === 'DELETE') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await deletePost(request, env, user, Number(match[1]));
+        }
       }
-      const postLikeMatch = path.match(/^\/posts\/(\d+)\/like$/);
-      if (postLikeMatch && method === 'POST') {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: '未登录' }, 401);
-        return await togglePostLike(request, env, user, Number(postLikeMatch[1]));
+      {
+        const match = path.match(/^\/posts\/(\d+)\/like$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await togglePostLike(request, env, user, Number(match[1]));
+        }
       }
 
       // Comments
       if (path === '/comments' && method === 'POST') {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: '未登录' }, 401);
         return await createComment(request, env, user);
       }
-      if (path === '/comments' && method === 'GET') return await listComments(url, env);
-      const commentMatch = path.match(/^\/comments\/(\d+)$/);
-      if (commentMatch && method === 'DELETE') {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: '未登录' }, 401);
-        return await deleteComment(request, env, user, Number(commentMatch[1]));
+      if (path === '/comments' && method === 'GET') {
+        return await listComments(url, env);
       }
-      const commentLikeMatch = path.match(/^\/comments\/(\d+)\/like$/);
-      if (commentLikeMatch && method === 'POST') {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: '请先登录' }, 401);
-        return await likeComment(request, env, user, Number(commentLikeMatch[1]));
+      {
+        const match = path.match(/^\/comments\/(\d+)$/);
+        if (match && method === 'DELETE') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '未登录' }, 401);
+          return await deleteComment(request, env, user, Number(match[1]));
+        }
+      }
+      {
+        const match = path.match(/^\/comments\/(\d+)\/like$/);
+        if (match && method === 'POST') {
+          const user = await requireUser(request, env);
+          if (!user) return json({ error: '请先登录' }, 401);
+          return await likeComment(request, env, user, Number(match[1]));
+        }
       }
 
-      // Copilot Chat
+      // Copilot chat
       if (path === '/api/chat' && method === 'POST') {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: '请先登录' }, 401);
         const body = await request.json();
         return await handleChat(body, env);
       }
 
-      // Copilot History
+      // Copilot history
       if (path === '/api/history' || path.startsWith('/api/history/')) {
-        const user = await getUser(request, env);
+        const user = await requireUser(request, env);
         if (!user) return json({ error: 'Unauthorized' }, 401);
         return await handleHistory(request, env, user, path, method);
       }
@@ -1017,7 +1246,10 @@ export default {
       return json({ error: 'Not found' }, 404);
     } catch (error) {
       console.error('Worker error:', error);
-      return json({ error: error?.message || 'Internal Server Error' }, 500);
+      return json(
+        { error: error?.message || 'Internal Server Error' },
+        500
+      );
     }
   }
 };
