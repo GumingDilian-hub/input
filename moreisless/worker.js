@@ -714,6 +714,62 @@ async function milUpsertQuestion(request,env,u){
   return json({success:true});
 }
 
+
+function milNorm(v){
+  if(Array.isArray(v))return v.map(x=>String(x).toUpperCase()).filter(x=>/^[ABCD]$/.test(x)).sort().join('');
+  return String(v||'').toUpperCase().replace(/[^ABCD]/g,'').split('').sort().join('');
+}
+function milScoreABCD(student,key,points){
+  const a=milNorm(student),b=milNorm(key);
+  if(!b)return 0;
+  const sa=a.split(''),sb=b.split('');
+  const same=sa.filter(x=>sb.includes(x)).length;
+  const exact=a===b;
+  if(exact)return points;
+  if(b.length===4&&a.length===4&&same===3)return points/2;
+  if(b.length===4&&a.length===4&&same===2)return points*0.1;
+  return 0;
+}
+async function milCalculate(env,u,examId){
+  if(u.role!=='coach')return json({error:'仅教练可评分'},403);
+  const key=await env.DB.prepare('SELECT * FROM answer_key_versions WHERE exam_id=? AND is_current=1 ORDER BY version DESC LIMIT 1').bind(examId).first();
+  if(!key)return json({error:'尚未设置当前答案版本'},409);
+  const rows=await env.DB.prepare('SELECT ak.question_id,ak.answer_json,ak.points FROM answer_keys ak WHERE ak.version_id=?').bind(key.id).all();
+  const map=new Map((rows.results||[]).map(x=>[x.question_id,x]));
+  const sv=await env.DB.prepare('SELECT COALESCE(MAX(version),0)+1 AS next FROM score_versions WHERE exam_id=?').bind(examId).first();
+  const version=sv.next||1;
+  const rule={type:'multi_select_v1',partial:'4=2,3=1,2=0.2,other=0',answer_key_version:key.version};
+  const sr=await env.DB.prepare('INSERT INTO score_versions(exam_id,version,answer_key_version_id,scoring_rule_json,created_by,is_current) VALUES(?,?,?,?,?,1)').bind(examId,version,key.id,JSON.stringify(rule),u.id).run();
+  await env.DB.prepare('UPDATE score_versions SET is_current=0 WHERE exam_id=? AND id<>?').bind(examId,sr.meta.last_row_id).run();
+  const subs=await env.DB.prepare('SELECT id FROM submissions WHERE exam_id=? AND status=\'submitted\'').bind(examId).all();
+  const statements=[];
+  for(const sub of subs.results||[]){
+    const aa=await env.DB.prepare('SELECT question_id,answer_json FROM answers WHERE submission_id=?').bind(sub.id).all();
+    let total=0;const detail=[];
+    for(const a of aa.results||[]){const k=map.get(a.question_id);if(!k)continue;const pts=milScoreABCD(a.answer_json,k.answer_json,Number(k.points)||2);total+=pts;detail.push({question_id:a.question_id,student_answer:JSON.parse(a.answer_json||'[]'),correct_answer:JSON.parse(k.answer_json||'[]'),score:pts})}
+    statements.push(env.DB.prepare('INSERT INTO scores(score_version_id,submission_id,total,detail_json) VALUES(?,?,?,?) ON CONFLICT(score_version_id,submission_id) DO UPDATE SET total=excluded.total,detail_json=excluded.detail_json,calculated_at=CURRENT_TIMESTAMP').bind(sr.meta.last_row_id,sub.id,total,JSON.stringify(detail)));
+  }
+  if(statements.length)await env.DB.batch(statements);
+  return json({success:true,version,total_submissions:statements.length});
+}
+async function milSetKey(request,env,u,examId){
+  if(u.role!=='coach')return json({error:'仅教练可设置答案'},403);
+  const b=await request.json(),rows=Array.isArray(b.questions)?b.questions:[];
+  const mx=await env.DB.prepare('SELECT COALESCE(MAX(version),0)+1 AS next FROM answer_key_versions WHERE exam_id=?').bind(examId).first();
+  const version=mx.next||1;
+  await env.DB.prepare('UPDATE answer_key_versions SET is_current=0 WHERE exam_id=?').bind(examId).run();
+  const x=await env.DB.prepare('INSERT INTO answer_key_versions(exam_id,version,note,created_by,is_current) VALUES(?,?,?,?,1)').bind(examId,version,b.note||null,u.id).run();
+  const st=rows.map(q=>env.DB.prepare('INSERT INTO answer_keys(version_id,question_id,answer_json,points) VALUES(?,?,?,?)').bind(x.meta.last_row_id,Number(q.question_id),JSON.stringify(milNorm(q.answer).split('')),Number(q.points??2)));
+  if(st.length)await env.DB.batch(st);
+  return json({success:true,version});
+}
+async function milResults(env,u,examId){
+  const q='SELECT s.id submission_id,s.student_id,s.submitted_at,sc.total,sc.detail_json,u.username,u.school_id FROM submissions s JOIN users u ON u.id=s.student_id LEFT JOIN score_versions sv ON sv.exam_id=s.exam_id AND sv.is_current=1 LEFT JOIN scores sc ON sc.score_version_id=sv.id AND sc.submission_id=s.id WHERE s.exam_id=? ORDER BY sc.total DESC';
+  const r=await env.DB.prepare(q).bind(examId).all();
+  const rows=(r.results||[]).map(x=>u.role==='student'&&x.school_id!==u.school_id?{...x,username:null}:x);
+  return json({results:rows});
+}
+
 // ===== 路由 =====
 export default {
   async fetch(request, env) {
@@ -752,6 +808,11 @@ export default {
       if(path==='/api/papers'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreatePaper(request,env,u)}
       if(path==='/api/exams'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCreateExam(request,env,u)}
       if(path==='/api/questions'&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milUpsertQuestion(request,env,u)}
+
+      
+      mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/answer-key$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milSetKey(request,env,u,+mm[1])}
+      mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/calculate$/);if(mm&&method==='POST'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milCalculate(env,u,+mm[1])}
+      mm=path.match(/^\\/api\\/exams\\/(\\d+)\\/results$/);if(mm&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milResults(env,u,+mm[1])}
 
       if(path==='/api/schools'&&method==='GET')return await milSchools(env);
       if(path==='/api/exams'&&method==='GET'){const u=await getUser(request,env);if(!u)return json({error:'未登录'},401);return await milExams(env,u)}
