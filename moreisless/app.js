@@ -278,13 +278,13 @@ function milAuthShell(){
       <div class="auth-copy"><span class="eyebrow">ACCESS</span><h1>进入竞赛工作台</h1><p>学校、考试、题库与成绩统一在同一账户下管理。</p></div>
       <div id="auth-panel"></div>
     </div>
-    <div class="auth-base"><span>Worker API</span><input id="auth-api-base" placeholder="例如 https://your-worker.workers.dev"><button class="secondary" onclick="milSaveApiBase()">保存地址</button></div>
+    <div class="auth-base"><span>Worker API</span><input id="auth-api-base" value="https://moreisless.2167964516.workers.dev" readonly><button class="secondary" onclick="milSaveApiBase()">使用此地址</button></div>
   </div>`;
-  const base=document.getElementById("auth-api-base");if(base)base.value=localStorage.getItem("mil_api_base")||"";
+  const base=document.getElementById("auth-api-base");if(base)base.value=localStorage.getItem("mil_api_base")||"https://moreisless.2167964516.workers.dev";
   milRenderLogin();
 }
 function milSaveApiBase(){
-  const v=document.getElementById("auth-api-base")?.value.trim()||"";
+  const v=document.getElementById("auth-api-base")?.value.trim()||"https://moreisless.2167964516.workers.dev";
   MoreIsLessAPI.setBase(v);milRenderLogin();
 }
 function milRenderLogin(){
@@ -336,7 +336,7 @@ async function milEnterApp(){
 function milApplyIdentity(){
   const school=milUser?.school||"未设置学校",name=milUser?.username||"用户",role=milRole()==="coach"?"教练":"学生";
   const sw=document.querySelector(".school-switch");if(sw)sw.innerHTML=`<span class="eyebrow">当前学校</span><strong>${milEscText(school)}</strong><span class="muted">${role} · ${milEscText(name)}</span>`;
-  const pr=document.querySelector(".profile");if(pr)pr.innerHTML=`${milEscText(name)} <span>${milEscText(name.slice(0,2).toUpperCase())}</span>`;
+  const pr=document.querySelector("#profile-button, .profile");if(pr)pr.innerHTML=`${milEscText(name)} <span>${milEscText(name.slice(0,2).toUpperCase())}</span>`;
   const nav=document.querySelectorAll(".nav-item");
   nav.forEach(x=>{if(milRole()!=="coach"&&["students","schools"].includes(x.dataset.view))x.style.display="none"});
   const newBtn=document.getElementById("new-exam");if(newBtn)newBtn.style.display=milRole()==="coach"?"":"none";
@@ -422,7 +422,7 @@ async function milCreateSchool(){
 function milSettingsView(){
   const name=milUser?.username||"",school=milUser?.school||"",role=milRole();
   content.innerHTML=`<div class="view-head"><div><h2>账户与设置</h2><p>当前身份与 API 连接。</p></div><button class="secondary" onclick="milLogout()">退出登录</button></div>
-  <div class="grid-2"><div class="panel"><div class="panel-title"><h3>身份</h3><span class="tag">${role}</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>用户名</span><strong>${milEscText(name)}</strong></div><div class="detail"><span>学校</span><strong>${milEscText(school)}</strong></div><div class="detail"><span>角色</span><strong>${role==="coach"?"教练":"学生"}</strong></div></div></div><div class="panel"><div class="panel-title"><h3>Worker API</h3></div><label class="standalone-field">地址<input id="settings-api-base" value="${milEscText(localStorage.getItem("mil_api_base")||"")}" placeholder="https://your-worker.workers.dev"></label><button class="primary" style="margin-top:12px" onclick="MoreIsLessAPI.setBase(document.getElementById('settings-api-base').value.trim());alert('已保存')">保存</button></div></div>`;
+  <div class="grid-2"><div class="panel"><div class="panel-title"><h3>身份</h3><span class="tag">${role}</span></div><div class="detail-grid" style="grid-template-columns:1fr"><div class="detail"><span>用户名</span><strong>${milEscText(name)}</strong></div><div class="detail"><span>学校</span><strong>${milEscText(school)}</strong></div><div class="detail"><span>角色</span><strong>${role==="coach"?"教练":"学生"}</strong></div></div></div><div class="panel"><div class="panel-title"><h3>Worker API</h3></div><label class="standalone-field">地址<input id="settings-api-base" value="https://moreisless.2167964516.workers.dev" readonly></label><button class="primary" style="margin-top:12px" onclick="MoreIsLessAPI.setBase(document.getElementById('settings-api-base').value.trim());alert('已保存')">保存</button></div></div>`;
 }
 
 views.questions=()=>{milQuestionsView();return '<div class="empty">正在加载题库…</div>'};
