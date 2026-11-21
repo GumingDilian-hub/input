@@ -1,0 +1,22 @@
+name = "glm-github-agent"
+main = "worker.js"
+compatibility_date = "2026-11-21"
+workers_dev = true
+
+[vars]
+CORS_ALLOWED_ORIGINS = "https://your-frontend.example"
+GLM_MODEL = "glm-5.3"
+GLM_REASONING_EFFORT = "max"
+WRITE_MODE_DEFAULT = "pr"
+ENABLE_DIRECT_WRITE = "false"
+TERMINAL_WORKER_URL = "https://glm-terminal-worker.YOUR_SUBDOMAIN.workers.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "glm-agent-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "../migrations"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
