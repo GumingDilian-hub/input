@@ -337,7 +337,7 @@ function writeBranch(ctx) {
 }
 
 async function readFileRaw(ctx, path, branch) {
-  assertSafePath(path, ctx.cfg, ctx.allowSensitive);
+  assertSafePath(path, ctx.cfg);
   const { owner, repo } = ctx;
   const b = branch || readBranch(ctx);
   const data = await ghRequest(ctx, "GET",
@@ -383,7 +383,7 @@ async function readFileWithRange(ctx, path, startLine, endLine) {
 }
 
 async function writeFileRaw(ctx, path, content, message) {
-  assertSafePath(path, ctx.cfg, ctx.allowSensitive);
+  assertSafePath(path, ctx.cfg);
   const bytes = _encoder.encode(content).length;
   if (bytes > ctx.cfg.fileWriteMaxBytes)
     throw new Error(`内容 ${bytes}B 超过上限 ${ctx.cfg.fileWriteMaxBytes}B`);
@@ -418,7 +418,7 @@ async function writeFileRaw(ctx, path, content, message) {
 }
 
 async function deleteFileRaw(ctx, path, message) {
-  assertSafePath(path, ctx.cfg, ctx.allowSensitive);
+  assertSafePath(path, ctx.cfg);
   const branch = writeBranch(ctx);
   if (!branch) throw new Error("内部错误：writeBranch 为空");
 
@@ -439,7 +439,7 @@ async function deleteFileRaw(ctx, path, message) {
 }
 
 async function listFilesRaw(ctx, path) {
-  if (path) assertSafePath(path, ctx.cfg, ctx.allowSensitive);
+  if (path) assertSafePath(path, ctx.cfg);
   const branch = readBranch(ctx);
   const qs = path ? `/${path.split("/").map(encodeURIComponent).join("/")}` : "";
   const { owner, repo } = ctx;
@@ -998,3 +998,368 @@ const TOOLS = [
     },
   },
   {
+    type: "function",
+    function: {
+      name: "get_issue",
+      description: "获取 Issue 详情和最近评论。",
+      parameters: { type: "object", properties: { number: { type: "integer" } }, required: ["number"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_commits",
+      description: "列出当前分支最近提交，可按文件路径过滤。",
+      parameters: { type: "object", properties: { path: { type: "string" }, limit: { type: "integer" } } },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "terminal_execute",
+      description: "在独立 Terminal Worker 中执行 JavaScript async function body。支持 fetch 和 Cloudflare Web APIs，不是 Bash/Linux shell。",
+      parameters: {
+        type: "object",
+        properties: {
+          code: { type: "string", description: "异步 JavaScript 函数体" },
+          input: { type: "object", description: "传给代码的 JSON 输入" },
+        },
+        required: ["code"],
+      },
+    },
+  },
+];
+
+async function executeTerminal(ctx, args) {
+  if (!ctx.cfg.terminalWorkerUrl || !ctx.cfg.terminalSharedSecret)
+    throw new Error("Terminal Worker 未配置");
+  if (typeof args.code !== "string" || !args.code.trim())
+    throw new Error("terminal_execute.code 不能为空");
+  if (_encoder.encode(args.code).length > 100_000)
+    throw new Error("Terminal 代码超过 100KB");
+  ctx.budget.use();
+  const res = await fetchWithTimeout(
+    `${ctx.cfg.terminalWorkerUrl}/run`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ctx.cfg.terminalSharedSecret}`,
+      },
+      body: JSON.stringify({ code: args.code, input: args.input ?? {} }),
+    },
+    ctx.cfg.terminalTimeoutMs,
+    "Terminal Worker",
+  );
+  const raw = await res.text();
+  let data;
+  try { data = raw ? JSON.parse(raw) : {}; }
+  catch { throw new Error(`Terminal Worker 返回非 JSON（HTTP ${res.status}）`); }
+  if (!res.ok) throw new Error(data.error || `Terminal Worker HTTP ${res.status}`);
+  return data;
+}
+
+async function executeTool(ctx, name, args) {
+  switch (name) {
+    case "read_file":
+      return readFileWithRange(ctx, args.path, args.start_line, args.end_line);
+    case "list_files":
+      return listFilesRaw(ctx, args.path || "");
+    case "get_tree":
+      return getTreeRaw(ctx);
+    case "search_code":
+      return searchCodeRaw(ctx, args.query, args);
+    case "write_file":
+      if (ctx.mode === "pr") await ensureWorkBranch(ctx);
+      return writeFileRaw(ctx, args.path, args.content, args.message);
+    case "str_replace": {
+      if (ctx.mode === "pr") await ensureWorkBranch(ctx);
+      const file = await readFileRaw(ctx, args.path, writeBranch(ctx));
+      const next = applyStrReplace(file.content, args.old_string, args.new_string, !!args.replace_all);
+      if (ctx.dryRun) return makePreview(file.content, next, args.path);
+      return writeFileRaw(ctx, args.path, next, args.message);
+    }
+    case "apply_patch": {
+      if (ctx.mode === "pr") await ensureWorkBranch(ctx);
+      const file = await readFileRaw(ctx, args.path, writeBranch(ctx));
+      const next = applyPatch(file.content, args.patch);
+      if (ctx.dryRun) return makePreview(file.content, next, args.path);
+      return writeFileRaw(ctx, args.path, next, args.message);
+    }
+    case "delete_file":
+      if (ctx.mode === "pr") await ensureWorkBranch(ctx);
+      return deleteFileRaw(ctx, args.path, args.message);
+    case "create_pr":
+      return createPRRaw(ctx, args);
+    case "get_pr":
+      return getPRRaw(ctx, args.number);
+    case "list_pr_comments":
+      return listPRCommentsRaw(ctx, args.number);
+    case "comment_on_pr":
+      return commentOnPRRaw(ctx, args.number, args.body);
+    case "get_check_runs":
+      return getCheckRunsRaw(ctx, args.ref);
+    case "get_workflow_runs":
+      return getWorkflowRunsRaw(ctx, args.ref, args.limit);
+    case "get_issue":
+      return getIssueRaw(ctx, args.number);
+    case "list_commits":
+      return listCommitsRaw(ctx, args.path, args.limit);
+    case "terminal_execute":
+      return executeTerminal(ctx, args);
+    default:
+      throw new Error(`未知工具: ${name}`);
+  }
+}
+
+async function saveWorkflowEvent(db, runId, type, data) {
+  try {
+    await db.prepare(
+      "INSERT INTO workflow_events (run_id, type, data_json, created_at) VALUES (?, ?, ?, ?)"
+    ).bind(runId, type, JSON.stringify(data ?? {}), Date.now()).run();
+  } catch (e) {
+    console.error("workflow event persistence failed", String(e));
+  }
+}
+
+async function updateWorkflow(db, runId, status, fields = {}) {
+  const sets = ["status = ?", "updated_at = ?"];
+  const values = [status, Date.now()];
+  if (fields.completedAt !== undefined) { sets.push("completed_at = ?"); values.push(fields.completedAt); }
+  if (fields.finalText !== undefined) { sets.push("final_text = ?"); values.push(fields.finalText); }
+  if (fields.error !== undefined) { sets.push("error = ?"); values.push(fields.error); }
+  if (fields.rounds !== undefined) { sets.push("rounds = ?"); values.push(fields.rounds); }
+  if (fields.usage !== undefined) { sets.push("usage_json = ?"); values.push(JSON.stringify(fields.usage)); }
+  values.push(runId);
+  await db.prepare(`UPDATE workflow_runs SET ${sets.join(", ")} WHERE run_id = ?`).bind(...values).run();
+}
+
+async function callGLM(ctx, messages) {
+  ctx.budget.use();
+  const body = {
+    model: ctx.cfg.glmModel,
+    messages,
+    tools: TOOLS,
+    tool_choice: "auto",
+    max_tokens: ctx.cfg.glmMaxTokens,
+    temperature: ctx.cfg.glmTemperature,
+    reasoning_effort: ctx.cfg.glmReasoningEffort,
+  };
+  const res = await fetchWithTimeout(ctx.cfg.glmEndpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ctx.cfg.glmApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  }, ctx.cfg.glmTimeoutMs, "GLM API");
+  const raw = await res.text();
+  let data;
+  try { data = raw ? JSON.parse(raw) : {}; }
+  catch { throw new Error(`GLM API 返回非 JSON（HTTP ${res.status}）: ${raw.slice(0, 300)}`); }
+  if (!res.ok) throw new Error(`GLM API HTTP ${res.status}: ${data.error?.message || raw.slice(0, 500)}`);
+  const message = data.choices?.[0]?.message;
+  if (!message) throw new Error("GLM API 响应缺少 choices[0].message");
+  return { message, usage: data.usage || null };
+}
+
+async function runAgent(env, requestBody) {
+  const cfg = loadConfig(env);
+  const owner = validateRepoPart(requestBody.owner, "owner");
+  const repo = validateRepoPart(requestBody.repo, "repo");
+  const baseBranch = typeof requestBody.branch === "string" && requestBody.branch.trim()
+    ? requestBody.branch.trim() : "main";
+  if (baseBranch.length > 200 || baseBranch.startsWith("/") || baseBranch.includes(".."))
+    throw new Error("branch 格式非法");
+  const mode = requestBody.mode === "direct" ? "direct" : cfg.writeModeDefault;
+  if (mode === "direct" && !cfg.enableDirectWrite)
+    throw new Error("服务端未启用 Direct 写入（ENABLE_DIRECT_WRITE=false）");
+  if (mode === "direct" && requestBody.confirmDirectWrite !== true)
+    throw new Error("Direct 写入必须显式设置 confirmDirectWrite:true");
+  if (mode === "pr" && requestBody.confirmDirectWrite === true) {
+    // PR mode ignores the direct-write confirmation flag.
+  }
+  const prompt = typeof requestBody.prompt === "string" ? requestBody.prompt.trim() : "";
+  if (!prompt || prompt.length > 30_000) throw new Error("prompt 不能为空且不能超过 30000 字符");
+
+  const runId = crypto.randomUUID();
+  const now = Date.now();
+  const ctx = {
+    cfg, owner, repo, baseBranch, mode,
+    workBranchName: typeof requestBody.workBranch === "string" ? requestBody.workBranch : null,
+    dryRun: requestBody.dryRun === true,
+    budget: makeBudget(cfg.subrequestBudget),
+    state: { hasWrites: false, workBranch: null, prNumber: null, prCreated: false },
+  };
+
+  await env.DB.prepare(
+    `INSERT INTO workflow_runs
+      (run_id, owner, repo, branch, mode, status, started_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'running', ?, ?)`
+  ).bind(runId, owner, repo, baseBranch, mode, now, now).run();
+  await saveWorkflowEvent(env.DB, runId, "started", { owner, repo, branch: baseBranch, mode });
+
+  const messages = [
+    {
+      role: "system",
+      content: "你是一个谨慎的 GitHub 仓库工程 Agent。先检查上下文，再进行最小必要修改；修改默认走 PR 工作分支。敏感路径不可读写。终端工具执行的是 JavaScript async function body，不是 Bash。对不确定结果明确说明，不要声称未执行的操作已成功。",
+    },
+    { role: "user", content: `仓库：${owner}/${repo}\n基础分支：${baseBranch}\n写入模式：${mode}\n\n任务：\n${prompt}` },
+  ];
+  let finalText = "";
+  let usage = null;
+  let rounds = 0;
+  try {
+    for (; rounds < cfg.maxRounds; rounds++) {
+      const { message, usage: turnUsage } = await callGLM(ctx, messages);
+      usage = turnUsage || usage;
+      const assistantMessage = {
+        role: "assistant",
+        content: message.content ?? null,
+        ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}),
+      };
+      messages.push(assistantMessage);
+      if (!message.tool_calls?.length) {
+        finalText = typeof message.content === "string" ? message.content : "";
+        break;
+      }
+      for (const call of message.tool_calls) {
+        const name = call.function?.name;
+        let args;
+        try { args = JSON.parse(call.function?.arguments || "{}"); }
+        catch (e) {
+          messages.push({
+            role: "tool", tool_call_id: call.id,
+            content: JSON.stringify({ error: `工具参数 JSON 解析失败: ${e.message}` }),
+          });
+          continue;
+        }
+        await saveWorkflowEvent(env.DB, runId, "tool_call", { name, arguments: args });
+        let result;
+        try {
+          result = await executeTool(ctx, name, args);
+        } catch (e) {
+          result = { error: e?.message || String(e) };
+        }
+        const safeResult = limitResult(result, cfg.toolResultMaxBytes);
+        messages.push({
+          role: "tool", tool_call_id: call.id,
+          content: JSON.stringify(safeResult),
+        });
+        await saveWorkflowEvent(env.DB, runId, "tool_result", {
+          name, result: safeResult,
+        });
+      }
+      const transcriptSize = messages.reduce((n, m) => n + _encoder.encode(JSON.stringify(m)).length, 0);
+      if (transcriptSize > cfg.transcriptMaxChars) {
+        // Keep the system/user context and the most recent complete tool exchange group.
+        const first = messages.slice(0, 2);
+        const tail = messages.slice(2);
+        while (tail.length > 4 && _encoder.encode(JSON.stringify(first.concat(tail))).length > cfg.transcriptMaxChars) {
+          tail.splice(0, 2);
+        }
+        messages.splice(0, messages.length, ...first, ...tail);
+      }
+      if (ctx.budget.nearLimit()) {
+        messages.push({ role: "user", content: "工具调用预算即将耗尽，请立即总结已完成工作，不要再调用工具。" });
+      }
+    }
+    if (!finalText && rounds >= cfg.maxRounds)
+      finalText = "已达到最大 Agent 轮数，以下为当前执行状态摘要。";
+    if (ctx.mode === "pr" && ctx.state.hasWrites) {
+      const pr = await createPRRaw(ctx, {
+        title: `Agent: ${prompt.slice(0, 80)}`,
+        body: `由 GLM Agent 自动创建。\n\nRun ID: ${runId}`,
+      });
+      ctx.state.prNumber = pr.number;
+      finalText += `\n\nPR: ${pr.html_url}`;
+    }
+    await updateWorkflow(env.DB, runId, "completed", {
+      completedAt: Date.now(), finalText, rounds: rounds + 1, usage,
+    });
+    await saveWorkflowEvent(env.DB, runId, "completed", { finalText, rounds: rounds + 1 });
+    return {
+      run_id: runId, status: "completed", answer: finalText,
+      branch: ctx.state.workBranch, pr_number: ctx.state.prNumber,
+      budget: { used: ctx.budget.used, limit: ctx.budget.limit },
+      usage,
+    };
+  } catch (e) {
+    await updateWorkflow(env.DB, runId, "failed", {
+      completedAt: Date.now(), error: e?.message || String(e), rounds, usage,
+    });
+    await saveWorkflowEvent(env.DB, runId, "failed", { error: e?.message || String(e) });
+    throw e;
+  }
+}
+
+function responseJson(data, status = 200, headers = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers },
+  });
+}
+
+async function handleRequest(request, env) {
+  const url = new URL(request.url);
+  let cfg;
+  try { cfg = loadConfig(env); }
+  catch (e) {
+    if (url.pathname === "/health") return responseJson({ ok: false, error: e.message }, 503);
+    return responseJson({ error: e.message }, 503);
+  }
+  const cors = corsHeaders(request.headers.get("Origin"), cfg);
+  if (request.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: cors });
+  if (url.pathname === "/health" && request.method === "GET")
+    return responseJson({ ok: true, service: "glm-github-agent" }, 200, cors);
+  if (!requireApiAuth(request, cfg.agentApiToken))
+    return responseJson({ error: "Unauthorized" }, 401, cors);
+
+  try {
+    if ((url.pathname === "/agent" || url.pathname === "/run") && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const allowed = await rateLimit(env.DB, `agent:${body.owner || "unknown"}:${body.repo || "unknown"}`, 30, 60_000);
+      if (!allowed) return responseJson({ error: "请求过于频繁，请稍后重试" }, 429, cors);
+      const result = await runAgent(env, body);
+      return responseJson(result, 200, cors);
+    }
+    if (url.pathname === "/workflow/runs" && request.method === "GET") {
+      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 20), 1), 100);
+      const rows = await env.DB.prepare(
+        "SELECT run_id, owner, repo, branch, mode, status, started_at, updated_at, completed_at, final_text, error, rounds FROM workflow_runs ORDER BY started_at DESC LIMIT ?"
+      ).bind(limit).all();
+      return responseJson({ runs: rows.results || [] }, 200, cors);
+    }
+    const runMatch = url.pathname.match(/^\/workflow\/([0-9a-f-]+)$/i);
+    if (runMatch && request.method === "GET") {
+      const run = await env.DB.prepare("SELECT * FROM workflow_runs WHERE run_id = ?").bind(runMatch[1]).first();
+      if (!run) return responseJson({ error: "Run not found" }, 404, cors);
+      const events = await env.DB.prepare(
+        "SELECT event_id, type, data_json, created_at FROM workflow_events WHERE run_id = ? ORDER BY event_id ASC LIMIT 1000"
+      ).bind(runMatch[1]).all();
+      return responseJson({ run, events: events.results || [] }, 200, cors);
+    }
+    if (url.pathname === "/pull" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const owner = validateRepoPart(body.owner, "owner");
+      const repo = validateRepoPart(body.repo, "repo");
+      const branch = typeof body.branch === "string" ? body.branch : "main";
+      const budget = makeBudget(100);
+      const ctx = { cfg, owner, repo, baseBranch: branch, mode: "pr", budget, state: { workBranch: null } };
+      const data = await getPRRaw(ctx, validateGitHubNumber(body.number, "PR number"));
+      return responseJson(data, 200, cors);
+    }
+    return responseJson({ error: "Not found" }, 404, cors);
+  } catch (e) {
+    log(cfg, "error", "request.failed", { path: url.pathname, error: e?.message || String(e) });
+    const status = /Unauthorized/i.test(e?.message || "") ? 401 : 400;
+    return responseJson({ error: e?.message || String(e) }, status, cors);
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    return handleRequest(request, env);
+  },
+};
