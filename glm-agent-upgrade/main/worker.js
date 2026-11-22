@@ -1008,7 +1008,6 @@ const TOOLS = [
       parameters: { type: "object", properties: { path: { type: "string" }, limit: { type: "integer" } } },
     },
   },
-  },
 ];
 
 
