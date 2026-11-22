@@ -19,7 +19,7 @@
   </header>
   <div class="layout">
     <aside class="panel">
-      <div class="panelhead"><h2>创建 Agent 任务</h2><span class="tag">LIVE STREAM</span></div>
+      <div class="panelhead"><h2>创建 Agent 任务</h2><span class="tag">SYNC API</span></div>
       <div class="panelbody">
         <div class="field"><label>主 Worker API Token</label><input id="token" type="password" placeholder="输入 AGENT_API_TOKEN" autocomplete="off"><div class="hint">只保存在当前浏览器会话，不写入服务器。</div></div>
         <div class="two">
@@ -28,19 +28,19 @@
         </div>
         <div class="two">
           <div class="field"><label>Base Branch</label><input id="branch" value="main"></div>
-          <div class="field"><label>写入模式</label><select id="mode"><option value="pr">PR（推荐）</option><option value="direct">Direct</option></select></div>
+          <div class="field"><label>写入模式</label><select id="mode"><option value="pr">PR（推荐）</option></select></div>
         </div>
         <div class="field"><label>任务描述</label><textarea id="prompt" placeholder="例如：检查 src/api.js 的错误处理，修复问题，运行必要的 API 验证，并创建 PR。"></textarea></div>
-        <label class="checkrow"><input id="autoPr" type="checkbox" checked> 自动创建 Pull Request</label>
+        
         <button class="primary" id="startBtn">▶ 开始执行任务</button>
-        <div class="hint" style="margin-top:10px">任务将通过 /agent/stream 执行。可实时查看 GLM 轮次、工具调用、终端执行、GitHub 修改与 PR 结果。</div>
+        <div class="hint" style="margin-top:10px">任务通过 /agent 同步执行。执行期间页面会等待请求完成；完成后可查看工具调用记录、结果与 PR。</div>
       </div>
     </aside>
     <main class="maincol">
       <section class="overview">
         <div class="stat"><div class="k">当前状态</div><div class="v" id="statStatus">待命</div><div class="sub" id="statStatusSub">尚未启动任务</div></div>
         <div class="stat"><div class="k">GLM 轮次</div><div class="v" id="statRounds">0</div><div class="sub">模型思考 / 工具循环</div></div>
-        <div class="stat"><div class="k">工具调用</div><div class="v" id="statTools">0</div><div class="sub">GitHub 与 Terminal</div></div>
+        <div class="stat"><div class="k">工具调用</div><div class="v" id="statTools">0</div><div class="sub">GitHub 工具</div></div>
         <div class="stat"><div class="k">运行时间</div><div class="v" id="statDuration">0s</div><div class="sub" id="statRunId">Run ID —</div></div>
       </section>
       <section class="panel">
@@ -62,58 +62,219 @@
 <div id="toast" class="toast hidden"></div>
 <script>
 (function(){
-  const $=id=>document.getElementById(id);
-  const state={runId:null,startedAt:0,completedAt:0,timer:null,events:[],toolCount:0,rounds:0,source:null};
-  const labels={run_start:"任务已创建",round_start:"GLM 思考轮次",tool_start:"调用工具",tool_result:"工具执行完成",pr_created:"Pull Request 已创建",final:"GLM 最终回复",run_done:"任务完成",run_error:"任务失败",terminal:"终端执行",info:"流程信息"};
-  function toast(s){const el=$("toast");el.textContent=s;el.classList.remove("hidden");setTimeout(()=>el.classList.add("hidden"),3000)}
-  function token(){return $("token").value.trim()||sessionStorage.getItem("glm_agent_token")||""}
-  function api(path,opts){opts=opts||{};opts.headers=Object.assign({"Authorization":"Bearer "+token()},opts.headers||{});return fetch(path,opts)}
-  function esc(s){return String(s==null?"":s)}
-  function setStatus(status,sub){$("statStatus").textContent=status;$("statStatusSub").textContent=sub||"";$("liveStatus").textContent=status.toUpperCase();$("liveStatus").className="status "+(status==="运行中"?"running":status==="完成"?"completed":status==="失败"?"failed":"")}
-  function duration(){if(!state.startedAt)return "0s";const n=Math.max(0,(state.completedAt||Date.now())-state.startedAt);$("statDuration").textContent=(n<60000?(n/1000).toFixed(1)+"s":Math.floor(n/60000)+"m "+Math.floor(n%60000/1000)+"s")}
-  function renderStats(){$("statRounds").textContent=state.rounds;$("statTools").textContent=state.toolCount;duration()}
-  function addEvent(type,data,at){data=data||{};state.events.push({type,data,at:at||Date.now()});if(type==="round_start")state.rounds=Math.max(state.rounds,Number(data.round)||0);if(type==="tool_start")state.toolCount++;renderStats();
-    const empty=$("timeline").querySelector(".empty");if(empty)empty.remove();
-    const item=document.createElement("div");item.className="event "+(type.indexOf("tool")===0?"tool":type.indexOf("error")>=0?"error":type==="final"||type==="run_done"?"done":"");
-    const ico=type==="round_start"?"G":type==="tool_start"?"↗":type==="tool_result"?"✓":type==="pr_created"?"⑂":type.indexOf("error")>=0?"!":type==="run_done"?"✓":"·";
-    let title=labels[type]||type;let desc="";let detail=null;
-    if(type==="round_start")desc="第 "+(data.round||"?")+" 轮 · 上下文消息 "+(data.messages||"—")+" 条";
-    else if(type==="tool_start"){desc=data.name||"未知工具";detail=data.args_preview;}
-    else if(type==="tool_result"){desc=(data.name||"工具")+" · "+(data.ok?"成功":"失败");if(data.error)desc+=" · "+data.error;if(data.result_preview!==undefined)detail=data.result_preview;}
-    else if(type==="pr_created"){desc=(data.html_url||data.url||"PR #"+(data.number||""));detail=data;}
-    else if(type==="final"){desc="模型已生成最终回复";detail=data.content;}
-    else if(type==="run_error")desc=data.error||"未知错误";
-    else if(type==="run_done")desc="执行完成";
-    else if(type==="run_start")desc=(data.owner||"")+"/"+(data.repo||"")+" · "+(data.branch||"");
-    else desc=JSON.stringify(data);
-    const rail=document.createElement("div");rail.className="rail";const icon=document.createElement("div");icon.className="ico";icon.textContent=ico;rail.appendChild(icon);
-    const body=document.createElement("div");body.className="eventbody";const top=document.createElement("div");top.className="eventtop";const t=document.createElement("div");t.className="eventtitle";t.textContent=title;const tm=document.createElement("div");tm.className="eventtime";tm.textContent=new Date(at||Date.now()).toLocaleTimeString();top.append(t,tm);body.appendChild(top);const d=document.createElement("div");d.className="eventdesc";d.textContent=desc;body.appendChild(d);
-    if(detail!==null&&detail!==undefined){const pre=document.createElement("pre");pre.className="eventdetails";pre.textContent=typeof detail==="string"?detail:JSON.stringify(detail,null,2);body.appendChild(pre)}item.append(rail,body);$("timeline").appendChild(item);item.scrollIntoView({block:"nearest",behavior:"smooth"});
+  const API_BASE = "https://glm-github-agent.2167964516.workers.dev";
+  const $ = id => document.getElementById(id);
+  const state = {runId:null,startedAt:0,completedAt:0,events:[],toolCount:0,rounds:0};
+  const labels = {
+    started:"任务已创建",tool_call:"调用工具",tool_result:"工具执行结果",
+    completed:"任务完成",failed:"任务失败"
+  };
+  function toast(s){
+    const el=$("toast"); el.textContent=s; el.classList.remove("hidden");
+    setTimeout(()=>el.classList.add("hidden"),3000);
   }
-  function reset(){state.events=[];state.toolCount=0;state.rounds=0;state.runId=null;state.startedAt=Date.now();state.completedAt=0;$("statRunId").textContent="Run ID —";$("timeline").innerHTML="";$("result").textContent="任务执行中…";$("result").classList.remove("muted");$("runMeta").innerHTML="";renderStats()}
-  function showResult(text){$("result").textContent=text||"（没有返回文本）"}
-  function parseSSE(buffer,handler){let idx;while((idx=buffer.indexOf("\n\n"))>=0){const block=buffer.slice(0,idx);buffer=buffer.slice(idx+2);let event="message",data="";block.split("\n").forEach(line=>{if(line.startsWith("event:"))event=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim()});if(data){try{handler(event,JSON.parse(data))}catch(e){console.error(e)}}}return buffer}
-  async function start(){const t=token();if(!t){toast("请先输入 API Token");return}sessionStorage.setItem("glm_agent_token",t);const owner=$("owner").value.trim(),repo=$("repo").value.trim(),prompt=$("prompt").value.trim();if(!owner||!repo||!prompt){toast("Owner、Repository 和任务描述不能为空");return}
-    reset();$("startBtn").disabled=true;setStatus("运行中","正在连接 GLM Agent");$("connLabel").textContent="已认证";
-    const meta=document.createElement("span");meta.className="tag";meta.textContent=owner+"/"+repo;$("runMeta").appendChild(meta);
+  function token(){
+    return $("token").value.trim() || sessionStorage.getItem("glm_agent_token") || "";
+  }
+  function api(path,opts){
+    opts=opts||{};
+    opts.headers=Object.assign({},opts.headers||{});
+    if(token()) opts.headers.Authorization="Bearer "+token();
+    return fetch(API_BASE+path,opts);
+  }
+  function setStatus(status,sub){
+    $("statStatus").textContent=status;
+    $("statStatusSub").textContent=sub||"";
+    $("liveStatus").textContent=status.toUpperCase();
+    $("liveStatus").className="status "+(
+      status==="运行中"?"running":status==="完成"?"completed":status==="失败"?"failed":""
+    );
+  }
+  function duration(){
+    if(!state.startedAt){$("statDuration").textContent="0s";return;}
+    const n=Math.max(0,(state.completedAt||Date.now())-state.startedAt);
+    $("statDuration").textContent=n<60000?(n/1000).toFixed(1)+"s":
+      Math.floor(n/60000)+"m "+Math.floor(n%60000/1000)+"s";
+  }
+  function renderStats(){
+    $("statRounds").textContent=state.rounds||0;
+    $("statTools").textContent=state.toolCount||0;
+    duration();
+  }
+  function addEvent(type,data,at){
+    data=data||{};
+    state.events.push({type,data,at:at||Date.now()});
+    if(type==="tool_call") state.toolCount++;
+    if(type==="completed" && data.rounds) state.rounds=Number(data.rounds);
+    renderStats();
+    const empty=$("timeline").querySelector(".empty");
+    if(empty) empty.remove();
+    const item=document.createElement("div");
+    item.className="event "+(type==="tool_call"||type==="tool_result"?"tool":
+      type==="failed"?"error":type==="completed"?"done":"");
+    const ico=type==="started"?"●":type==="tool_call"?"↗":
+      type==="tool_result"?"✓":type==="completed"?"✓":type==="failed"?"!":"·";
+    const title=labels[type]||type;
+    let desc="",detail=null;
+    if(type==="started"){
+      desc=(data.owner||"")+"/"+(data.repo||"")+" · "+(data.branch||"main")+" · "+(data.mode||"pr");
+      detail=data;
+    }else if(type==="tool_call"){
+      desc=data.name||"未知工具"; detail=data.arguments||data.args||null;
+    }else if(type==="tool_result"){
+      desc=data.name||"工具返回"; detail=data.result||data.error||data;
+    }else if(type==="completed"){
+      desc="Agent 已完成全部步骤"; detail=data.rounds?("GLM 调用轮次："+data.rounds):null;
+    }else if(type==="failed"){
+      desc=data.error||"执行失败"; detail=data;
+    }else{
+      desc=JSON.stringify(data);
+    }
+    const rail=document.createElement("div");rail.className="rail";
+    const icon=document.createElement("div");icon.className="ico";icon.textContent=ico;rail.appendChild(icon);
+    const body=document.createElement("div");body.className="eventbody";
+    const top=document.createElement("div");top.className="eventtop";
+    const t=document.createElement("div");t.className="eventtitle";t.textContent=title;
+    const tm=document.createElement("div");tm.className="eventtime";tm.textContent=new Date(at||Date.now()).toLocaleTimeString();
+    top.append(t,tm);body.appendChild(top);
+    const d=document.createElement("div");d.className="eventdesc";d.textContent=desc;body.appendChild(d);
+    if(detail!==null&&detail!==undefined){
+      const pre=document.createElement("pre");pre.className="eventdetails";
+      pre.textContent=typeof detail==="string"?detail:JSON.stringify(detail,null,2);
+      body.appendChild(pre);
+    }
+    item.append(rail,body);$("timeline").appendChild(item);
+  }
+  function reset(){
+    state.events=[];state.toolCount=0;state.rounds=0;state.runId=null;
+    state.startedAt=Date.now();state.completedAt=0;
+    $("statRunId").textContent="Run ID —";$("timeline").innerHTML="";
+    $("result").textContent="任务执行中…";$("result").classList.remove("muted");
+    $("runMeta").innerHTML="";renderStats();
+  }
+  function showResult(value){
+    $("result").textContent=value||"（没有返回文本）";
+    $("result").classList.remove("muted");
+  }
+  function parseEventPayload(event){
+    try{return event.data_json?JSON.parse(event.data_json):{};}catch{return {raw:event.data_json};}
+  }
+  async function start(){
+    const t=token();
+    if(!t){toast("请先输入 AGENT_API_TOKEN");return;}
+    sessionStorage.setItem("glm_agent_token",t);
+    const owner=$("owner").value.trim();
+    const repo=$("repo").value.trim();
+    const prompt=$("prompt").value.trim();
+    const branch=$("branch").value.trim()||"main";
+    if(!owner||!repo||!prompt){toast("Owner、Repository 和任务描述不能为空");return;}
+    reset();$("startBtn").disabled=true;
+    setStatus("运行中","任务已提交，等待 GLM 与 GitHub 操作完成");
+    $("connLabel").textContent="已配置 API Token";
+    const meta=document.createElement("span");meta.className="tag";meta.textContent=owner+"/"+repo;
+    $("runMeta").appendChild(meta);
+    addEvent("started",{owner,repo,branch,mode:"pr"});
     try{
-      const response=await api("/agent/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({owner,repo,branch:$("branch").value.trim()||"main",mode:$("mode").value,confirmDirectWrite:$("mode").value==="direct",autoPr:$("autoPr").checked,messages:[{role:"user",content:prompt}],requestId:crypto.randomUUID()})});
-      if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.error||"HTTP "+response.status)}
-      const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
-      while(true){const part=await reader.read();if(part.done)break;buffer+=decoder.decode(part.value,{stream:true});buffer=parseSSE(buffer,(event,data)=>{
-        if(event==="run_start"){state.runId=data.run_id;$("statRunId").textContent="Run ID "+data.run_id;addEvent(event,data);}
-        else if(event==="done"){state.completedAt=Date.now();setStatus("完成","Agent 已完成全部步骤");showResult(data.final||"");if(data.artifacts&&data.artifacts.pr){const a=document.createElement("a");a.href=data.artifacts.pr.html_url||"#";a.target="_blank";a.rel="noopener";a.textContent="打开 PR";a.style.color="var(--blue)";$("result").appendChild(document.createTextNode("\n\n"));$("result").appendChild(a)}loadHistory();}
-        else if(event==="error"){state.completedAt=Date.now();setStatus("失败",data.error||"执行失败");showResult(data.error||"执行失败");}
-        else addEvent(event,data);
-      })}
-      if(buffer.trim())parseSSE(buffer,(event,data)=>addEvent(event,data));
-      if($("statStatus").textContent==="运行中")setStatus("完成","连接已结束");
-    }catch(e){setStatus("失败",e.message);showResult(e.message);addEvent("run_error",{error:e.message});toast(e.message)}finally{$("startBtn").disabled=false;duration()}
+      const response=await api("/agent",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({owner,repo,branch,mode:"pr",prompt})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data.error||("HTTP "+response.status));
+      state.runId=data.run_id||null;
+      state.completedAt=Date.now();
+      state.rounds=Number(data.budget&&data.budget.used)||0;
+      $("statRunId").textContent="Run ID "+(data.run_id||"—");
+      setStatus("完成","Agent 已返回执行结果");
+      showResult(data.answer||"任务完成，但没有返回文本。");
+      if(data.pr_number){
+        $("result").textContent+="\n\nPR #"+data.pr_number;
+      }
+      if(data.budget){
+        const note="\n\nGLM 请求预算："+data.budget.used+" / "+data.budget.limit;
+        $("result").textContent+=note;
+      }
+      renderStats();
+      if(data.run_id) await loadRun(data.run_id);
+      await loadHistory();
+    }catch(e){
+      state.completedAt=Date.now();
+      setStatus("失败",e.message);
+      showResult(e.message);
+      addEvent("failed",{error:e.message});
+      toast(e.message);
+      await loadHistory();
+    }finally{
+      $("startBtn").disabled=false;duration();
+    }
   }
-  async function loadHistory(){if(!token())return;try{const r=await api("/workflow/runs?limit=20");if(!r.ok)throw new Error("HTTP "+r.status);const data=await r.json();const box=$("history");box.innerHTML="";if(!data.runs||!data.runs.length){box.innerHTML='<div class="empty">暂无历史任务</div>';return}data.runs.forEach(run=>{const b=document.createElement("button");b.className="historyitem";const left=document.createElement("div");const strong=document.createElement("strong");strong.textContent=run.owner+"/"+run.repo;const small=document.createElement("small");small.textContent=new Date(run.started_at).toLocaleString()+" · "+(run.branch||"main");left.append(strong,small);const right=document.createElement("span");right.className="status "+run.status;right.textContent=run.status;b.append(left,right);b.onclick=()=>loadRun(run.run_id);box.appendChild(b)})}catch(e){const msg=document.createElement("div");msg.className="empty";msg.textContent="无法读取历史任务："+e.message;$("history").replaceChildren(msg)}}
-  async function loadRun(id){try{const r=await api("/workflow/"+encodeURIComponent(id));if(!r.ok)throw new Error("HTTP "+r.status);const data=await r.json();reset();state.runId=data.run.run_id;state.startedAt=Date.parse(data.run.started_at)||Date.now();state.completedAt=Date.parse(data.run.completed_at)||0;$("statRunId").textContent="Run ID "+id;setStatus(data.run.status==="completed"?"完成":data.run.status==="failed"?"失败":"运行中",data.run.owner+"/"+data.run.repo);$("runMeta").innerHTML='<span class="tag">'+esc(data.run.owner)+"/"+esc(data.run.repo)+'</span><span class="tag">'+esc(data.run.branch)+'</span>';$("timeline").innerHTML="";(data.events||[]).forEach(e=>addEvent(e.type,e.data,Date.parse(e.created_at)));showResult(data.run.final_text||data.run.error||"暂无最终输出");}catch(e){toast("加载任务失败："+e.message)}}
-  $("startBtn").addEventListener("click",start);$("refreshHistory").addEventListener("click",loadHistory);$("copyResult").addEventListener("click",()=>{navigator.clipboard.writeText($("result").textContent).then(()=>toast("结果已复制")).catch(()=>toast("复制失败，请手动选择文本"))});$("token").addEventListener("change",()=>{sessionStorage.setItem("glm_agent_token",$("token").value.trim());loadHistory()});
-  const saved=sessionStorage.getItem("glm_agent_token");if(saved){$("token").value=saved;$("connLabel").textContent="Token 已载入";loadHistory()}
+  async function loadHistory(){
+    if(!token()) return;
+    try{
+      const r=await api("/workflow/runs?limit=20");
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||("HTTP "+r.status));}
+      const data=await r.json();const box=$("history");box.innerHTML="";
+      if(!data.runs||!data.runs.length){
+        box.innerHTML='<div class="empty">暂无历史任务</div>';return;
+      }
+      data.runs.forEach(run=>{
+        const b=document.createElement("button");b.className="historyitem";
+        const left=document.createElement("div");
+        const strong=document.createElement("strong");
+        strong.textContent=(run.owner||"")+"/"+(run.repo||"");
+        const small=document.createElement("small");
+        small.textContent=new Date(Number(run.started_at)||run.started_at).toLocaleString()+
+          " · "+(run.branch||"main");
+        left.append(strong,small);
+        const right=document.createElement("span");right.className="status "+run.status;
+        right.textContent=run.status;b.append(left,right);
+        b.addEventListener("click",()=>loadRun(run.run_id));box.appendChild(b);
+      });
+    }catch(e){
+      const msg=document.createElement("div");msg.className="empty";
+      msg.textContent="无法读取历史任务："+e.message;$("history").replaceChildren(msg);
+    }
+  }
+  async function loadRun(id){
+    try{
+      const r=await api("/workflow/"+encodeURIComponent(id));
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||("HTTP "+r.status));}
+      const data=await r.json();const run=data.run||{};
+      state.events=[];state.toolCount=0;state.rounds=Number(run.rounds)||0;
+      state.runId=run.run_id||id;
+      state.startedAt=Number(run.started_at)||Date.now();
+      state.completedAt=Number(run.completed_at)||Number(run.updated_at)||0;
+      $("statRunId").textContent="Run ID "+state.runId;
+      $("runMeta").innerHTML="";
+      const meta=document.createElement("span");meta.className="tag";
+      meta.textContent=(run.owner||"")+"/"+(run.repo||"");$("runMeta").appendChild(meta);
+      const branch=document.createElement("span");branch.className="tag";
+      branch.textContent=run.branch||"main";$("runMeta").appendChild(branch);
+      $("timeline").innerHTML="";
+      (data.events||[]).forEach(ev=>{
+        const payload=parseEventPayload(ev);
+        addEvent(ev.type||"event",payload,Number(ev.created_at)||Date.now());
+      });
+      if(run.status==="completed") setStatus("完成","历史任务已完成");
+      else if(run.status==="failed") setStatus("失败",run.error||"任务失败");
+      else setStatus("运行中","历史任务状态");
+      let finalText=run.final_text||run.error||"暂无最终输出";
+      showResult(finalText);
+      renderStats();
+    }catch(e){toast("加载任务失败："+e.message);}
+  }
+  $("startBtn").addEventListener("click",start);
+  $("refreshHistory").addEventListener("click",loadHistory);
+  $("copyResult").addEventListener("click",()=>{
+    navigator.clipboard.writeText($("result").textContent)
+      .then(()=>toast("结果已复制")).catch(()=>toast("复制失败，请手动选择文本"));
+  });
+  $("token").addEventListener("change",()=>{
+    sessionStorage.setItem("glm_agent_token",$("token").value.trim());loadHistory();
+  });
+  const saved=sessionStorage.getItem("glm_agent_token");
+  if(saved){$("token").value=saved;$("connLabel").textContent="Token 已载入";loadHistory();}
   setInterval(duration,1000);
 })();
 </script>
