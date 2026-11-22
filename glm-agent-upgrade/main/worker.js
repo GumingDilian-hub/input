@@ -1,8 +1,8 @@
 // worker.js — Cloudflare Worker: GLM GitHub Repo Agent (GLM-5.3)
 //
-// 必填 Secrets: GLM_API_KEY, GITHUB_TOKEN, AGENT_API_TOKEN, TERMINAL_SHARED_SECRET
+// 必填 Secrets: GLM_API_KEY, GITHUB_TOKEN, AGENT_API_TOKEN
 // 必填 Binding: DB (D1)
-// 必填 Var:     CORS_ALLOWED_ORIGINS (逗号分隔), TERMINAL_WORKER_URL
+// 必填 Var:     CORS_ALLOWED_ORIGINS (逗号分隔)
 // 可选 Var:    GLM_MODEL(默认 glm-5.3)
 //              GLM_REASONING_EFFORT(默认 max, 可选 low|high|max)  ← 替代旧 GLM_THINKING
 //              GLM_MAX_TOKENS(默认 32768, 上限 131072)
@@ -43,9 +43,6 @@ function loadConfig(env) {
 
     ghToken: env.GITHUB_TOKEN,
     agentApiToken: env.AGENT_API_TOKEN,
-    terminalWorkerUrl: (env.TERMINAL_WORKER_URL || "").replace(/\/$/, ""),
-    terminalSharedSecret: env.TERMINAL_SHARED_SECRET,
-    terminalTimeoutMs: num(env.TERMINAL_TIMEOUT_MS, 60000),
     enableDirectWrite: String(env.ENABLE_DIRECT_WRITE || "false").toLowerCase() === "true",
     ghApiVersion: env.GITHUB_API_VERSION || "2022-11-28",
     ghTimeoutMs: num(env.GH_TIMEOUT_MS, 30000),
@@ -73,8 +70,6 @@ function loadConfig(env) {
   if (!cfg.glmApiKey) throw new Error("缺少 GLM_API_KEY");
   if (!cfg.ghToken) throw new Error("缺少 GITHUB_TOKEN");
   if (!cfg.agentApiToken) throw new Error("缺少 AGENT_API_TOKEN（主 Worker API 认证密钥）");
-  if (!cfg.terminalWorkerUrl) throw new Error("缺少 TERMINAL_WORKER_URL");
-  if (!cfg.terminalSharedSecret) throw new Error("缺少 TERMINAL_SHARED_SECRET");
   if (!env.DB) throw new Error("缺少 D1 binding：DB");
   return cfg;
 }
@@ -210,13 +205,13 @@ async function rateLimit(db, key, limit, windowMs) {
   const now = Date.now();
   const resetAt = now + windowMs;
   const row = await db.prepare(`
-    INSERT INTO rate_limits (bucket, count, reset_at, updated_at)
+    INSERT INTO rate_limits (key, count, window_start, updated_at)
     VALUES (?, 1, ?, ?)
-    ON CONFLICT(bucket) DO UPDATE SET
-      count = CASE WHEN rate_limits.reset_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
-      reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END,
+    ON CONFLICT(key) DO UPDATE SET
+      count = CASE WHEN rate_limits.window_start <= ? THEN 1 ELSE rate_limits.count + 1 END,
+      window_start = CASE WHEN rate_limits.window_start <= ? THEN excluded.window_start ELSE rate_limits.window_start END,
       updated_at = excluded.updated_at
-    RETURNING count, reset_at
+    RETURNING count, window_start
   `).bind(key, resetAt, now, now, now).first();
   return !!row && row.count <= limit;
 }
@@ -1016,48 +1011,9 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "terminal_execute",
-      description: "在独立 Terminal Worker 中执行 JavaScript async function body。支持 fetch 和 Cloudflare Web APIs，不是 Bash/Linux shell。",
-      parameters: {
-        type: "object",
-        properties: {
-          code: { type: "string", description: "异步 JavaScript 函数体" },
-          input: { type: "object", description: "传给代码的 JSON 输入" },
-        },
-        required: ["code"],
-      },
-    },
   },
 ];
 
-async function executeTerminal(ctx, args) {
-  if (!ctx.cfg.terminalWorkerUrl || !ctx.cfg.terminalSharedSecret)
-    throw new Error("Terminal Worker 未配置");
-  if (typeof args.code !== "string" || !args.code.trim())
-    throw new Error("terminal_execute.code 不能为空");
-  if (_encoder.encode(args.code).length > 100_000)
-    throw new Error("Terminal 代码超过 100KB");
-  ctx.budget.use();
-  const res = await fetchWithTimeout(
-    `${ctx.cfg.terminalWorkerUrl}/run`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${ctx.cfg.terminalSharedSecret}`,
-      },
-      body: JSON.stringify({ code: args.code, input: args.input ?? {} }),
-    },
-    ctx.cfg.terminalTimeoutMs,
-    "Terminal Worker",
-  );
-  const raw = await res.text();
-  let data;
-  try { data = raw ? JSON.parse(raw) : {}; }
-  catch { throw new Error(`Terminal Worker 返回非 JSON（HTTP ${res.status}）`); }
-  if (!res.ok) throw new Error(data.error || `Terminal Worker HTTP ${res.status}`);
-  return data;
-}
 
 async function executeTool(ctx, name, args) {
   switch (name) {
@@ -1105,8 +1061,6 @@ async function executeTool(ctx, name, args) {
       return getIssueRaw(ctx, args.number);
     case "list_commits":
       return listCommitsRaw(ctx, args.path, args.limit);
-    case "terminal_execute":
-      return executeTerminal(ctx, args);
     default:
       throw new Error(`未知工具: ${name}`);
   }
@@ -1115,7 +1069,7 @@ async function executeTool(ctx, name, args) {
 async function saveWorkflowEvent(db, runId, type, data) {
   try {
     await db.prepare(
-      "INSERT INTO workflow_events (run_id, type, data_json, created_at) VALUES (?, ?, ?, ?)"
+      "INSERT INTO workflow_events (run_id, event_type, payload, created_at) VALUES (?, ?, ?, ?)"
     ).bind(runId, type, JSON.stringify(data ?? {}), Date.now()).run();
   } catch (e) {
     console.error("workflow event persistence failed", String(e));
@@ -1123,15 +1077,12 @@ async function saveWorkflowEvent(db, runId, type, data) {
 }
 
 async function updateWorkflow(db, runId, status, fields = {}) {
-  const sets = ["status = ?", "updated_at = ?"];
-  const values = [status, Date.now()];
-  if (fields.completedAt !== undefined) { sets.push("completed_at = ?"); values.push(fields.completedAt); }
-  if (fields.finalText !== undefined) { sets.push("final_text = ?"); values.push(fields.finalText); }
-  if (fields.error !== undefined) { sets.push("error = ?"); values.push(fields.error); }
-  if (fields.rounds !== undefined) { sets.push("rounds = ?"); values.push(fields.rounds); }
-  if (fields.usage !== undefined) { sets.push("usage_json = ?"); values.push(JSON.stringify(fields.usage)); }
-  values.push(runId);
-  await db.prepare(`UPDATE workflow_runs SET ${sets.join(", ")} WHERE run_id = ?`).bind(...values).run();
+  const summary = fields.finalText !== undefined
+    ? fields.finalText
+    : JSON.stringify({ rounds: fields.rounds ?? null, usage: fields.usage ?? null });
+  await db.prepare(
+    "UPDATE workflow_runs SET status = ?, finished_at = ?, summary = ?, error = ? WHERE id = ?"
+  ).bind(status, fields.completedAt ?? Date.now(), summary, fields.error ?? null, runId).run();
 }
 
 async function callGLM(ctx, messages) {
@@ -1193,10 +1144,9 @@ async function runAgent(env, requestBody) {
   };
 
   await env.DB.prepare(
-    `INSERT INTO workflow_runs
-      (run_id, owner, repo, branch, mode, status, started_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'running', ?, ?)`
-  ).bind(runId, owner, repo, baseBranch, mode, now, now).run();
+    `INSERT INTO workflow_runs (id, repo, status, started_at)
+     VALUES (?, ?, 'running', ?)`
+  ).bind(runId, `${owner}/${repo}`, now).run();
   await saveWorkflowEvent(env.DB, runId, "started", { owner, repo, branch: baseBranch, mode });
 
   const messages = [
@@ -1327,16 +1277,16 @@ async function handleRequest(request, env) {
     if (url.pathname === "/workflow/runs" && request.method === "GET") {
       const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 20), 1), 100);
       const rows = await env.DB.prepare(
-        "SELECT run_id, owner, repo, branch, mode, status, started_at, updated_at, completed_at, final_text, error, rounds FROM workflow_runs ORDER BY started_at DESC LIMIT ?"
+        "SELECT id, repo, status, started_at, finished_at, summary, error FROM workflow_runs ORDER BY started_at DESC LIMIT ?"
       ).bind(limit).all();
       return responseJson({ runs: rows.results || [] }, 200, cors);
     }
     const runMatch = url.pathname.match(/^\/workflow\/([0-9a-f-]+)$/i);
     if (runMatch && request.method === "GET") {
-      const run = await env.DB.prepare("SELECT * FROM workflow_runs WHERE run_id = ?").bind(runMatch[1]).first();
+      const run = await env.DB.prepare("SELECT * FROM workflow_runs WHERE id = ?").bind(runMatch[1]).first();
       if (!run) return responseJson({ error: "Run not found" }, 404, cors);
       const events = await env.DB.prepare(
-        "SELECT event_id, type, data_json, created_at FROM workflow_events WHERE run_id = ? ORDER BY event_id ASC LIMIT 1000"
+        "SELECT id, event_type, payload, created_at FROM workflow_events WHERE run_id = ? ORDER BY id ASC LIMIT 1000"
       ).bind(runMatch[1]).all();
       return responseJson({ run, events: events.results || [] }, 200, cors);
     }
