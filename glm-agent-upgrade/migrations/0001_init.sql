@@ -1,30 +1,31 @@
--- Shared D1 schema for the GLM main Worker and terminal Worker.
+-- Schema matching the standalone main Worker and the 11 SQL statements
+-- previously provided for manual D1 Console execution.
 CREATE TABLE IF NOT EXISTS rate_limits (
-  bucket TEXT PRIMARY KEY,
-  count INTEGER NOT NULL,
-  reset_at INTEGER NOT NULL,
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  window_start INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits(reset_at);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_updated_at ON rate_limits(updated_at);
 
 CREATE TABLE IF NOT EXISTS idempotency (
-  idempotency_key TEXT PRIMARY KEY,
-  result_json TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_idempotency_expires_at ON idempotency(expires_at);
-
-CREATE TABLE IF NOT EXISTS terminal_tasks (
-  task_id TEXT PRIMARY KEY,
+  key TEXT PRIMARY KEY,
   status TEXT NOT NULL,
-  code TEXT NOT NULL,
-  input_json TEXT NOT NULL,
-  result_json TEXT,
-  logs_json TEXT,
-  error TEXT,
-  duration_ms INTEGER,
+  response TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_terminal_tasks_created_at ON terminal_tasks(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_idempotency_created_at ON idempotency(created_at);
+
+CREATE TABLE IF NOT EXISTS terminal_tasks (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  code TEXT,
+  input TEXT,
+  result TEXT,
+  logs TEXT,
+  error TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_terminal_tasks_created_at ON terminal_tasks(created_at);
