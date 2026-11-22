@@ -203,7 +203,7 @@ function makeBudget(limit) {
 async function rateLimit(db, key, limit, windowMs) {
   if (!db) throw new Error("D1 binding DB 不可用");
   const now = Date.now();
-  const resetAt = now + windowMs;
+  const windowCutoff = now - windowMs;
   const row = await db.prepare(`
     INSERT INTO rate_limits (key, count, window_start, updated_at)
     VALUES (?, 1, ?, ?)
@@ -212,7 +212,7 @@ async function rateLimit(db, key, limit, windowMs) {
       window_start = CASE WHEN rate_limits.window_start <= ? THEN excluded.window_start ELSE rate_limits.window_start END,
       updated_at = excluded.updated_at
     RETURNING count, window_start
-  `).bind(key, resetAt, now, now, now).first();
+  `).bind(key, now, now, windowCutoff, windowCutoff).first();
   return !!row && row.count <= limit;
 }
 
